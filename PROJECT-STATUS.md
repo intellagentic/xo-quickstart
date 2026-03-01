@@ -64,14 +64,14 @@
 
 **Framework:** React 18.2.0 + Vite 5.4.14
 **Deployment:** S3 static hosting + CloudFront CDN
-**Build:** Production optimized bundle (196 KB JS, 5.7 KB CSS, 37 KB logos)
+**Build:** Production optimized bundle (209 KB JS, 6.8 KB CSS, 37 KB logos)
 
 ### Components Structure
 
 ```
 src/
   App.jsx          -- Main application component
-    - Hamburger Sidebar       (Navigation menu with slide-out panel)
+    - Hamburger Sidebar       (Navigation: Welcome, Upload, Enrich, Results, Skills, Configuration, theme toggle)
     - CompanyInfoModal        (Partner information form - 7 fields)
     - UploadScreen            (3-step journey with founder quotes)
     - EnrichScreen            (AI processing with progress tracking)
@@ -90,11 +90,14 @@ src/
 
 ### Five-Screen Flow
 
-1. **Upload Screen** (3-step journey layout with founder testimonials)
+1. **Welcome / Upload Screen** (3-step journey layout with founder testimonials)
    - Header: Hamburger menu (left), XO logo, title, Intellagentic logo (right)
    - Step 1: Domain Expertise -- "New Partner" modal (7 fields: name, website, contact, title, LinkedIn, industry, description)
    - Step 2: Raw Data -- Drag-and-drop file upload zone (15 file types)
    - Step 3: Intelligent Growth -- Preview of analysis output (grayed until steps 1&2 complete)
+   - Action Buttons Row: Configurable buttons between step cards and quotes (Enrich, Skills by default)
+     - Clickable: internal routes navigate, external URLs open in new tab
+     - Managed via Configuration screen, rendered with hex colors and glow shadows
    - Founder Quotes: Two editorial pull quotes side-by-side (Alan Moore & Ken Scott)
    - Compact layout: All steps + quotes fit on screen without scrolling (220px card height)
 
@@ -119,15 +122,28 @@ src/
    - Skills injected into Claude prompt during enrichment
    - Empty state: "No skills yet. Add your first skill to enhance AI analysis."
 
-5. **Configuration Screen** (shell implementation)
-   - Theme toggle (dark/light mode - UI only, non-functional)
-   - Configure Buttons section: draggable-looking cards with edit/copy/delete icons
-   - Live Preview section: shows button rendering in real-time
-   - "+ Add Button" functionality (shell for future development)
+5. **Configuration Screen** (fully functional)
+   - Theme toggle: working light/dark mode with localStorage persistence
+   - Configure Buttons: Surgical Trays reference pattern with drag-and-drop reorder
+     - Each button card: grip handle, colored icon circle, name, color/icon label, URL, edit/copy/delete icons
+     - Inline editing: label, URL, 8-color grid selector with checkmarks, icon grid (30+ icons)
+     - "+ Add Button" creates new button and opens inline editor
+   - Live Preview: right-side panel renders buttons exactly as they appear on Welcome page
+   - Buttons stored in localStorage (key: xo-buttons-v2), shared with Welcome page
+   - Action buttons on Welcome page are clickable:
+     - Internal routes (/enrich, /skills, etc.) navigate to that screen
+     - External URLs (https://...) open in new tab
 
 ### CSS Architecture
 
-**Theme:** Dark header (#1a1a2e), light body (#f0f0f0), white cards, red accent (#dc2626)
+**Theme:** Dark header (#1a1a2e), light/dark body via CSS variables, red accent (#dc2626)
+
+**Theme System (CSS Variables):**
+- `:root` (light): --bg-body: #f0f0f0, --bg-card: #ffffff, --text-primary: #1a1a1a
+- `[data-theme="dark"]`: --bg-body: #0d1117, --bg-card: #161b22, --text-primary: #c9d1d9
+- Variables cover: body, cards, inputs, borders, text, shadows, scrollbar
+- Theme persisted to localStorage (key: xo-theme), applied via data-theme attribute on body
+- Toggle accessible from Configuration screen and hamburger sidebar
 
 **Key Styles:**
 - Dark cards with numbered step circles (48px) - compact 220px height
@@ -138,6 +154,7 @@ src/
 - Mobile responsive: cards and quotes stack vertically at <768px
 - Touch-friendly buttons: min 44px height
 - Modal: full-width on mobile with scrollable body
+- Button config cards: slideIn/fadeIn animations, card-hover/btn-hover transitions
 
 ---
 
@@ -681,7 +698,7 @@ cd backend
 ## BUILD HISTORY
 
 **Session Date:** February 28 - March 1, 2026
-**Build Count:** 23 completed builds
+**Build Count:** 27 completed builds
 
 **Build Order:**
 
@@ -836,6 +853,44 @@ cd backend
     - Changed heading from "INTELLIGENT GROWTH" to "INTELLAGENTIC GROWTH"
     - Reinforces Intellagentic brand positioning
     - Deployed to production via CloudFront
+
+24. **Light/Dark Theme Toggle** (Session 4 - February 28, 2026)
+    - Added CSS variable system: `:root` (light) and `[data-theme="dark"]` selectors
+    - Variables cover: body background, card background, inputs, borders, text colors, shadows, scrollbar
+    - Theme state lifted to App root, applied via `data-theme` attribute on `<body>`
+    - Persisted to localStorage (key: `xo-theme`), defaults to light
+    - Working toggle in Configuration screen (toggle switch with Sun/Moon icons)
+    - Working toggle in hamburger sidebar (bottom section)
+    - All hardcoded colors in inline styles replaced with CSS variable references
+    - Smooth 0.3s transition on background and color changes
+
+25. **Configuration Screen -- Full Implementation**
+    - Replaced shell implementation with Surgical Trays reference pattern
+    - Left panel: "CONFIGURE BUTTONS" with "+ Add Button" (blue with glow shadow)
+    - Button cards: drag handle (GripVertical), colored icon circle (hex + 20% opacity bg), label, color/icon metadata, URL display (blue text), edit/copy/delete action buttons
+    - Inline editing panel (expands below card on edit click): label input, URL input, 8-color grid with checkmarks, 30+ icon grid (10 columns)
+    - Drag-and-drop reordering via HTML5 draggable
+    - Right panel: "LIVE PREVIEW" renders buttons with hex colors, glow shadows, icons
+    - Theme-aware colors via `C` object (bg, surface, border, text, muted)
+    - Animations: fadeIn, slideIn on card mount, card-hover/btn-hover transitions
+
+26. **Button Configuration -- URL Field & Click Actions**
+    - Added URL field to each button (stored in config, editable inline)
+    - Placeholder text: `/enrich, /skills, or https://...`
+    - URL displayed on card in blue text (truncated with ellipsis)
+    - Welcome page buttons wired up and clickable:
+      - Internal routes (`/upload`, `/enrich`, `/results`, `/skills`, `/configuration`) navigate to screen
+      - External URLs (`https://...`) open in new tab with noopener/noreferrer
+      - "New Partner" button opens company info modal
+    - Route map: ROUTE_MAP constant maps URL paths to screen names
+
+27. **Navigation Cleanup**
+    - Added "Welcome" as first item in hamburger sidebar (Home icon), navigates to landing page
+    - Removed top navigation tabs (Upload, Enrich, Results) -- sidebar handles all navigation
+    - Removed "New Partner" and "Upload" from default action buttons (already in step cards 1 & 2)
+    - Default action buttons: Enrich (/enrich), Skills (/skills)
+    - Bumped localStorage key to `xo-buttons-v2` to reset stale data for all users
+    - Button state lifted from ConfigurationScreen to App root (shared between Config and Welcome)
 
 ---
 

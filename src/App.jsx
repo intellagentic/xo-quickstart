@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit3, Trash, Plus } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 
@@ -25,6 +25,30 @@ export default function App() {
     industry: '',
     description: ''
   })
+
+  // Theme state - persisted to localStorage
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('xo-theme') || 'light'
+  })
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme)
+    localStorage.setItem('xo-theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }
+
+  // Custom buttons state - shared between Configuration and Upload screens
+  const [configButtons, setConfigButtons] = useState(() => {
+    const saved = localStorage.getItem('xo-buttons-v2')
+    return saved ? JSON.parse(saved) : DEFAULT_BUTTONS
+  })
+
+  useEffect(() => {
+    localStorage.setItem('xo-buttons-v2', JSON.stringify(configButtons))
+  }, [configButtons])
 
   const navigateTo = (screen) => {
     setCurrentScreen(screen)
@@ -141,8 +165,8 @@ export default function App() {
                   transition: 'all 0.2s'
                 }}
               >
-                <Upload size={20} />
-                Upload
+                <Home size={20} />
+                Welcome
               </button>
               <button
                 onClick={() => navigateTo('enrich')}
@@ -239,6 +263,51 @@ export default function App() {
                 <Settings size={20} />
                 Configuration
               </button>
+
+              {/* Theme Toggle in Sidebar */}
+              <div style={{
+                height: '1px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                margin: '0.75rem 1rem'
+              }} />
+              <div
+                style={{
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem', fontWeight: 500 }}>
+                  {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                  {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                </div>
+                <button
+                  onClick={toggleTheme}
+                  style={{
+                    width: '44px',
+                    height: '24px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: theme === 'dark' ? '#3b82f6' : 'rgba(255, 255, 255, 0.3)',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    position: 'absolute',
+                    top: '3px',
+                    left: theme === 'dark' ? '23px' : '3px',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                  }} />
+                </button>
+              </div>
             </nav>
           </div>
         </>
@@ -246,36 +315,6 @@ export default function App() {
 
       {/* Main Content */}
       <main className="main">
-        {/* Navigation Tabs */}
-        <div className="action-buttons">
-          <button
-            className={`action-btn ${currentScreen === 'upload' ? 'red' : 'gray'}`}
-            onClick={() => setCurrentScreen('upload')}
-            type="button"
-          >
-            <Upload size={18} />
-            Upload
-          </button>
-          <button
-            className={`action-btn ${currentScreen === 'enrich' ? 'red' : 'gray'}`}
-            onClick={() => setCurrentScreen('enrich')}
-            type="button"
-            disabled={!clientId}
-          >
-            <Sparkles size={18} />
-            Enrich
-          </button>
-          <button
-            className={`action-btn ${currentScreen === 'results' ? 'red' : 'gray'}`}
-            onClick={() => setCurrentScreen('results')}
-            type="button"
-            disabled={!clientId}
-          >
-            <FileText size={18} />
-            Results
-          </button>
-        </div>
-
         {/* Screen Content */}
         {currentScreen === 'upload' && (
           <UploadScreen
@@ -283,6 +322,8 @@ export default function App() {
             companyData={companyData}
             onComplete={() => setCurrentScreen('enrich')}
             onOpenCompanyModal={() => setShowCompanyModal(true)}
+            configButtons={configButtons}
+            onNavigate={navigateTo}
           />
         )}
         {currentScreen === 'enrich' && (
@@ -293,7 +334,7 @@ export default function App() {
         )}
         {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} />}
         {currentScreen === 'skills' && <SkillsScreen clientId={clientId} />}
-        {currentScreen === 'configuration' && <ConfigurationScreen />}
+        {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={setConfigButtons} />}
       </main>
 
       {/* Company Information Modal */}
@@ -339,7 +380,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
           <div style={{ display: 'grid', gap: '1rem' }}>
             {/* Company Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Company Name *
               </label>
               <input
@@ -350,7 +391,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -360,7 +401,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* Website URL */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Website URL
               </label>
               <input
@@ -371,7 +412,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -381,7 +422,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* Contact Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Contact Name
               </label>
               <input
@@ -392,7 +433,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -402,7 +443,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* Contact Title */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Contact Title/Role
               </label>
               <input
@@ -413,7 +454,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -423,7 +464,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* LinkedIn URL */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Contact LinkedIn URL
               </label>
               <input
@@ -434,7 +475,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -444,7 +485,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* Industry */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Industry/Vertical
               </label>
               <input
@@ -455,7 +496,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -465,7 +506,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 
             {/* Description */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Description
               </label>
               <textarea
@@ -476,7 +517,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit',
@@ -507,7 +548,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
 // ============================================================
 // UPLOAD SCREEN
 // ============================================================
-function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal }) {
+function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal, configButtons, onNavigate }) {
   const [files, setFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1004,6 +1045,60 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
         </p>
       </div>
 
+      {/* Custom Buttons from Configuration */}
+      {configButtons && configButtons.length > 0 && (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 12,
+          margin: '1rem 0',
+          padding: '0 0.5rem'
+        }}>
+          {configButtons.map((btn) => {
+            const IconComp = ICON_MAP[btn.icon] || Zap
+            const handleClick = () => {
+              const url = btn.url || ''
+              // Internal route (starts with /)
+              if (url.startsWith('/') && ROUTE_MAP[url]) {
+                onNavigate(ROUTE_MAP[url])
+              // External URL
+              } else if (url.startsWith('http://') || url.startsWith('https://')) {
+                window.open(url, '_blank', 'noopener,noreferrer')
+              // "New Partner" button opens company modal
+              } else if (btn.label === 'New Partner') {
+                onOpenCompanyModal()
+              }
+            }
+            return (
+              <button
+                key={btn.id}
+                type="button"
+                onClick={handleClick}
+                className="btn-hover"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '12px 24px',
+                  background: btn.color,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  boxShadow: `0 4px 12px ${btn.color}40`,
+                  transition: 'all .2s',
+                }}
+              >
+                <IconComp size={18} />
+                {btn.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Founder Quotes */}
       <div style={{
         display: 'grid',
@@ -1030,7 +1125,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
           <p style={{
             fontSize: '0.95rem',
             fontStyle: 'italic',
-            color: '#1a1a1a',
+            color: 'var(--text-primary)',
             lineHeight: 1.6,
             marginBottom: '0.625rem'
           }}>
@@ -1038,7 +1133,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
           </p>
           <p style={{
             fontSize: '0.75rem',
-            color: '#666',
+            color: 'var(--text-secondary)',
             margin: 0
           }}>
             — Alan Moore, Co-Founder & CEO, Intellagentic
@@ -1063,7 +1158,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
           <p style={{
             fontSize: '0.95rem',
             fontStyle: 'italic',
-            color: '#1a1a1a',
+            color: 'var(--text-primary)',
             lineHeight: 1.6,
             marginBottom: '0.625rem'
           }}>
@@ -1071,7 +1166,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
           </p>
           <p style={{
             fontSize: '0.75rem',
-            color: '#666',
+            color: 'var(--text-secondary)',
             margin: 0
           }}>
             — Ken Scott, Co-Founder & President, Intellagentic
@@ -1246,10 +1341,10 @@ function EnrichScreen({ clientId, onComplete }) {
         {!jobStatus && (
           <div style={{ textAlign: 'center', padding: '2rem' }}>
             <Sparkles size={64} style={{ color: '#dc2626', opacity: 0.5, margin: '0 auto 1.5rem' }} />
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem', color: '#1a1a1a' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
               Ready to Enrich Your Data
             </h3>
-            <p style={{ fontSize: '0.875rem', color: '#666', marginBottom: '2rem', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
               Our AI will extract text from documents, transcribe audio files,<br />
               research your company online, and generate a comprehensive analysis.
             </p>
@@ -1276,11 +1371,11 @@ function EnrichScreen({ clientId, onComplete }) {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                 <Loader2 size={20} style={{ color: '#3b82f6', animation: 'spin 1s linear infinite' }} />
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                   Processing your data...
                 </h4>
               </div>
-              <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
                 This may take a few minutes. We'll automatically advance when complete.
               </p>
             </div>
@@ -1335,7 +1430,7 @@ function EnrichScreen({ clientId, onComplete }) {
                         {stage.label}
                       </p>
                       {isActive && (
-                        <p style={{ fontSize: '0.75rem', color: '#888', margin: '0.25rem 0 0 0' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.25rem 0 0 0' }}>
                           In progress...
                         </p>
                       )}
@@ -1367,10 +1462,10 @@ function EnrichScreen({ clientId, onComplete }) {
             }}>
               <CheckCircle size={32} style={{ color: '#16a34a' }} />
             </div>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
               Enrichment Complete!
             </h3>
-            <p style={{ fontSize: '0.875rem', color: '#666' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
               Redirecting to results...
             </p>
           </div>
@@ -1389,7 +1484,7 @@ function EnrichScreen({ clientId, onComplete }) {
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', color: '#dc2626' }}>
               Enrichment Failed
             </h3>
-            <p style={{ fontSize: '0.875rem', color: '#666', marginBottom: '1rem' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               {error || 'An error occurred during enrichment'}
             </p>
             <button
@@ -1492,10 +1587,10 @@ function SkillsScreen({ clientId }) {
                   justifyContent: 'space-between'
                 }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.25rem' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                       {skill.name}
                     </h3>
-                    <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
                       {skill.preview || 'Markdown skill content'}
                     </p>
                   </div>
@@ -1624,7 +1719,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
           <div style={{ display: 'grid', gap: '1rem' }}>
             {/* Skill Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Skill Name *
               </label>
               <input
@@ -1635,7 +1730,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                 style={{
                   width: '100%',
                   padding: '0.625rem',
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   fontSize: '0.875rem',
                   fontFamily: 'inherit'
@@ -1664,7 +1759,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
             {/* Upload Mode */}
             {uploadMode ? (
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                   Upload Markdown File
                 </label>
                 <input
@@ -1674,7 +1769,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                   style={{
                     width: '100%',
                     padding: '0.625rem',
-                    border: '1px solid #e5e5e5',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     fontSize: '0.875rem',
                     fontFamily: 'inherit'
@@ -1684,7 +1779,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
             ) : (
               /* Skill Content */
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                   Skill Content (Markdown) *
                 </label>
                 <textarea
@@ -1695,7 +1790,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                   style={{
                     width: '100%',
                     padding: '0.625rem',
-                    border: '1px solid #e5e5e5',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     fontSize: '0.85rem',
                     fontFamily: 'Monaco, Menlo, Consolas, monospace',
@@ -1703,7 +1798,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                     lineHeight: 1.6
                   }}
                 />
-                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                   Tip: Use markdown formatting. This content will be provided to Claude during analysis.
                 </p>
               </div>
@@ -1743,16 +1838,115 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
 // ============================================================
 // CONFIGURATION SCREEN
 // ============================================================
-function ConfigurationScreen() {
-  const [darkMode, setDarkMode] = useState(false)
-  const [buttons, setButtons] = useState([
-    { id: 1, label: 'New Partner', icon: 'Building2', color: 'red' },
-    { id: 2, label: 'Upload', icon: 'Upload', color: 'blue' },
-    { id: 3, label: 'Enrich', icon: 'Sparkles', color: 'green' }
-  ])
+// ── Icon Library ──────────────────────────────────────────
+const ICON_MAP = {
+  Zap, Heart, Star, Send, Check,
+  X, Edit2, Save, Home, Settings, User, Bell, Search,
+  Calendar, Mail, Phone, MapPin, Upload, Play,
+  ExternalLink, FileText, Globe, Package, CheckCircle2,
+  Building2, Sparkles, Database, AlertCircle, AlertTriangle, TrendingUp, Clock
+}
+
+const ICON_NAMES = Object.keys(ICON_MAP)
+
+// ── Color Palette ─────────────────────────────────────────
+const COLORS = [
+  { name: 'Blue',   value: '#3b82f6' },
+  { name: 'Green',  value: '#22c55e' },
+  { name: 'Red',    value: '#ef4444' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Pink',   value: '#ec4899' },
+  { name: 'Cyan',   value: '#06b6d4' },
+  { name: 'Gray',   value: '#334155' }
+]
+
+const DEFAULT_BUTTONS = [
+  { id: 1, label: 'Enrich', icon: 'Sparkles', color: '#22c55e', url: '/enrich' },
+  { id: 2, label: 'Skills', icon: 'Database', color: '#334155', url: '/skills' }
+]
+
+// Internal route map for button navigation
+const ROUTE_MAP = {
+  '/upload': 'upload',
+  '/enrich': 'enrich',
+  '/results': 'results',
+  '/skills': 'skills',
+  '/configuration': 'configuration'
+}
+
+function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons }) {
+  const isDark = theme === 'dark'
+  const [editingId, setEditingId] = useState(null)
+  const [draggedId, setDraggedId] = useState(null)
+
+  // Theme-aware colors matching reference C object
+  const C = {
+    bg:      isDark ? '#0d1117' : '#f6f8fa',
+    surface: isDark ? '#161b22' : '#ffffff',
+    border:  isDark ? '#30363d' : '#d0d7de',
+    text:    isDark ? '#e6edf3' : '#1f2328',
+    muted:   isDark ? '#8b949e' : '#656d76',
+  }
+
+  // ── Button Operations ─────────────────────────────────────
+  const addButton = () => {
+    const newBtn = {
+      id: Date.now(),
+      label: 'New Button',
+      color: '#3b82f6',
+      icon: 'Zap',
+      url: ''
+    }
+    setButtons(prev => [...prev, newBtn])
+    setEditingId(newBtn.id)
+  }
+
+  const deleteButton = (id) => {
+    setButtons(prev => prev.filter(b => b.id !== id))
+    if (editingId === id) setEditingId(null)
+  }
+
+  const duplicateButton = (btn) => {
+    const newBtn = { ...btn, id: Date.now(), label: `${btn.label} (copy)` }
+    setButtons(prev => [...prev, newBtn])
+  }
+
+  const updateButton = (id, field, value) => {
+    setButtons(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b))
+  }
+
+  // ── Drag & Drop ───────────────────────────────────────────
+  const handleDragStart = (id) => setDraggedId(id)
+
+  const handleDragOver = (e, targetId) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetId) return
+    const draggedIdx = buttons.findIndex(b => b.id === draggedId)
+    const targetIdx = buttons.findIndex(b => b.id === targetId)
+    const newButtons = [...buttons]
+    const [removed] = newButtons.splice(draggedIdx, 1)
+    newButtons.splice(targetIdx, 0, removed)
+    setButtons(newButtons)
+  }
+
+  const handleDragEnd = () => setDraggedId(null)
 
   return (
     <div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-12px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        .btn-hover:hover { opacity: .8; transform: translateY(-1px); }
+        .card-hover:hover { border-color: ${C.text}40 !important; }
+      `}</style>
+
       {/* Configuration Header */}
       <div className="panel">
         <div className="panel-header">
@@ -1774,37 +1968,37 @@ function ConfigurationScreen() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '1rem',
-            background: '#fafafa',
-            borderRadius: '10px',
-            border: '1px solid #e5e5e5'
+            background: C.surface,
+            borderRadius: 10,
+            border: `1px solid ${C.border}`
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {darkMode ? <Moon size={20} className="icon-blue" /> : <Sun size={20} className="icon-amber" />}
-              <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#1a1a1a' }}>
-                {darkMode ? 'Dark Mode' : 'Light Mode'}
+              {isDark ? <Moon size={20} className="icon-blue" /> : <Sun size={20} className="icon-amber" />}
+              <span style={{ fontSize: '0.9rem', fontWeight: 500, color: C.text }}>
+                {isDark ? 'Dark Mode' : 'Light Mode'}
               </span>
             </div>
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={toggleTheme}
               style={{
-                width: '52px',
-                height: '28px',
-                borderRadius: '14px',
+                width: 52,
+                height: 28,
+                borderRadius: 14,
                 border: 'none',
-                background: darkMode ? '#3b82f6' : '#e5e5e5',
+                background: isDark ? '#3b82f6' : '#e5e5e5',
                 position: 'relative',
                 cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
             >
               <div style={{
-                width: '22px',
-                height: '22px',
+                width: 22,
+                height: 22,
                 borderRadius: '50%',
                 background: 'white',
                 position: 'absolute',
-                top: '3px',
-                left: darkMode ? '27px' : '3px',
+                top: 3,
+                left: isDark ? 27 : 3,
                 transition: 'all 0.2s',
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
               }} />
@@ -1813,128 +2007,370 @@ function ConfigurationScreen() {
         </div>
       </div>
 
-      {/* Configure Buttons & Preview */}
+      {/* Configure Buttons & Live Preview -- Two Column */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '1rem',
+        gridTemplateColumns: window.innerWidth > 600 ? '1fr 1fr' : '1fr',
+        gap: 28,
         marginTop: '1rem'
       }}>
-        {/* Configure Buttons */}
-        <div className="panel">
-          <div className="panel-header">
-            <h2>Configure Buttons</h2>
-          </div>
-          <div style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
-              {buttons.map((button) => (
-                <div
-                  key={button.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '1rem',
-                    background: '#fafafa',
-                    border: '1px solid #e5e5e5',
-                    borderRadius: '10px'
-                  }}
-                >
-                  <GripVertical size={16} style={{ color: '#9ca3af', cursor: 'grab' }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
-                      {button.label}
-                    </p>
-                    <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
-                      {button.icon} • {button.color}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#6b7280',
-                        cursor: 'pointer',
-                        padding: '0.25rem'
-                      }}
-                    >
-                      <Copy size={16} />
-                    </button>
-                    <button
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#6b7280',
-                        cursor: 'pointer',
-                        padding: '0.25rem'
-                      }}
-                    >
-                      <Edit3 size={16} />
-                    </button>
-                    <button
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#dc2626',
-                        cursor: 'pointer',
-                        padding: '0.25rem'
-                      }}
-                    >
-                      <Trash size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* ── LEFT: Button List Editor ── */}
+        <div style={{ animation: 'fadeIn .5s .1s ease backwards' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <h2 style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: C.muted,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}>
+              Configure Buttons
+            </h2>
+
             <button
-              className="action-btn blue"
+              onClick={addButton}
+              className="btn-hover"
               style={{
-                width: '100%',
-                justifyContent: 'center'
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: '#3b82f6', color: 'white',
+                cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                transition: 'all .2s',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
               }}
             >
-              <Plus size={18} />
+              <Plus size={16} />
               Add Button
             </button>
           </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {buttons.map((btn, index) => {
+              const isEditing = editingId === btn.id
+              const IconComp = ICON_MAP[btn.icon] || Zap
+
+              return (
+                <div
+                  key={btn.id}
+                  draggable
+                  onDragStart={() => handleDragStart(btn.id)}
+                  onDragOver={(e) => handleDragOver(e, btn.id)}
+                  onDragEnd={handleDragEnd}
+                  className="card-hover"
+                  style={{
+                    padding: 16,
+                    background: C.surface,
+                    border: `2px solid ${isEditing ? '#3b82f6' : C.border}`,
+                    borderRadius: 12,
+                    cursor: 'grab',
+                    transition: 'all .2s',
+                    animation: `slideIn .3s ${index * 0.05}s ease backwards`,
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    marginBottom: isEditing ? 16 : 0,
+                  }}>
+                    <GripVertical size={18} color={C.muted} style={{ cursor: 'grab' }} />
+
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background: `${btn.color}20`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <IconComp size={18} color={btn.color} />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: C.text,
+                      }}>
+                        {btn.label}
+                      </div>
+                      <div style={{
+                        fontSize: 12,
+                        color: C.muted,
+                        marginTop: 2,
+                      }}>
+                        {COLORS.find(c => c.value === btn.color)?.name || 'Custom'} &bull; {btn.icon}
+                      </div>
+                      {btn.url && (
+                        <div style={{
+                          fontSize: 11,
+                          color: '#3b82f6',
+                          marginTop: 2,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {btn.url}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => setEditingId(isEditing ? null : btn.id)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 6, border: 'none',
+                          background: isEditing ? '#3b82f6' : `${C.muted}20`,
+                          color: isEditing ? 'white' : C.muted,
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all .2s',
+                        }}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+
+                      <button
+                        onClick={() => duplicateButton(btn)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 6, border: 'none',
+                          background: `${C.muted}20`, color: C.muted,
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all .2s',
+                        }}
+                      >
+                        <Copy size={14} />
+                      </button>
+
+                      <button
+                        onClick={() => deleteButton(btn.id)}
+                        style={{
+                          width: 32, height: 32, borderRadius: 6, border: 'none',
+                          background: '#ef444420', color: '#ef4444',
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all .2s',
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inline Editing Panel */}
+                  {isEditing && (
+                    <div style={{
+                      paddingTop: 16,
+                      borderTop: `1px solid ${C.border}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      animation: 'fadeIn .3s ease',
+                    }}>
+                      {/* Label Input */}
+                      <div>
+                        <label style={{
+                          display: 'block', fontSize: 11, fontWeight: 700,
+                          color: C.muted, textTransform: 'uppercase',
+                          letterSpacing: '0.05em', marginBottom: 6,
+                        }}>
+                          Label
+                        </label>
+                        <input
+                          type="text"
+                          value={btn.label}
+                          onChange={(e) => updateButton(btn.id, 'label', e.target.value)}
+                          style={{
+                            width: '100%', padding: '8px 12px',
+                            background: C.bg, color: C.text,
+                            border: `1px solid ${C.border}`,
+                            borderRadius: 8, fontSize: 14, outline: 'none',
+                          }}
+                        />
+                      </div>
+
+                      {/* URL Input */}
+                      <div>
+                        <label style={{
+                          display: 'block', fontSize: 11, fontWeight: 700,
+                          color: C.muted, textTransform: 'uppercase',
+                          letterSpacing: '0.05em', marginBottom: 6,
+                        }}>
+                          URL
+                        </label>
+                        <input
+                          type="text"
+                          value={btn.url || ''}
+                          onChange={(e) => updateButton(btn.id, 'url', e.target.value)}
+                          placeholder="/enrich, /skills, or https://..."
+                          style={{
+                            width: '100%', padding: '8px 12px',
+                            background: C.bg, color: C.text,
+                            border: `1px solid ${C.border}`,
+                            borderRadius: 8, fontSize: 14, outline: 'none',
+                          }}
+                        />
+                      </div>
+
+                      {/* Color Selector */}
+                      <div>
+                        <label style={{
+                          display: 'block', fontSize: 11, fontWeight: 700,
+                          color: C.muted, textTransform: 'uppercase',
+                          letterSpacing: '0.05em', marginBottom: 6,
+                        }}>
+                          Color
+                        </label>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(8, 1fr)',
+                          gap: 8,
+                        }}>
+                          {COLORS.map((c) => (
+                            <button
+                              key={c.value}
+                              onClick={() => updateButton(btn.id, 'color', c.value)}
+                              style={{
+                                height: 36, borderRadius: 8,
+                                border: btn.color === c.value ? `2px solid ${c.value}` : '2px solid transparent',
+                                background: `${c.value}30`,
+                                cursor: 'pointer', position: 'relative',
+                                transition: 'all .2s',
+                              }}
+                            >
+                              {btn.color === c.value && (
+                                <Check
+                                  size={16}
+                                  color={c.value}
+                                  style={{
+                                    position: 'absolute',
+                                    top: '50%', left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                  }}
+                                />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Icon Selector */}
+                      <div>
+                        <label style={{
+                          display: 'block', fontSize: 11, fontWeight: 700,
+                          color: C.muted, textTransform: 'uppercase',
+                          letterSpacing: '0.05em', marginBottom: 6,
+                        }}>
+                          Icon
+                        </label>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(10, 1fr)',
+                          gap: 4,
+                        }}>
+                          {ICON_NAMES.map((iconName) => {
+                            const Icon = ICON_MAP[iconName]
+                            return (
+                              <button
+                                key={iconName}
+                                onClick={() => updateButton(btn.id, 'icon', iconName)}
+                                style={{
+                                  aspectRatio: '1',
+                                  borderRadius: 8,
+                                  border: btn.icon === iconName ? `2px solid ${btn.color}` : `1px solid ${C.border}`,
+                                  background: btn.icon === iconName ? `${btn.color}20` : C.bg,
+                                  color: btn.icon === iconName ? btn.color : C.muted,
+                                  cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'all .2s',
+                                }}
+                              >
+                                <Icon size={16} />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {buttons.length === 0 && (
+              <div style={{
+                padding: 32, textAlign: 'center', color: C.muted,
+                background: C.surface, border: `2px solid ${C.border}`,
+                borderRadius: 12,
+              }}>
+                <Settings size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
+                <p>No buttons configured. Click "+ Add Button" to get started.</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Live Preview */}
-        <div className="panel">
-          <div className="panel-header">
-            <h2>Live Preview</h2>
-          </div>
-          <div style={{ padding: '1.25rem' }}>
-            <div style={{
-              background: '#f0f0f0',
-              borderRadius: '10px',
-              padding: '1.5rem',
-              minHeight: '200px'
-            }}>
-              <p style={{
-                fontSize: '0.75rem',
-                color: '#888',
-                textAlign: 'center',
-                marginBottom: '1rem',
-                textTransform: 'uppercase',
-                fontWeight: 600,
-                letterSpacing: '0.05em'
+        {/* ── RIGHT: Live Preview ── */}
+        <div style={{ animation: 'fadeIn .5s .2s ease backwards' }}>
+          <h2 style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: C.muted,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            marginBottom: 16,
+          }}>
+            Live Preview
+          </h2>
+
+          <div style={{
+            marginTop: 24,
+            padding: 16,
+            background: C.surface,
+            border: `2px solid ${C.border}`,
+            borderRadius: 16,
+            minHeight: 400,
+          }}>
+            <div style={{ marginBottom: 32 }}>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
               }}>
-                Preview
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                {buttons.map((button) => (
-                  <button
-                    key={button.id}
-                    className={`action-btn ${button.color}`}
-                    style={{
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    {button.label}
-                  </button>
-                ))}
+                {buttons.map((btn) => {
+                  const IconComp = ICON_MAP[btn.icon] || Zap
+                  return (
+                    <button
+                      key={btn.id}
+                      className="btn-hover"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '12px 24px',
+                        background: btn.color,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontWeight: 500,
+                        boxShadow: `0 4px 12px ${btn.color}40`,
+                        transition: 'all .2s',
+                      }}
+                    >
+                      <IconComp size={18} />
+                      {btn.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -2145,7 +2581,7 @@ function ResultsScreen({ setShowModal, clientId }) {
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', color: '#dc2626' }}>
               Failed to Load Results
             </h3>
-            <p style={{ fontSize: '0.875rem', color: '#666', marginBottom: '1rem' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
               {error}
             </p>
             <button onClick={fetchResults} className="action-btn red">
@@ -2179,7 +2615,7 @@ function ResultsScreen({ setShowModal, clientId }) {
           </div>
         </div>
         <div style={{ padding: '1.25rem' }}>
-          <p style={{ fontSize: '0.95rem', lineHeight: 1.7, color: '#1a1a1a' }}>
+          <p style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)' }}>
             {displayResults.summary}
           </p>
         </div>
@@ -2202,7 +2638,7 @@ function ResultsScreen({ setShowModal, clientId }) {
                 border: `1px solid ${getSeverityColor(problem.severity)}20`,
                 borderLeft: `4px solid ${getSeverityColor(problem.severity)}`,
                 borderRadius: '10px',
-                background: '#fafafa',
+                background: 'var(--bg-card-alt)',
                 overflow: 'hidden'
               }}
             >
@@ -2219,7 +2655,7 @@ function ResultsScreen({ setShowModal, clientId }) {
               >
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                       {problem.title}
                     </h3>
                     <span style={{
@@ -2236,9 +2672,9 @@ function ResultsScreen({ setShowModal, clientId }) {
                   </div>
                 </div>
                 {expandedProblems[index] ? (
-                  <ChevronDown size={20} style={{ color: '#666', flexShrink: 0 }} />
+                  <ChevronDown size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                 ) : (
-                  <ChevronRight size={20} style={{ color: '#666', flexShrink: 0 }} />
+                  <ChevronRight size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                 )}
               </div>
               {expandedProblems[index] && (
@@ -2247,18 +2683,18 @@ function ResultsScreen({ setShowModal, clientId }) {
                   borderTop: '1px solid #e5e5e5'
                 }}>
                   <div style={{ marginTop: '1rem' }}>
-                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
                       Evidence
                     </p>
-                    <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#1a1a1a', marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)', marginBottom: '1rem' }}>
                       {problem.evidence}
                     </p>
                   </div>
                   <div>
-                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
                       Recommendation
                     </p>
-                    <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#1a1a1a' }}>
+                    <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
                       {problem.recommendation}
                     </p>
                   </div>
@@ -2283,9 +2719,9 @@ function ResultsScreen({ setShowModal, clientId }) {
             <div
               key={index}
               style={{
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--border-color)',
                 borderRadius: '10px',
-                background: '#fafafa',
+                background: 'var(--bg-card-alt)',
                 overflow: 'hidden'
               }}
             >
@@ -2301,19 +2737,19 @@ function ResultsScreen({ setShowModal, clientId }) {
                 }}
               >
                 <div>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.25rem' }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                     {table.name}
                   </h3>
-                  <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
                     {table.purpose}
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <span className="badge-count blue">{table.columns?.length || 0} columns</span>
                   {expandedTables[table.name] ? (
-                    <ChevronDown size={20} style={{ color: '#666' }} />
+                    <ChevronDown size={20} style={{ color: 'var(--text-secondary)' }} />
                   ) : (
-                    <ChevronRight size={20} style={{ color: '#666' }} />
+                    <ChevronRight size={20} style={{ color: 'var(--text-secondary)' }} />
                   )}
                 </div>
               </div>
@@ -2326,17 +2762,17 @@ function ResultsScreen({ setShowModal, clientId }) {
                     <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #e5e5e5' }}>
-                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: '#666' }}>Column</th>
-                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: '#666' }}>Type</th>
-                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: '#666' }}>Description</th>
+                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Column</th>
+                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Type</th>
+                          <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</th>
                         </tr>
                       </thead>
                       <tbody>
                         {table.columns?.map((col, colIndex) => (
                           <tr key={colIndex} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            <td style={{ padding: '0.625rem 0.5rem', fontWeight: 500, color: '#1a1a1a' }}>{col.name}</td>
-                            <td style={{ padding: '0.625rem 0.5rem', color: '#666', fontFamily: 'monospace', fontSize: '0.75rem' }}>{col.type}</td>
-                            <td style={{ padding: '0.625rem 0.5rem', color: '#666' }}>{col.description}</td>
+                            <td style={{ padding: '0.625rem 0.5rem', fontWeight: 500, color: 'var(--text-primary)' }}>{col.name}</td>
+                            <td style={{ padding: '0.625rem 0.5rem', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.75rem' }}>{col.type}</td>
+                            <td style={{ padding: '0.625rem 0.5rem', color: 'var(--text-secondary)' }}>{col.description}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2362,9 +2798,9 @@ function ResultsScreen({ setShowModal, clientId }) {
             <div
               key={index}
               style={{
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--border-color)',
                 borderRadius: '10px',
-                background: '#fafafa',
+                background: 'var(--bg-card-alt)',
                 padding: '1rem 1.25rem'
               }}
             >
@@ -2380,7 +2816,7 @@ function ResultsScreen({ setShowModal, clientId }) {
               </h3>
               <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.5rem' }}>
                 {phase.actions?.map((action, actionIndex) => (
-                  <li key={actionIndex} style={{ fontSize: '0.875rem', lineHeight: 1.6, color: '#1a1a1a' }}>
+                  <li key={actionIndex} style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
                     {action}
                   </li>
                 ))}
@@ -2409,7 +2845,7 @@ function ResultsScreen({ setShowModal, clientId }) {
                   alignItems: 'center',
                   gap: '0.75rem',
                   padding: '0.75rem',
-                  background: '#fafafa',
+                  background: 'var(--bg-card-alt)',
                   borderRadius: '8px',
                   fontSize: '0.85rem'
                 }}
@@ -2425,7 +2861,7 @@ function ResultsScreen({ setShowModal, clientId }) {
                 }}>
                   {source.type.replace('_', ' ')}
                 </span>
-                <span style={{ color: '#1a1a1a' }}>{source.reference}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{source.reference}</span>
               </div>
             ))}
           </div>
