@@ -12,8 +12,9 @@ rm -rf package function.zip
 # Install dependencies
 pip3 install -r requirements.txt -t package/ --quiet
 
-# Copy Lambda function
+# Copy Lambda function and auth helper
 cp lambda_function.py package/
+cp ../shared/auth_helper.py package/
 
 # Create zip
 cd package

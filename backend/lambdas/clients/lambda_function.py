@@ -1,6 +1,6 @@
 """
 XO Platform - POST /clients Lambda
-Creates a new client folder structure in S3 and returns client_id
+Creates a new client with S3 folder structure and PostgreSQL record.
 """
 
 import json
@@ -8,14 +8,16 @@ import os
 import time
 import hashlib
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
+from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 
+
 def lambda_handler(event, context):
     """
-    Create a new client entry with S3 folder structure
+    Create a new client entry with S3 folder structure + DB row.
 
     Expected input:
     {
@@ -25,30 +27,26 @@ def lambda_handler(event, context):
         "contactTitle": "CEO",
         "contactLinkedIn": "https://linkedin.com/in/...",
         "industry": "Waste Management",
-        "description": "Optional description"
+        "description": "Optional description",
+        "painPoint": "Route optimization"
     }
 
     Returns:
     {
         "client_id": "client_1234567890_abcd",
+        "id": "uuid",
         "status": "created"
     }
     """
 
-    # Enable CORS
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    }
-
     # Handle OPTIONS preflight
     if event.get('httpMethod') == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': ''
-        }
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
+
+    # Auth check
+    user, err = require_auth(event)
+    if err:
+        return err
 
     try:
         # Parse request body
@@ -66,13 +64,11 @@ def lambda_handler(event, context):
         if not company_name:
             return {
                 'statusCode': 400,
-                'headers': headers,
-                'body': json.dumps({
-                    'error': 'company_name is required'
-                })
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'company_name is required'})
             }
 
-        # Generate unique client_id
+        # Generate unique client_id (S3 folder name)
         timestamp = str(int(time.time()))
         name_hash = hashlib.md5(company_name.encode()).hexdigest()[:8]
         client_id = f"client_{timestamp}_{name_hash}"
@@ -85,41 +81,36 @@ def lambda_handler(event, context):
         ]
 
         for folder in folders:
-            s3_client.put_object(
-                Bucket=BUCKET_NAME,
-                Key=folder,
-                Body=''
-            )
+            s3_client.put_object(Bucket=BUCKET_NAME, Key=folder, Body='')
 
-        # Store metadata in S3 (using JSON file instead of DynamoDB for simplicity)
-        metadata = {
-            'client_id': client_id,
-            'company_name': company_name,
-            'website': website,
-            'contact_name': contact_name,
-            'contact_title': contact_title,
-            'contact_linkedin': contact_linkedin,
-            'industry': industry,
-            'description': description,
-            'pain_point': pain_point,
-            'created_at': datetime.utcnow().isoformat(),
-            'status': 'active'
-        }
+        # Insert into PostgreSQL
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-        s3_client.put_object(
-            Bucket=BUCKET_NAME,
-            Key=f"{client_id}/metadata.json",
-            Body=json.dumps(metadata, indent=2),
-            ContentType='application/json'
-        )
+        cur.execute("""
+            INSERT INTO clients (
+                user_id, company_name, website_url, contact_name, contact_title,
+                contact_linkedin, industry, description, pain_point, s3_folder
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            user['user_id'], company_name, website, contact_name, contact_title,
+            contact_linkedin, industry, description, pain_point, client_id
+        ))
 
-        print(f"Created client: {client_id} for company: {company_name}")
+        db_id = str(cur.fetchone()[0])
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"Created client: {client_id} (db: {db_id}) for company: {company_name}")
 
         return {
             'statusCode': 200,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'client_id': client_id,
+                'id': db_id,
                 'status': 'created'
             })
         }
@@ -128,7 +119,7 @@ def lambda_handler(event, context):
         print(f"Error creating client: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'error': 'Internal server error',
                 'message': str(e)

@@ -19,52 +19,69 @@
 | (Desktop / Mobile)|
 +--------+----------+
          |
-         | HTTPS
+         | HTTPS (JWT in Authorization header)
          |
-+--------v----------+         +---------------------------+
-|    CloudFront      |         |     API Gateway (REST)    |
-|  EWNDD7ESKAW33     |         | 2t9mg17baj.execute-api    |
-+--------+----------+         |   .us-west-1.amazonaws    |
-         |                     +--+-----+-----+--------+--+
-         |                        |     |     |        |
-         v                        |     |     |        |
-+------------------+              |     |     |        |
-| S3: xo-prototype |              |     |     |        |
-|    -frontend     |              |     |     |        |
-| (index.html,     |              |     |     |        |
-|  JS, CSS, logos) |              |     |     |        |
-+------------------+              |     |     |        |
-                                  v     v     v        v
-        +------------+ +-----------+ +----------+ +----------+
-        | xo-clients | | xo-upload | | xo-enrich| |xo-results|
-        |   Lambda   | |  Lambda   | |  Lambda  | |  Lambda  |
-        | Python 3.11| |Python 3.11| |Python 3.11| |Python 3.11|
-        +-----+------+ +-----+-----+ +----+-----+ +----+-----+
-              |               |            |             |
-              |               |            v             |
-              |               |   +----------------+    |
-              |               |   | Claude Sonnet  |    |
-              |               |   | 4.5 (Anthropic |    |
-              |               |   |     API)       |    |
-              |               |   +-------+--------+    |
-              |               |           |              |
-              v               v           v              v
-        +---------------------------------------------------+
-        |              S3: xo-client-data                   |
-        |                                                   |
-        |  {client_id}/                                     |
-        |    +-- uploads/        (raw files)                |
-        |    +-- extracted/      (parsed text)              |
-        |    +-- skills/         (domain .md files)         |
-        |    +-- results/        (analysis.json)            |
-        |    +-- metadata.json   (company info + pain point)|
-        +---------------------------------------------------+
++--------v----------+         +----------------------------------+
+|    CloudFront      |         |       API Gateway (REST)         |
+|  EWNDD7ESKAW33     |         |  2t9mg17baj.execute-api          |
++--------+----------+         |    .us-west-1.amazonaws          |
+         |                     +--+----+----+----+----+-------+--+
+         |                        |    |    |    |    |       |
+         v                        |    |    |    |    |       |
++------------------+              |    |    |    |    |       |
+| S3: xo-prototype |              |    |    |    |    |       |
+|    -frontend     |              |    |    |    |    |       |
+| (index.html,     |              |    |    |    |    |       |
+|  JS, CSS, logos) |              |    |    |    |    |       |
++------------------+              |    |    |    |    |       |
+                                  v    v    v    v    v       v
+  +---------+ +--------+ +-------+ +------+ +------+ +--------+
+  |xo-auth  | |xo-     | |xo-    | |xo-   | |xo-   | |xo-     |
+  | Lambda  | |clients | |upload | |enrich| |results| |buttons |
+  |Python   | |Lambda  | |Lambda | |Lambda| |Lambda | |Lambda  |
+  |  3.11   | |        | |       | |      | |       | |        |
+  +----+----+ +---+----+ +---+---+ +--+---+ +--+----+ +---+----+
+       |          |           |        |        |          |
+       |          |           |        v        |          |
+       |          |           | +----------+    |          |
+       |          |           | |Claude    |    |          |
+       |          |           | |Sonnet 4.5|    |          |
+       |          |           | |(Anthropic|    |          |
+       |          |           | |  API)    |    |          |
+       |          |           | +----+-----+    |          |
+       |          |           |      |          |          |
+       v          v           v      v          v          v
+  +----------------------------------------------------------+
+  |              S3: xo-client-data                          |
+  |  {client_id}/                                            |
+  |    +-- uploads/        (raw files)                       |
+  |    +-- extracted/      (parsed text)                     |
+  |    +-- results/        (analysis.json)                   |
+  +----------------------------------------------------------+
+       |          |           |      |          |          |
+       v          v           v      v          v          v
+  +----------------------------------------------------------+
+  |         RDS PostgreSQL 15 (xo_quickstart)                |
+  |  db.t3.micro | xo-quickstart-db.xxxxx.rds.amazonaws.com |
+  |                                                          |
+  |  Tables: users, clients, uploads, enrichments,           |
+  |          skills, buttons                                 |
+  +----------------------------------------------------------+
 ```
 
 ### 2. Frontend Component Tree
 
 ```
 App (root)
+|
++-- LoginScreen (if !isLoggedIn)
+|     +-- Intellagentic logo with float animation
+|     +-- Email field (Mail icon)
+|     +-- Password field (Lock icon + Eye/EyeOff toggle)
+|     +-- Error banner (AlertTriangle)
+|     +-- Sign In button (#dc2626 red)
+|
++-- [Authenticated App] (if isLoggedIn)
 |
 +-- Header
 |     +-- Hamburger Menu Button
@@ -80,6 +97,7 @@ App (root)
 |     +-- ---divider---
 |     +-- Configuration  (Settings icon)
 |     +-- Theme Toggle   (Sun/Moon)
+|     +-- Sign Out       (LogOut icon, red)
 |
 +-- CompanyInfoModal
 |     +-- Company Name *
@@ -474,10 +492,13 @@ src/
 **CORS:** Enabled on all methods
 
 **Resources:**
+- /auth/login (POST) -- authenticate user, return JWT
 - /clients (POST)
 - /upload (POST)
 - /enrich (POST)
 - /results/{id} (GET)
+- /buttons (GET) -- fetch user's buttons
+- /buttons/sync (PUT) -- full replace user's buttons
 
 ### Lambda Functions
 
@@ -488,15 +509,155 @@ src/
 
 **Functions:** See "Lambda Functions" section below
 
-### DynamoDB
+### RDS PostgreSQL
 
-**Status:** Not yet implemented
-**Planned:** xo-clients table for client metadata and job tracking
-**Current:** Using S3 metadata.json files instead
+**Instance:** xo-quickstart-db
+**Engine:** PostgreSQL 15
+**Class:** db.t3.micro
+**Storage:** 20 GB gp3
+**Database:** xo_quickstart
+**Region:** us-west-1
+**Publicly Accessible:** Yes (prototype -- strong password is primary defense)
+
+**Schema (6 tables):**
+
+```
++----------+       +----------+       +----------+
+|  users   |<------+  clients |<------+  uploads |
++----------+  1:N  +----------+  1:N  +----------+
+| id (PK)  |       | id (PK)  |       | id (PK)  |
+| email    |       | user_id  |       | client_id|
+| pass_hash|       | company  |       | filename |
+| name     |       | website  |       | file_type|
+| created  |       | contact* |       | s3_key   |
++-----+----+       | industry |       | uploaded |
+      |            | descript |       +----------+
+      |            | pain_pt  |
+      |            | s3_folder|       +----------+
+      |            | 5 new DB |<------+ enrichmts|
+      |            |  columns |  1:N  +----------+
+      |            | status   |       | id (PK)  |
+      |            | created  |       | client_id|
+      |            | updated  |       | status   |
+      |            +-----+----+       | started  |
+      |                  |            | completed|
+      |                  |            | results  |
+      |            +-----v----+       |  _s3_key |
+      |            |  skills  |       +----------+
+      |            +----------+
+      |            | id (PK)  |
+      |            | client_id|
+      |            | name     |
+      |            | content  |
+      |            | s3_key   |
+      |            | created  |
+      |            +----------+
+      |
++-----v----+
+|  buttons |
++----------+
+| id (PK)  |
+| user_id  |
+| name     |
+| icon     |
+| color    |
+| url      |
+| sort_ord |
++----------+
+```
+
+**5 New DB-Only Columns (no UI yet):**
+- `survival_metric_1`, `survival_metric_2` (TEXT)
+- `ai_persona` (TEXT)
+- `strategic_objective` (TEXT)
+- `tone_mode` (VARCHAR 50)
+
+**Schema file:** backend/schema.sql
+**Seed script:** backend/seed.py (creates admin user + default buttons)
+**Config script:** backend/set-db-config.sh (sets DATABASE_URL + JWT_SECRET on all Lambdas)
+
+### Lambda Layer
+
+**Name:** xo-psycopg2
+**Contents:** psycopg2, PyJWT, bcrypt (compiled for Amazon Linux 2023 / Python 3.11)
+**Attached to:** All 6 Lambdas
 
 ---
 
 ## API ENDPOINTS
+
+**Authentication:** All endpoints except POST /auth/login require a JWT Bearer token in the Authorization header.
+
+### POST /auth/login
+
+**Purpose:** Authenticate user and return JWT token
+**Lambda:** xo-auth
+
+**Request:**
+```json
+{
+  "email": "admin@xo.com",
+  "password": "XOquickstart2026!"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "admin@xo.com",
+    "name": "XO Admin"
+  }
+}
+```
+
+**Sample curl:**
+```bash
+curl -X POST https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@xo.com", "password": "XOquickstart2026!"}'
+```
+
+---
+
+### GET /buttons
+
+**Purpose:** Fetch all buttons for the authenticated user
+**Lambda:** xo-buttons
+
+**Response:**
+```json
+{
+  "buttons": [
+    {"id": "uuid", "label": "Enrich", "icon": "Sparkles", "color": "#22c55e", "url": "/enrich", "sort_order": 0}
+  ]
+}
+```
+
+---
+
+### PUT /buttons/sync
+
+**Purpose:** Full replace of user's buttons
+**Lambda:** xo-buttons
+
+**Request:**
+```json
+{
+  "buttons": [
+    {"label": "Enrich", "icon": "Sparkles", "color": "#22c55e", "url": "/enrich", "sort_order": 0}
+  ]
+}
+```
+
+**Response:**
+```json
+{"status": "synced", "count": 1}
+```
+
+---
 
 ### POST /clients
 
@@ -703,22 +864,44 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 
 ## LAMBDA FUNCTIONS
 
+All Lambdas require JWT auth (except /auth/login). Auth is provided by `auth_helper.py` (shared module copied into each deploy package). All Lambdas use the `xo-psycopg2` Lambda layer for PostgreSQL, JWT, and bcrypt support.
+
+**Common Environment Variables (all Lambdas):**
+- BUCKET_NAME: xo-client-data
+- DATABASE_URL: postgresql://xo_admin:PASSWORD@HOST:5432/xo_quickstart
+- JWT_SECRET: (256-bit random secret)
+
+### xo-auth (NEW)
+
+**Runtime:** Python 3.11
+**Memory:** 256 MB
+**Timeout:** 30 seconds
+**Handler:** lambda_function.lambda_handler
+
+**What it does:**
+1. POST /auth/login: Validates email/password against `users` table
+2. Verifies password with bcrypt
+3. Returns JWT (24h expiry) with user_id, email, name
+4. Returns user object for frontend state
+
+**File:** backend/lambdas/auth/lambda_function.py
+
+---
+
 ### xo-clients
 
 **Runtime:** Python 3.11
-**Memory:** 128 MB
-**Timeout:** 10 seconds
+**Memory:** 256 MB
+**Timeout:** 30 seconds
 **Handler:** lambda_function.lambda_handler
 
-**Environment Variables:**
-- BUCKET_NAME: xo-client-data
-
 **What it does:**
-1. Validates company_name is provided
-2. Generates unique client_id: `client_{timestamp}_{md5hash}`
-3. Creates S3 folder structure: uploads/, extracted/, results/
-4. Writes metadata.json to S3 (includes pain_point field)
-5. Returns client_id to frontend
+1. **Auth check** (JWT required)
+2. Validates company_name is provided
+3. Generates unique client_id: `client_{timestamp}_{md5hash}`
+4. Creates S3 folder structure: uploads/, extracted/, results/
+5. **INSERT INTO clients** table (PostgreSQL) with user_id from JWT
+6. Returns client_id (S3 folder) + id (DB UUID)
 
 **File:** backend/lambdas/clients/lambda_function.py
 
@@ -727,18 +910,16 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 ### xo-upload
 
 **Runtime:** Python 3.11
-**Memory:** 128 MB
-**Timeout:** 10 seconds
+**Memory:** 256 MB
+**Timeout:** 30 seconds
 **Handler:** lambda_function.lambda_handler
 
-**Environment Variables:**
-- BUCKET_NAME: xo-client-data
-
 **What it does:**
-1. Validates client_id exists (checks metadata.json)
-2. Generates presigned PUT URLs for each file (1 hour expiry)
-3. URLs upload directly to {client_id}/uploads/ folder
-4. Returns array of presigned URLs to frontend
+1. **Auth check** (JWT required)
+2. Validates client exists in DB (SELECT where s3_folder + user_id match)
+3. Generates presigned PUT URLs for each file (1 hour expiry)
+4. **INSERT INTO uploads** for each file
+5. Returns array of presigned URLs to frontend
 
 **File:** backend/lambdas/upload/lambda_function.py
 
@@ -751,8 +932,7 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 **Timeout:** 300 seconds (5 minutes)
 **Handler:** lambda_function.lambda_handler
 
-**Environment Variables:**
-- BUCKET_NAME: xo-client-data
+**Additional Environment Variables:**
 - ANTHROPIC_API_KEY: sk-ant-... (set via set-api-key.sh)
 
 **Dependencies:**
@@ -761,19 +941,21 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 - openpyxl==3.1.2
 
 **What it does:**
-1. Reads client metadata from S3 (including pain_point)
-2. Lists all files in {client_id}/uploads/
-3. Extracts text from each file:
+1. **Auth check** (JWT required)
+2. **Reads client metadata from PostgreSQL** (replaces S3 metadata.json)
+3. **INSERT INTO enrichments** (status='processing') before analysis
+4. **Reads skills from DB** (with S3 fallback for s3_key-only skills)
+5. Extracts text from uploaded files in S3:
    - CSV: Parse with csv module, include header + 10 sample rows
    - PDF: Extract text with pypdf (first 10 pages)
    - Excel: Extract with openpyxl (all sheets, first 10 rows each)
    - TXT: Read directly
-4. Reads skills from {client_id}/skills/ (markdown files)
-5. Sends extracted text + company info + pain point to Claude API
-6. Uses "First Party Trick" prompt for MBA-level analysis
-7. If pain_point present: injects PRIORITY instruction (pain point = #1 problem, leads summary, front-loads 30-day plan)
-8. Writes analysis.json to {client_id}/results/
-9. Returns job_id and status
+6. Sends extracted text + company info + pain point to Claude API
+7. Uses "First Party Trick" prompt for MBA-level analysis
+8. If pain_point present: injects PRIORITY instruction
+9. Writes analysis.json to {client_id}/results/ in S3
+10. **UPDATE enrichments** (status='complete', results_s3_key)
+11. On error: UPDATE enrichments (status='error')
 
 **File:** backend/lambdas/enrich/lambda_function.py
 **Deploy:** backend/lambdas/enrich/deploy-enrich.sh
@@ -783,20 +965,34 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 ### xo-results
 
 **Runtime:** Python 3.11
-**Memory:** 128 MB
+**Memory:** 256 MB
 **Timeout:** 10 seconds
 **Handler:** lambda_function.lambda_handler
 
-**Environment Variables:**
-- BUCKET_NAME: xo-client-data
-
 **What it does:**
-1. Reads analysis.json from {client_id}/results/
-2. If file exists: returns full analysis JSON
-3. If file doesn't exist: returns {"status": "processing"}
-4. Frontend polls this endpoint every 2 seconds during enrichment
+1. **Auth check** (JWT required)
+2. **Checks enrichments table** for latest status (processing/complete/error)
+3. If complete: reads results_s3_key from DB, fetches analysis.json from S3
+4. If processing: returns {"status": "processing"}
+5. Fallback: direct S3 check if no enrichment record exists
 
 **File:** backend/lambdas/results/lambda_function.py
+
+---
+
+### xo-buttons (NEW)
+
+**Runtime:** Python 3.11
+**Memory:** 256 MB
+**Timeout:** 30 seconds
+**Handler:** lambda_function.lambda_handler
+
+**What it does:**
+1. **Auth check** (JWT required)
+2. GET /buttons: Returns all buttons for user, ordered by sort_order
+3. PUT /buttons/sync: Deletes all user's buttons, inserts new set (full replace)
+
+**File:** backend/lambdas/buttons/lambda_function.py
 
 ---
 
@@ -983,7 +1179,7 @@ cd backend
 ## BUILD HISTORY
 
 **Session Date:** February 28 - March 1, 2026
-**Build Count:** 30 completed builds
+**Build Count:** 31 completed builds
 
 **Build Order:**
 
@@ -1204,6 +1400,32 @@ cd backend
       - Front-loads 30-day action plan with steps addressing it
     - All three deployments updated: frontend, xo-clients Lambda, xo-enrich Lambda
 
+31. **PostgreSQL Migration + Authentication** (Session 5 - February 28, 2026)
+    - **RDS PostgreSQL 15** (db.t3.micro) replaces S3 metadata.json for structured data
+    - Schema: 6 tables (users, clients, uploads, enrichments, skills, buttons)
+    - 5 new DB columns (survival_metric_1, survival_metric_2, ai_persona, strategic_objective, tone_mode) -- no UI yet
+    - **bcrypt auth + JWT tokens** (24h expiry)
+    - New Lambda: xo-auth (POST /auth/login)
+    - New Lambda: xo-buttons (GET /buttons, PUT /buttons/sync)
+    - **Lambda layer** (xo-psycopg2): psycopg2, PyJWT, bcrypt for Python 3.11
+    - **Shared auth_helper.py**: JWT verification + DB connection, copied into all Lambda packages
+    - All 4 existing Lambdas migrated: auth check, PostgreSQL reads/writes, CORS Authorization header
+    - xo-clients: S3 folders + DB INSERT (removed metadata.json write)
+    - xo-upload: DB validation replaces S3 head_object, INSERT INTO uploads
+    - xo-enrich: reads metadata from DB, enrichment tracking (processing/complete/error), skills from DB with S3 fallback
+    - xo-results: checks enrichments table before S3, reads results_s3_key from DB
+    - **LoginScreen** adapted from Surgical Trays reference (glassmorphism, slideUp/float animations)
+    - XO red (#dc2626) replaces Surgical Trays navy (#325083)
+    - Auth state: isLoggedIn, user, authToken in App root
+    - Session restore from localStorage on mount (with JWT expiry check)
+    - getAuthHeaders() helper on all 5 fetch() call sites
+    - Sidebar: user name/email display, Sign Out button (red, LogOut icon)
+    - **Buttons migrated to PostgreSQL**: fetchButtons() on login, saveButtons() syncs to API
+    - CSS: .error-banner styles, @keyframes slideUp, @keyframes float
+    - Deploy: updated deploy.sh (6 Lambdas), deploy-enrich.sh (auth_helper), new set-db-config.sh
+    - Seed script: backend/seed.py (admin@xo.com + default buttons)
+    - Files: 16 files created/modified
+
 ---
 
 ## PENDING ITEMS
@@ -1281,16 +1503,18 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 
 **Technology Stack:**
 - Frontend: React 18 + Vite, deployed to S3/CloudFront
-- Backend: 4 Python Lambdas behind API Gateway
+- Backend: 6 Python Lambdas behind API Gateway (+ xo-psycopg2 layer)
+- Database: PostgreSQL 15 on RDS (db.t3.micro) -- 6 tables
+- Auth: bcrypt password hashing + JWT tokens (24h expiry)
 - AI: Claude Sonnet 4.5 via Anthropic API
-- Storage: S3 with folder-per-client structure
+- Storage: S3 with folder-per-client structure (files + analysis.json)
 - Region: us-west-1 (AWS)
 
 **What's Not Built Yet:**
 - Audio transcription (files accepted but not processed)
 - Web enrichment (URLs collected but not researched)
-- DynamoDB (using S3 metadata.json instead)
 - Async processing (runs synchronously in Lambda, 5-min timeout)
+- UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode)
 
 **Performance:**
 - Upload: Instant (direct to S3 via presigned URLs)
@@ -1298,15 +1522,16 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 - Results: Instant retrieval from S3
 
 **Cost Estimate (100 clients/month):**
+- RDS db.t3.micro: ~$15/month
 - S3: ~$5 (5GB average)
 - Lambda: ~$2
 - API Gateway: ~$3.50
 - Claude API: $10-50 (variable based on document size)
-- **Total: $20-60/month** for prototype usage
+- **Total: $35-75/month** for prototype usage
 
 **Repository:** All code is version-controlled at https://github.com/intellagentic/xo-quickstart with proper .gitignore to exclude secrets.
 
-**Next Step:** Scale to production with async jobs, DynamoDB, and full enrichment pipeline.
+**Next Step:** Scale to production with async jobs, UI for new DB fields, and full enrichment pipeline (audio transcription, web research).
 
 ---
 

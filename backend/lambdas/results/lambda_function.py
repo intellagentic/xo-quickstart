@@ -1,80 +1,110 @@
 """
 XO Platform - GET /results/:id Lambda
-Returns analysis results for a client
+Returns analysis results for a client.
+Checks enrichment status in DB, then reads from S3.
 """
 
 import json
 import os
 import boto3
+from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 
+
 def lambda_handler(event, context):
     """
-    Get analysis results for a client
+    Get analysis results for a client.
 
-    Path parameter: client_id
+    Path parameter: client_id (s3_folder)
 
-    Returns:
-    {
-        "status": "complete",
-        "summary": "...",
-        "problems": [...],
-        "schema": {...},
-        "plan": [...],
-        "sources": [...]
-    }
+    Returns analysis JSON or processing status.
     """
-
-    # Enable CORS
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS'
-    }
 
     # Handle OPTIONS preflight
     if event.get('httpMethod') == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': ''
-        }
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
+
+    # Auth check
+    user, err = require_auth(event)
+    if err:
+        return err
 
     try:
-        # Get client_id from path parameter
         path_params = event.get('pathParameters', {})
         client_id = path_params.get('id', '').strip()
 
         if not client_id:
             return {
                 'statusCode': 400,
-                'headers': headers,
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'client_id is required'})
             }
 
-        # Check if results exist
-        results_key = f"{client_id}/results/analysis.json"
+        # Check enrichment status in DB
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT e.status, e.results_s3_key
+            FROM enrichments e
+            JOIN clients c ON e.client_id = c.id
+            WHERE c.s3_folder = %s AND c.user_id = %s
+            ORDER BY e.started_at DESC
+            LIMIT 1
+        """, (client_id, user['user_id']))
+
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if row:
+            enrichment_status, results_s3_key = row
+
+            if enrichment_status == 'processing':
+                return {
+                    'statusCode': 200,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({
+                        'status': 'processing',
+                        'message': 'Analysis in progress'
+                    })
+                }
+
+            if enrichment_status == 'error':
+                return {
+                    'statusCode': 200,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({
+                        'status': 'error',
+                        'message': 'Enrichment failed'
+                    })
+                }
+
+            # Status is complete — read from S3
+            s3_key = results_s3_key or f"{client_id}/results/analysis.json"
+        else:
+            # No enrichment record — fall back to direct S3 check
+            s3_key = f"{client_id}/results/analysis.json"
 
         try:
             response = s3_client.get_object(
                 Bucket=BUCKET_NAME,
-                Key=results_key
+                Key=s3_key
             )
             results = json.loads(response['Body'].read().decode('utf-8'))
 
             return {
                 'statusCode': 200,
-                'headers': headers,
+                'headers': CORS_HEADERS,
                 'body': json.dumps(results)
             }
 
         except s3_client.exceptions.NoSuchKey:
-            # Results not ready yet
             return {
                 'statusCode': 200,
-                'headers': headers,
+                'headers': CORS_HEADERS,
                 'body': json.dumps({
                     'status': 'processing',
                     'message': 'Analysis in progress'
@@ -85,7 +115,7 @@ def lambda_handler(event, context):
         print(f"Error retrieving results: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'error': 'Internal server error',
                 'message': str(e)

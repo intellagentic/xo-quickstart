@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 
@@ -10,7 +10,291 @@ import logoDark from './assets/logo-dark.png'
 
 const API_BASE = 'https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod'
 
+// Auth helpers
+function getAuthHeaders() {
+  const token = localStorage.getItem('xo-token')
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : ''
+  }
+}
+
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function LoginScreen({ onLogin }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!email || !password) {
+      setError('Email and password are required')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Login failed')
+        setLoading(false)
+        return
+      }
+
+      localStorage.setItem('xo-token', data.token)
+      localStorage.setItem('xo-user', JSON.stringify(data.user))
+      onLogin(data.user, data.token)
+    } catch (err) {
+      setError('Connection failed. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'radial-gradient(ellipse at top left, rgba(220, 38, 38, 0.15), transparent 50%), radial-gradient(ellipse at bottom right, rgba(220, 38, 38, 0.08), transparent 50%), #0a0a0a',
+      padding: '20px',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '440px',
+        animation: 'slideUp 0.6s ease-out'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '0px' }}>
+          <div style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            animation: 'float 3s ease-in-out infinite'
+          }}>
+            <img src={logoLight} alt="Intellagentic" style={{ height: '60px' }} />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{
+          background: 'rgba(255,255,255,0.05)',
+          padding: '40px',
+          borderRadius: '24px',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}>
+          {error && (
+            <div className="error-banner">
+              <AlertTriangle size={16} /> {error}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#ffffff',
+              letterSpacing: '0.01em'
+            }}>
+              Email Address
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={20} style={{
+                position: 'absolute', left: '16px', top: '50%',
+                transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)'
+              }} />
+              <input
+                type="email"
+                placeholder="admin@xo.com"
+                required
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError('') }}
+                style={{
+                  width: '100%',
+                  padding: '14px 16px 14px 48px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '2px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  color: '#ffffff',
+                  outline: 'none',
+                  transition: 'all 0.3s ease',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#dc2626'
+                  e.target.style.background = 'rgba(220,38,38,0.05)'
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255,255,255,0.1)'
+                  e.target.style.background = 'rgba(255,255,255,0.05)'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '32px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#ffffff',
+              letterSpacing: '0.01em'
+            }}>
+              Password
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={20} style={{
+                position: 'absolute', left: '16px', top: '50%',
+                transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)'
+              }} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                required
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
+                style={{
+                  width: '100%',
+                  padding: '14px 48px 14px 48px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '2px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  color: '#ffffff',
+                  outline: 'none',
+                  transition: 'all 0.3s ease',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#dc2626'
+                  e.target.style.background = 'rgba(220,38,38,0.05)'
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(255,255,255,0.1)'
+                  e.target.style.background = 'rgba(255,255,255,0.05)'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: '16px', top: '50%',
+                  transform: 'translateY(-50%)', background: 'none',
+                  border: 'none', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.4)', padding: 0,
+                  display: 'flex', alignItems: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: '#dc2626',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease',
+              letterSpacing: '0.02em',
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.target.style.transform = 'translateY(-2px)'
+                e.target.style.boxShadow = '0 12px 32px rgba(220,38,38,0.4)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)'
+              e.target.style.boxShadow = 'none'
+            }}
+          >
+            {loading ? <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState(null)
+  const [authToken, setAuthToken] = useState(null)
+
+  // Restore session on mount
+  useEffect(() => {
+    const token = localStorage.getItem('xo-token')
+    const savedUser = localStorage.getItem('xo-user')
+    if (token && savedUser && !isTokenExpired(token)) {
+      setAuthToken(token)
+      setUser(JSON.parse(savedUser))
+      setIsLoggedIn(true)
+    } else {
+      // Clear expired session
+      localStorage.removeItem('xo-token')
+      localStorage.removeItem('xo-user')
+    }
+  }, [])
+
+  const handleLogin = (userData, token) => {
+    setUser(userData)
+    setAuthToken(token)
+    setIsLoggedIn(true)
+  }
+
+  const handleLogout = () => {
+    setUser(null)
+    setAuthToken(null)
+    setIsLoggedIn(false)
+    localStorage.removeItem('xo-token')
+    localStorage.removeItem('xo-user')
+    setCurrentScreen('upload')
+  }
+
   const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results | skills | configuration
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
@@ -41,19 +325,55 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
 
-  // Custom buttons state - shared between Configuration and Upload screens
-  const [configButtons, setConfigButtons] = useState(() => {
-    const saved = localStorage.getItem('xo-buttons-v2')
-    return saved ? JSON.parse(saved) : DEFAULT_BUTTONS
-  })
+  // Custom buttons state - synced with PostgreSQL via API
+  const [configButtons, setConfigButtons] = useState(DEFAULT_BUTTONS)
+  const [buttonsLoaded, setButtonsLoaded] = useState(false)
 
+  // Fetch buttons from API after login
   useEffect(() => {
-    localStorage.setItem('xo-buttons-v2', JSON.stringify(configButtons))
-  }, [configButtons])
+    if (isLoggedIn && !buttonsLoaded) {
+      fetchButtons()
+    }
+  }, [isLoggedIn])
+
+  const fetchButtons = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/buttons`, {
+        headers: getAuthHeaders()
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.buttons && data.buttons.length > 0) {
+          setConfigButtons(data.buttons)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch buttons:', err)
+    }
+    setButtonsLoaded(true)
+  }
+
+  const saveButtons = async (newButtons) => {
+    setConfigButtons(newButtons)
+    try {
+      await fetch(`${API_BASE}/buttons/sync`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ buttons: newButtons })
+      })
+    } catch (err) {
+      console.error('Failed to save buttons:', err)
+    }
+  }
 
   const navigateTo = (screen) => {
     setCurrentScreen(screen)
     setShowSidebar(false)
+  }
+
+  // Auth gate
+  if (!isLoggedIn) {
+    return <LoginScreen onLogin={handleLogin} />
   }
 
   return (
@@ -131,7 +451,10 @@ export default function App() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div className="logo-box" style={{ width: '32px', height: '32px', fontSize: '1rem' }}>XO</div>
-                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem' }}>Menu</span>
+                <div>
+                  <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem', display: 'block' }}>{user?.name || 'Menu'}</span>
+                  {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.75rem' }}>{user.email}</span>}
+                </div>
               </div>
               <button
                 onClick={() => setShowSidebar(false)}
@@ -249,6 +572,34 @@ export default function App() {
                   }} />
                 </button>
               </div>
+
+              {/* Sign Out */}
+              <div style={{
+                height: '1px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                margin: '0.75rem 1rem'
+              }} />
+              <button
+                onClick={() => { setShowSidebar(false); handleLogout() }}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  borderLeft: '3px solid transparent',
+                  color: '#ef4444',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <LogOut size={20} />
+                Sign Out
+              </button>
             </nav>
           </div>
         </>
@@ -275,7 +626,7 @@ export default function App() {
         )}
         {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} />}
         {currentScreen === 'skills' && <SkillsScreen clientId={clientId} />}
-        {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={setConfigButtons} />}
+        {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} />}
       </main>
 
       {/* Company Information Modal */}
@@ -604,7 +955,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
       // Step 1: Create client
       const clientResponse = await fetch(`${API_BASE}/clients`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           company_name: companyData.name,
           website: companyData.website,
@@ -629,7 +980,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
       console.log('Getting presigned URLs for', files.length, 'files')
       const uploadResponse = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           client_id,
           files: files.map(f => ({ name: f.name, type: f.type }))
@@ -1214,7 +1565,7 @@ function EnrichScreen({ clientId, onComplete }) {
       // Trigger enrichment Lambda
       const response = await fetch(`${API_BASE}/enrich`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ client_id: clientId })
       })
 
@@ -1235,7 +1586,9 @@ function EnrichScreen({ clientId, onComplete }) {
   const pollJobStatus = async (id) => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${API_BASE}/results/${id}`)
+        const response = await fetch(`${API_BASE}/results/${id}`, {
+          headers: getAuthHeaders()
+        })
         if (!response.ok) throw new Error('Failed to fetch status')
 
         const data = await response.json()
@@ -2363,7 +2716,9 @@ function ResultsScreen({ setShowModal, clientId }) {
   const fetchResults = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE}/results/${clientId}`)
+      const response = await fetch(`${API_BASE}/results/${clientId}`, {
+        headers: getAuthHeaders()
+      })
       if (!response.ok) throw new Error('Failed to fetch results')
       const data = await response.json()
       setResults(data)

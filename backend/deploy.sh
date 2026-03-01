@@ -2,11 +2,13 @@
 
 # XO Platform - Quick Deploy Script
 # Deploys Lambda functions to AWS
+# All Lambdas now require auth_helper.py and the xo-psycopg2 layer
 
 set -e
 
 REGION="us-west-1"
 BUCKET_NAME="xo-client-data"
+LAYER_NAME="xo-psycopg2"
 
 echo "🚀 XO Platform - Lambda Deployment"
 echo "=================================="
@@ -17,73 +19,85 @@ echo "AWS Account: $ACCOUNT_ID"
 echo "Region: $REGION"
 echo ""
 
-# Deploy /clients Lambda
-echo "📦 Deploying /clients Lambda..."
-cd lambdas/clients
-zip -q -r function.zip lambda_function.py
-
-# Check if Lambda exists
-if aws lambda get-function --function-name xo-clients --region $REGION 2>/dev/null; then
-    echo "   Updating existing function..."
-    aws lambda update-function-code \
-        --function-name xo-clients \
-        --zip-file fileb://function.zip \
-        --region $REGION \
-        --output text > /dev/null
-else
-    echo "   Creating new function..."
-    aws lambda create-function \
-        --function-name xo-clients \
-        --runtime python3.11 \
-        --role arn:aws:iam::${ACCOUNT_ID}:role/xo-lambda-role \
-        --handler lambda_function.lambda_handler \
-        --zip-file fileb://function.zip \
-        --timeout 30 \
-        --memory-size 256 \
-        --environment Variables="{BUCKET_NAME=$BUCKET_NAME}" \
-        --region $REGION \
-        --output text > /dev/null
+# Get latest layer ARN
+LAYER_ARN=$(aws lambda list-layer-versions --layer-name $LAYER_NAME --region $REGION --query 'LayerVersions[0].LayerVersionArn' --output text 2>/dev/null || echo "")
+if [ "$LAYER_ARN" = "None" ] || [ -z "$LAYER_ARN" ]; then
+    echo "⚠️  WARNING: Lambda layer '$LAYER_NAME' not found. Build it first."
+    echo "   See backend/README.md for layer build instructions."
+    LAYER_ARN=""
 fi
 
-rm function.zip
-cd ../..
-echo "   ✅ /clients Lambda deployed"
+# Helper function to deploy a Lambda
+deploy_lambda() {
+    local FUNC_NAME=$1
+    local FUNC_DIR=$2
+    local TIMEOUT=${3:-30}
+    local MEMORY=${4:-256}
 
-# Deploy /upload Lambda
-echo "📦 Deploying /upload Lambda..."
-cd lambdas/upload
-zip -q -r function.zip lambda_function.py
+    echo "📦 Deploying $FUNC_NAME Lambda..."
+    cd lambdas/$FUNC_DIR
 
-# Check if Lambda exists
-if aws lambda get-function --function-name xo-upload --region $REGION 2>/dev/null; then
-    echo "   Updating existing function..."
-    aws lambda update-function-code \
-        --function-name xo-upload \
-        --zip-file fileb://function.zip \
-        --region $REGION \
-        --output text > /dev/null
-else
-    echo "   Creating new function..."
-    aws lambda create-function \
-        --function-name xo-upload \
-        --runtime python3.11 \
-        --role arn:aws:iam::${ACCOUNT_ID}:role/xo-lambda-role \
-        --handler lambda_function.lambda_handler \
-        --zip-file fileb://function.zip \
-        --timeout 30 \
-        --memory-size 256 \
-        --environment Variables="{BUCKET_NAME=$BUCKET_NAME}" \
-        --region $REGION \
-        --output text > /dev/null
-fi
+    # Copy auth_helper into package
+    cp ../shared/auth_helper.py .
 
-rm function.zip
-cd ../..
-echo "   ✅ /upload Lambda deployed"
+    zip -q -r function.zip lambda_function.py auth_helper.py
+
+    if aws lambda get-function --function-name $FUNC_NAME --region $REGION 2>/dev/null; then
+        echo "   Updating existing function..."
+        aws lambda update-function-code \
+            --function-name $FUNC_NAME \
+            --zip-file fileb://function.zip \
+            --region $REGION \
+            --output text > /dev/null
+
+        # Attach layer if available
+        if [ -n "$LAYER_ARN" ]; then
+            aws lambda update-function-configuration \
+                --function-name $FUNC_NAME \
+                --layers $LAYER_ARN \
+                --region $REGION \
+                --output text > /dev/null 2>/dev/null || true
+        fi
+    else
+        echo "   Creating new function..."
+        local LAYER_FLAG=""
+        if [ -n "$LAYER_ARN" ]; then
+            LAYER_FLAG="--layers $LAYER_ARN"
+        fi
+        aws lambda create-function \
+            --function-name $FUNC_NAME \
+            --runtime python3.11 \
+            --role arn:aws:iam::${ACCOUNT_ID}:role/xo-lambda-role \
+            --handler lambda_function.lambda_handler \
+            --zip-file fileb://function.zip \
+            --timeout $TIMEOUT \
+            --memory-size $MEMORY \
+            --environment Variables="{BUCKET_NAME=$BUCKET_NAME}" \
+            $LAYER_FLAG \
+            --region $REGION \
+            --output text > /dev/null
+    fi
+
+    # Clean up
+    rm -f function.zip auth_helper.py
+    cd ../..
+    echo "   ✅ $FUNC_NAME deployed"
+}
+
+# Deploy all Lambdas
+deploy_lambda "xo-clients" "clients"
+deploy_lambda "xo-upload" "upload"
+deploy_lambda "xo-results" "results"
+deploy_lambda "xo-auth" "auth"
+deploy_lambda "xo-buttons" "buttons"
 
 echo ""
-echo "✨ Deployment complete!"
+echo "✨ Simple Lambda deployment complete!"
+echo ""
+echo "Note: xo-enrich and xo-results have their own deploy scripts"
+echo "  - cd lambdas/enrich && ./deploy-enrich.sh"
 echo ""
 echo "Next steps:"
-echo "1. Create API Gateway endpoints (see DEPLOY.md)"
-echo "2. Test with: ./test-api.sh"
+echo "1. Run ./set-db-config.sh to set DATABASE_URL and JWT_SECRET on all Lambdas"
+echo "2. Update API Gateway routes (add /auth/login, /buttons, /buttons/sync)"
+echo "3. Test with: curl -X POST <API_BASE>/auth/login -d '{\"email\":\"admin@xo.com\",\"password\":\"...\"}'"

@@ -1,20 +1,21 @@
 """
 XO Platform - POST /upload Lambda
-Generates presigned URLs for direct S3 uploads
+Generates presigned URLs for direct S3 uploads and records in DB.
 """
 
 import json
 import os
 import boto3
-from datetime import datetime
+from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 URL_EXPIRATION = 3600  # 1 hour
 
+
 def lambda_handler(event, context):
     """
-    Generate presigned URLs for file uploads
+    Generate presigned URLs for file uploads.
 
     Expected input:
     {
@@ -27,27 +28,18 @@ def lambda_handler(event, context):
 
     Returns:
     {
-        "upload_urls": [
-            "https://xo-client-data.s3.amazonaws.com/...",
-            "https://xo-client-data.s3.amazonaws.com/..."
-        ]
+        "upload_urls": ["https://...", "https://..."]
     }
     """
 
-    # Enable CORS
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    }
-
     # Handle OPTIONS preflight
     if event.get('httpMethod') == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': ''
-        }
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
+
+    # Auth check
+    user, err = require_auth(event)
+    if err:
+        return err
 
     try:
         # Parse request body
@@ -55,41 +47,42 @@ def lambda_handler(event, context):
         client_id = body.get('client_id', '').strip()
         files = body.get('files', [])
 
-        # Validate required fields
         if not client_id:
             return {
                 'statusCode': 400,
-                'headers': headers,
-                'body': json.dumps({
-                    'error': 'client_id is required'
-                })
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'client_id is required'})
             }
 
         if not files or not isinstance(files, list):
             return {
                 'statusCode': 400,
-                'headers': headers,
-                'body': json.dumps({
-                    'error': 'files array is required'
-                })
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'files array is required'})
             }
 
-        # Verify client exists (check for metadata.json)
-        try:
-            s3_client.head_object(
-                Bucket=BUCKET_NAME,
-                Key=f"{client_id}/metadata.json"
-            )
-        except:
+        # Verify client exists in DB and belongs to this user
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT id FROM clients WHERE s3_folder = %s AND user_id = %s",
+            (client_id, user['user_id'])
+        )
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            conn.close()
             return {
                 'statusCode': 404,
-                'headers': headers,
-                'body': json.dumps({
-                    'error': 'Client not found'
-                })
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Client not found'})
             }
 
-        # Generate presigned URLs for each file
+        db_client_id = row[0]
+
+        # Generate presigned URLs and record uploads
         upload_urls = []
         for file_info in files:
             file_name = file_info.get('name', '')
@@ -98,10 +91,8 @@ def lambda_handler(event, context):
             if not file_name:
                 continue
 
-            # S3 key in uploads folder
             s3_key = f"{client_id}/uploads/{file_name}"
 
-            # Generate presigned URL for PUT
             presigned_url = s3_client.generate_presigned_url(
                 'put_object',
                 Params={
@@ -114,21 +105,29 @@ def lambda_handler(event, context):
 
             upload_urls.append(presigned_url)
 
+            # Record upload in DB
+            cur.execute("""
+                INSERT INTO uploads (client_id, filename, file_type, s3_key)
+                VALUES (%s, %s, %s, %s)
+            """, (str(db_client_id), file_name, file_type, s3_key))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
         print(f"Generated {len(upload_urls)} presigned URLs for client: {client_id}")
 
         return {
             'statusCode': 200,
-            'headers': headers,
-            'body': json.dumps({
-                'upload_urls': upload_urls
-            })
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'upload_urls': upload_urls})
         }
 
     except Exception as e:
         print(f"Error generating presigned URLs: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'error': 'Internal server error',
                 'message': str(e)

@@ -1,6 +1,7 @@
 """
 XO Platform - POST /enrich Lambda
-Analyzes uploaded documents using Claude API
+Analyzes uploaded documents using Claude API.
+Reads metadata from PostgreSQL, tracks enrichment in DB.
 """
 
 import json
@@ -8,8 +9,9 @@ import os
 import boto3
 import io
 import csv
-from datetime import datetime
+from datetime import datetime, timezone
 from anthropic import Anthropic
+from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
@@ -17,9 +19,10 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
+
 def lambda_handler(event, context):
     """
-    Trigger AI enrichment pipeline
+    Trigger AI enrichment pipeline.
 
     Expected input:
     {
@@ -29,61 +32,97 @@ def lambda_handler(event, context):
     Returns:
     {
         "job_id": "client_1234567890_abcd",
-        "status": "processing"
+        "status": "complete"
     }
     """
 
-    # Enable CORS
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    }
-
     # Handle OPTIONS preflight
     if event.get('httpMethod') == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': ''
-        }
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': ''}
+
+    # Auth check
+    user, err = require_auth(event)
+    if err:
+        return err
+
+    conn = None
+    enrichment_id = None
 
     try:
-        # Parse request body
         body = json.loads(event.get('body', '{}'))
         client_id = body.get('client_id', '').strip()
 
         if not client_id:
             return {
                 'statusCode': 400,
-                'headers': headers,
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'client_id is required'})
             }
 
-        # Read client metadata
-        metadata = read_metadata(client_id)
-        company_name = metadata.get('company_name', 'Unknown Company')
-        website = metadata.get('website', '')
-        contact_name = metadata.get('contact_name', '')
-        contact_title = metadata.get('contact_title', '')
-        contact_linkedin = metadata.get('contact_linkedin', '')
-        industry = metadata.get('industry', '')
-        description = metadata.get('description', '')
-        pain_point = metadata.get('pain_point', '')
+        # Read client metadata from DB
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-        # Extract text from uploaded files
+        cur.execute("""
+            SELECT company_name, website_url, contact_name, contact_title,
+                   contact_linkedin, industry, description, pain_point, id
+            FROM clients
+            WHERE s3_folder = %s AND user_id = %s
+        """, (client_id, user['user_id']))
+
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 404,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Client not found'})
+            }
+
+        company_name = row[0] or 'Unknown Company'
+        website = row[1] or ''
+        contact_name = row[2] or ''
+        contact_title = row[3] or ''
+        contact_linkedin = row[4] or ''
+        industry = row[5] or ''
+        description = row[6] or ''
+        pain_point = row[7] or ''
+        db_client_id = row[8]
+
+        # Create enrichment tracking record
+        cur.execute("""
+            INSERT INTO enrichments (client_id, status)
+            VALUES (%s, 'processing')
+            RETURNING id
+        """, (str(db_client_id),))
+        enrichment_id = cur.fetchone()[0]
+        conn.commit()
+
+        # Read skills from DB (with S3 fallback)
+        skills = read_skills_from_db(cur, db_client_id, client_id)
+        print(f"Loaded {len(skills)} skills for client: {client_id}")
+
+        cur.close()
+
+        # Extract text from uploaded files (still from S3)
         extracted_text = extract_all_files(client_id)
 
         if not extracted_text:
+            # Update enrichment status to error
+            cur2 = conn.cursor()
+            cur2.execute("""
+                UPDATE enrichments SET status = 'error', completed_at = NOW()
+                WHERE id = %s
+            """, (str(enrichment_id),))
+            conn.commit()
+            cur2.close()
+            conn.close()
             return {
                 'statusCode': 400,
-                'headers': headers,
+                'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'No files found to analyze'})
             }
-
-        # Read skills from S3
-        skills = read_skills(client_id)
-        print(f"Loaded {len(skills)} skills for client: {client_id}")
 
         # Call Claude API with First Party Trick prompt
         print(f"Analyzing {len(extracted_text)} files for client: {client_id}")
@@ -101,11 +140,22 @@ def lambda_handler(event, context):
             ContentType='application/json'
         )
 
+        # Update enrichment status to complete
+        cur3 = conn.cursor()
+        cur3.execute("""
+            UPDATE enrichments
+            SET status = 'complete', completed_at = NOW(), results_s3_key = %s
+            WHERE id = %s
+        """, (results_key, str(enrichment_id)))
+        conn.commit()
+        cur3.close()
+        conn.close()
+
         print(f"Analysis complete for client: {client_id}")
 
         return {
             'statusCode': 200,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'job_id': client_id,
                 'status': 'complete'
@@ -116,9 +166,29 @@ def lambda_handler(event, context):
         print(f"Error during enrichment: {str(e)}")
         import traceback
         traceback.print_exc()
+
+        # Update enrichment status to error if we have a record
+        if conn and enrichment_id:
+            try:
+                cur_err = conn.cursor()
+                cur_err.execute("""
+                    UPDATE enrichments SET status = 'error', completed_at = NOW()
+                    WHERE id = %s
+                """, (str(enrichment_id),))
+                conn.commit()
+                cur_err.close()
+            except Exception:
+                pass
+
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
         return {
             'statusCode': 500,
-            'headers': headers,
+            'headers': CORS_HEADERS,
             'body': json.dumps({
                 'error': 'Internal server error',
                 'message': str(e)
@@ -126,25 +196,42 @@ def lambda_handler(event, context):
         }
 
 
-def read_metadata(client_id):
-    """Read client metadata from S3"""
-    try:
-        response = s3_client.get_object(
-            Bucket=BUCKET_NAME,
-            Key=f"{client_id}/metadata.json"
-        )
-        return json.loads(response['Body'].read().decode('utf-8'))
-    except Exception as e:
-        print(f"Error reading metadata: {str(e)}")
-        return {}
-
-
-def read_skills(client_id):
-    """Read all skill files from S3 skills folder"""
+def read_skills_from_db(cur, db_client_id, client_id):
+    """Read skills from DB, with S3 fallback for s3_key-only skills."""
     skills = []
 
     try:
-        # List all files in skills folder
+        cur.execute("""
+            SELECT name, content, s3_key FROM skills WHERE client_id = %s
+        """, (str(db_client_id),))
+
+        for row in cur.fetchall():
+            name, content, s3_key = row
+
+            if content:
+                skills.append({'name': name, 'content': content})
+            elif s3_key:
+                # Fallback: read from S3
+                try:
+                    file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+                    skill_content = file_obj['Body'].read().decode('utf-8')
+                    skills.append({'name': name, 'content': skill_content})
+                except Exception as e:
+                    print(f"Error reading skill from S3 ({s3_key}): {e}")
+
+    except Exception as e:
+        print(f"Error reading skills from DB: {e}")
+        # Fallback to S3 listing
+        skills = read_skills_from_s3(client_id)
+
+    return skills
+
+
+def read_skills_from_s3(client_id):
+    """Fallback: Read all skill files from S3 skills folder."""
+    skills = []
+
+    try:
         response = s3_client.list_objects_v2(
             Bucket=BUCKET_NAME,
             Prefix=f"{client_id}/skills/"
@@ -157,23 +244,18 @@ def read_skills(client_id):
             key = obj['Key']
             filename = key.split('/')[-1]
 
-            # Skip folder markers and non-markdown files
-            if not filename or filename == '' or not filename.endswith('.md'):
+            if not filename or not filename.endswith('.md'):
                 continue
 
-            print(f"Loading skill: {filename}")
-
-            # Get skill file from S3
             file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
             skill_content = file_obj['Body'].read().decode('utf-8')
-
             skills.append({
                 'name': filename.replace('.md', ''),
                 'content': skill_content
             })
 
     except Exception as e:
-        print(f"Error reading skills: {str(e)}")
+        print(f"Error reading skills from S3: {e}")
 
     return skills
 
@@ -183,7 +265,6 @@ def extract_all_files(client_id):
     extracted_text = {}
 
     try:
-        # List all files in uploads folder
         response = s3_client.list_objects_v2(
             Bucket=BUCKET_NAME,
             Prefix=f"{client_id}/uploads/"
@@ -196,17 +277,14 @@ def extract_all_files(client_id):
             key = obj['Key']
             filename = key.split('/')[-1]
 
-            # Skip folder markers
             if not filename or filename == '':
                 continue
 
             print(f"Processing file: {filename}")
 
-            # Get file from S3
             file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
             file_content = file_obj['Body'].read()
 
-            # Extract text based on file type
             text = extract_text(filename, file_content)
             if text:
                 extracted_text[filename] = text
@@ -246,11 +324,9 @@ def extract_csv(file_content):
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
 
-        # Format as text
         text = "CSV Data:\n"
         text += f"Total rows: {len(rows)}\n\n"
 
-        # Include header and sample rows
         if rows:
             text += "Header: " + ", ".join(rows[0]) + "\n\n"
             text += "Sample data (first 10 rows):\n"
@@ -278,7 +354,6 @@ def extract_excel(file_content):
             text += f"Sheet: {sheet_name}\n"
             text += f"Rows: {sheet.max_row}, Columns: {sheet.max_column}\n\n"
 
-            # Get sample data
             text += "Sample data (first 10 rows):\n"
             for i, row in enumerate(sheet.iter_rows(max_row=10, values_only=True)):
                 text += f"Row {i+1}: " + ", ".join([str(cell) if cell else "" for cell in row]) + "\n"
@@ -300,7 +375,6 @@ def extract_pdf(file_content):
         pdf = PdfReader(BytesIO(file_content))
         text = f"PDF Document ({len(pdf.pages)} pages):\n\n"
 
-        # Extract text from first 10 pages
         for i, page in enumerate(pdf.pages[:10]):
             page_text = page.extract_text()
             if page_text:
@@ -316,17 +390,15 @@ def extract_pdf(file_content):
 def analyze_with_claude(company_name, website, contact_name, contact_title,
                         contact_linkedin, industry, description, pain_point, extracted_text, skills=None):
     """
-    Call Claude API with First Party Trick prompt
-    Returns structured analysis JSON
+    Call Claude API with First Party Trick prompt.
+    Returns structured analysis JSON.
     """
 
-    # Build the prompt
     files_summary = "\n\n".join([
-        f"=== {filename} ===\n{text[:5000]}"  # Limit each file to 5000 chars
+        f"=== {filename} ===\n{text[:5000]}"
         for filename, text in extracted_text.items()
     ])
 
-    # Build enrichment context
     enrichment_info = []
     if website:
         enrichment_info.append(f"Company Website: {website}")
@@ -343,7 +415,6 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
 
     enrichment_section = "\n".join(enrichment_info) if enrichment_info else "Not provided"
 
-    # Build skills section
     skills_section = ""
     if skills and len(skills) > 0:
         skills_section = "\n\nDOMAIN-SPECIFIC SKILLS & INSTRUCTIONS:\n"
@@ -431,7 +502,6 @@ Return ONLY valid JSON in this exact structure:
 Be specific. Use actual data from the documents. Think like a management consultant."""
 
     try:
-        # Call Claude API
         message = anthropic_client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=8000,
@@ -441,11 +511,8 @@ Be specific. Use actual data from the documents. Think like a management consult
             ]
         )
 
-        # Parse response
         response_text = message.content[0].text
 
-        # Try to extract JSON from response
-        # Claude sometimes wraps JSON in markdown code blocks
         if '```json' in response_text:
             start = response_text.find('```json') + 7
             end = response_text.find('```', start)
@@ -457,15 +524,13 @@ Be specific. Use actual data from the documents. Think like a management consult
 
         analysis = json.loads(response_text)
 
-        # Add metadata
-        analysis['analyzed_at'] = datetime.utcnow().isoformat()
+        analysis['analyzed_at'] = datetime.now(timezone.utc).isoformat()
         analysis['analyzed_files'] = list(extracted_text.keys())
 
         return analysis
 
     except Exception as e:
         print(f"Error calling Claude API: {str(e)}")
-        # Return error structure
         return {
             "status": "error",
             "error": str(e),
