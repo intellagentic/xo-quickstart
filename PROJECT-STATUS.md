@@ -9,53 +9,332 @@
 
 ---
 
-## ARCHITECTURE OVERVIEW
+## ARCHITECTURE DIAGRAMS
+
+### 1. System Architecture
 
 ```
-+-----------+         +-------------+         +----------+         +--------+
-|  Browser  | ---->   | CloudFront  | ---->   |    S3    | ---->   | React  |
-| (Desktop/ |         | (CDN Cache) |         | (Static) |         |  App   |
-|  Mobile)  |         +-------------+         +----------+         +--------+
-+-----------+                                                           |
-      |                                                                 |
-      |                                                                 v
-      |                                                       +------------------+
-      +------------------------------------------------>      | API Gateway REST |
-                                                              +------------------+
-                                                                       |
-                     +--------------------+------------------------+--+
-                     |                    |                        |
-                     v                    v                        v
-              +--------------+     +--------------+        +--------------+
-              | xo-clients   |     | xo-upload    |        | xo-enrich    |
-              | Lambda       |     | Lambda       |        | Lambda       |
-              | (Python 3.11)|     | (Python 3.11)|        | (Python 3.11)|
-              +--------------+     +--------------+        +--------------+
-                     |                    |                        |
-                     |                    |                        v
-                     |                    |              +-------------------+
-                     v                    v              | Claude Sonnet 4.5 |
-              +----------------------------------------+ | (Anthropic API)   |
-              |        S3: xo-client-data             | +-------------------+
-              |  {client_id}/                         |          |
-              |    - uploads/                         | <--------+
-              |    - extracted/                       |
-              |    - results/                         |
-              |    - metadata.json                    |
-              +----------------------------------------+
-                                   |
-                                   v
-                            +--------------+
-                            | xo-results   |
-                            | Lambda       |
-                            | (Python 3.11)|
-                            +--------------+
-                                   |
-                                   v
-                            +-------------+
-                            |   Browser   |
-                            | (Results)   |
-                            +-------------+
++-------------------+
+|      Browser      |
+| (Desktop / Mobile)|
++--------+----------+
+         |
+         | HTTPS
+         |
++--------v----------+         +---------------------------+
+|    CloudFront      |         |     API Gateway (REST)    |
+|  EWNDD7ESKAW33     |         | 2t9mg17baj.execute-api    |
++--------+----------+         |   .us-west-1.amazonaws    |
+         |                     +--+-----+-----+--------+--+
+         |                        |     |     |        |
+         v                        |     |     |        |
++------------------+              |     |     |        |
+| S3: xo-prototype |              |     |     |        |
+|    -frontend     |              |     |     |        |
+| (index.html,     |              |     |     |        |
+|  JS, CSS, logos) |              |     |     |        |
++------------------+              |     |     |        |
+                                  v     v     v        v
+        +------------+ +-----------+ +----------+ +----------+
+        | xo-clients | | xo-upload | | xo-enrich| |xo-results|
+        |   Lambda   | |  Lambda   | |  Lambda  | |  Lambda  |
+        | Python 3.11| |Python 3.11| |Python 3.11| |Python 3.11|
+        +-----+------+ +-----+-----+ +----+-----+ +----+-----+
+              |               |            |             |
+              |               |            v             |
+              |               |   +----------------+    |
+              |               |   | Claude Sonnet  |    |
+              |               |   | 4.5 (Anthropic |    |
+              |               |   |     API)       |    |
+              |               |   +-------+--------+    |
+              |               |           |              |
+              v               v           v              v
+        +---------------------------------------------------+
+        |              S3: xo-client-data                   |
+        |                                                   |
+        |  {client_id}/                                     |
+        |    +-- uploads/        (raw files)                |
+        |    +-- extracted/      (parsed text)              |
+        |    +-- skills/         (domain .md files)         |
+        |    +-- results/        (analysis.json)            |
+        |    +-- metadata.json   (company info + pain point)|
+        +---------------------------------------------------+
+```
+
+### 2. Frontend Component Tree
+
+```
+App (root)
+|
++-- Header
+|     +-- Hamburger Menu Button
+|     +-- XO Logo Box
+|     +-- Title (desktop: "XO Quickstart" / mobile: "Rapid Prototype")
+|     +-- Intellagentic Logo (right)
+|
++-- Sidebar (slide-out, 280px)
+|     +-- Welcome        (Home icon)
+|     +-- Enrich         (Sparkles icon)
+|     +-- Results        (FileText icon)
+|     +-- Skills         (Database icon)
+|     +-- ---divider---
+|     +-- Configuration  (Settings icon)
+|     +-- Theme Toggle   (Sun/Moon)
+|
++-- CompanyInfoModal
+|     +-- Company Name *
+|     +-- Website URL
+|     +-- Contact Name
+|     +-- Contact Title
+|     +-- LinkedIn URL
+|     +-- Industry
+|     +-- Description
+|     +-- Immediate Pain Point    <-- NEW (textarea)
+|
++-- Screen Router (currentScreen state)
+      |
+      +-- UploadScreen ("Welcome")
+      |     +-- Step Card 1: Domain Expertise  --> opens CompanyInfoModal
+      |     +-- Step Card 2: Raw Data          --> drag-and-drop file zone
+      |     +-- Step Card 3: Intellagentic Growth  --> upload trigger
+      |     +-- Action Buttons Row (from configButtons)
+      |     +-- Founder Quotes (Alan Moore, Ken Scott)
+      |
+      +-- EnrichScreen
+      |     +-- Start Enrichment Button
+      |     +-- Progress Tracker (5 stages)
+      |
+      +-- ResultsScreen
+      |     +-- Executive Summary
+      |     +-- Problems (expandable, severity badges)
+      |     +-- Data Schema (expandable tables)
+      |     +-- 30/60/90 Action Plan
+      |     +-- Sources
+      |
+      +-- SkillsScreen
+      |     +-- Skills List
+      |     +-- AddSkillModal (name, content, upload .md)
+      |
+      +-- ConfigurationScreen
+            +-- Theme Toggle (light/dark)
+            +-- Configure Buttons (drag-and-drop, inline edit)
+            |     +-- Button Card (grip, icon, label, URL, actions)
+            |     +-- Inline Editor (label, URL, color grid, icon grid)
+            |     +-- "+ Add Button"
+            +-- Live Preview Panel
+```
+
+### 3. S3 Folder Structure (per client)
+
+```
+xo-client-data/
+|
++-- client_1709251234_a1b2c3d4/
+|     |
+|     +-- metadata.json
+|     |     {
+|     |       "client_id": "client_1709251234_a1b2c3d4",
+|     |       "company_name": "Acme Waste Management",
+|     |       "website": "https://acme-waste.com",
+|     |       "contact_name": "John Doe",
+|     |       "contact_title": "CEO",
+|     |       "contact_linkedin": "https://linkedin.com/in/johndoe",
+|     |       "industry": "Waste Management",
+|     |       "description": "Regional waste collection service",
+|     |       "pain_point": "Route optimization is killing our margins",
+|     |       "created_at": "2026-03-01T00:00:00.000000",
+|     |       "status": "active"
+|     |     }
+|     |
+|     +-- uploads/
+|     |     +-- customers.csv
+|     |     +-- routes.xlsx
+|     |     +-- contract.pdf
+|     |     +-- meeting-notes.mp3
+|     |
+|     +-- extracted/                  (future: parsed text output)
+|     |     +-- customers.txt
+|     |     +-- meeting-notes_transcript.txt
+|     |
+|     +-- skills/
+|     |     +-- waste-management-analysis.md
+|     |     +-- route-optimization.md
+|     |
+|     +-- results/
+|           +-- analysis.json         (Claude output: summary, problems,
+|                                      schema, plan, sources)
+|
++-- client_1709259876_e5f6g7h8/
+      +-- ...
+```
+
+### 4. Data Flow Diagram (3-step partner journey)
+
+```
+STEP 1: NEW PARTNER                    STEP 2: UPLOAD FILES
+========================               ========================
+
++------------------+                   +------------------+
+| CompanyInfoModal |                   | Drag-and-Drop    |
+| - name *         |                   | File Zone        |
+| - website        |                   | (15 file types)  |
+| - contact info   |                   +--------+---------+
+| - industry       |                            |
+| - description    |                            v
+| - pain point     |                   +------------------+
++--------+---------+                   | POST /upload     |
+         |                             | { client_id,     |
+         v                             |   files: [...] } |
++------------------+                   +--------+---------+
+| POST /clients    |                            |
+| { company_name,  |                            v
+|   website,       |                   +------------------+
+|   contactName,   |                   | S3 Presigned URL |
+|   painPoint, ... }|                  | PUT direct to S3 |
++--------+---------+                   +--------+---------+
+         |                                      |
+         v                                      v
++------------------+                   +------------------+
+| xo-clients       |                   | xo-client-data/  |
+| Lambda           |                   |  {id}/uploads/   |
+| - generate id    |                   |  +-- file1.csv   |
+| - create folders |                   |  +-- file2.pdf   |
+| - write metadata |                   +------------------+
++--------+---------+
+         |
+         v
++------------------+
+| xo-client-data/  |
+|  {id}/           |
+|  +-- metadata.json
+|  +-- uploads/    |
+|  +-- extracted/  |
+|  +-- results/    |
++------------------+
+
+
+STEP 3: ENRICH + RESULTS
+========================
+
++------------------+         +------------------+
+| Click "Start     |         | xo-enrich Lambda |
+|  Enrichment"     |         |                  |
++--------+---------+         | 1. Read metadata |
+         |                   |    (+ pain point)|
+         v                   | 2. List uploads/ |
++------------------+         | 3. Extract text  |
+| POST /enrich     |-------->|    (CSV/PDF/XLSX)|
+| { client_id }    |         | 4. Read skills/  |
++------------------+         | 5. Build prompt  |
+                             |    (pain point = |
+                             |     PRIORITY #1) |
+                             +--------+---------+
+                                      |
+                                      v
+                             +------------------+
+                             | Claude Sonnet 4.5|
+                             | - exec summary   |
+                             | - problems (3-5) |
+                             | - data schema    |
+                             | - 30/60/90 plan  |
+                             | - sources        |
+                             +--------+---------+
+                                      |
+                                      v
+                             +------------------+
+                             | S3: {id}/results/|
+                             |  analysis.json   |
+                             +--------+---------+
+                                      |
+         +----------------------------+
+         |
+         v
++------------------+         +------------------+
+| GET /results/{id}|-------->| xo-results       |
+|  (poll every 2s) |         | Lambda           |
++------------------+         | - read analysis  |
+                             |   .json from S3  |
+         +-------------------|                  |
+         |                   +------------------+
+         v
++------------------+
+| ResultsScreen    |
+| - Summary        |
+| - Problems       |
+| - Schema         |
+| - Action Plan    |
+| - Sources        |
++------------------+
+```
+
+### 5. API Gateway Route Map
+
+```
++---------------------------------------------------------------+
+|  API Gateway: xo-api                                          |
+|  Base: https://2t9mg17baj.execute-api.us-west-1.amazonaws.com |
+|  Stage: /prod                                                 |
++---------------------------------------------------------------+
+|                                                               |
+|  Method   Path             Lambda        Purpose              |
+|  ------   ----             ------        -------              |
+|  POST     /clients         xo-clients    Create new partner   |
+|                                          - validate name      |
+|                                          - generate client_id |
+|                                          - create S3 folders  |
+|                                          - write metadata.json|
+|                                            (incl. pain_point) |
+|                                                               |
+|  POST     /upload          xo-upload     Get presigned URLs   |
+|                                          - validate client_id |
+|                                          - generate PUT URLs  |
+|                                          - 1 hour expiry      |
+|                                                               |
+|  POST     /enrich          xo-enrich     Trigger AI analysis  |
+|                                          - read metadata      |
+|                                          - extract file text  |
+|                                          - load skills (.md)  |
+|                                          - call Claude API    |
+|                                          - prioritize pain pt |
+|                                          - write results JSON |
+|                                                               |
+|  GET      /results/{id}    xo-results    Fetch analysis       |
+|                                          - read analysis.json |
+|                                          - return JSON or     |
+|                                            {status:processing}|
+|                                                               |
+|  OPTIONS  (all paths)      (built-in)    CORS preflight       |
+|                                          - Allow-Origin: *    |
+|                                          - Allow-Headers:     |
+|                                            Content-Type       |
++---------------------------------------------------------------+
+
+Request/Response Flow:
+
+  Browser                API Gateway              Lambda              S3
+    |                        |                      |                  |
+    |-- POST /clients ------>|-- invoke ----------->|                  |
+    |                        |                      |-- put metadata ->|
+    |                        |                      |-- put folders -->|
+    |<-- { client_id } ------|<-- return -----------|                  |
+    |                        |                      |                  |
+    |-- POST /upload ------->|-- invoke ----------->|                  |
+    |                        |                      |-- check meta -->|
+    |<-- { upload_urls } ----|<-- presigned URLs ---|                  |
+    |                        |                      |                  |
+    |-- PUT (presigned) -----|--------------------------------------------->|
+    |                        |                      |                  |
+    |-- POST /enrich ------->|-- invoke ----------->|                  |
+    |                        |                      |-- read meta --->|
+    |                        |                      |-- read uploads->|
+    |                        |                      |-- read skills ->|
+    |                        |                      |-- Claude API    |
+    |                        |                      |-- put results ->|
+    |<-- { status } ---------|<-- return -----------|                  |
+    |                        |                      |                  |
+    |-- GET /results/{id} -->|-- invoke ----------->|                  |
+    |                        |                      |-- read results->|
+    |<-- { analysis } -------|<-- return -----------|                  |
 ```
 
 ---
@@ -72,7 +351,7 @@
 src/
   App.jsx          -- Main application component
     - Hamburger Sidebar       (Navigation: Welcome, Enrich, Results, Skills, Configuration, theme toggle -- all always clickable)
-    - CompanyInfoModal        (Partner information form - 7 fields)
+    - CompanyInfoModal        (Partner information form - 8 fields)
     - UploadScreen            (3-step journey with founder quotes)
     - EnrichScreen            (AI processing with progress tracking)
     - ResultsScreen           (Analysis display with expandable sections)
@@ -92,7 +371,7 @@ src/
 
 1. **Welcome / Upload Screen** (3-step journey layout with founder testimonials)
    - Header: Hamburger menu (left), XO logo, title, Intellagentic logo (right)
-   - Step 1: Domain Expertise -- "New Partner" modal (7 fields: name, website, contact, title, LinkedIn, industry, description)
+   - Step 1: Domain Expertise -- "New Partner" modal (8 fields: name, website, contact, title, LinkedIn, industry, description, pain point)
    - Step 2: Raw Data -- Drag-and-drop file upload zone (15 file types)
    - Step 3: Intelligent Growth -- Preview of analysis output (grayed until steps 1&2 complete)
    - Action Buttons Row: Configurable buttons between step cards and quotes (Enrich, Skills by default)
@@ -233,7 +512,8 @@ src/
   "contactTitle": "CEO",
   "contactLinkedIn": "https://linkedin.com/in/johndoe",
   "industry": "Waste Management",
-  "description": "Regional waste collection service"
+  "description": "Regional waste collection service",
+  "painPoint": "Route optimization is killing our margins"
 }
 ```
 
@@ -251,7 +531,8 @@ curl -X POST https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/clients
   -H "Content-Type: application/json" \
   -d '{
     "company_name": "Acme Waste Management",
-    "description": "Regional waste collection service"
+    "description": "Regional waste collection service",
+    "painPoint": "Route optimization is killing our margins"
   }'
 ```
 
@@ -412,6 +693,7 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
   "contact_linkedin": "https://linkedin.com/in/johndoe",
   "industry": "Waste Management",
   "description": "Regional waste collection service",
+  "pain_point": "Route optimization is killing our margins",
   "created_at": "2026-03-01T00:00:00.000000",
   "status": "active"
 }
@@ -435,7 +717,7 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 1. Validates company_name is provided
 2. Generates unique client_id: `client_{timestamp}_{md5hash}`
 3. Creates S3 folder structure: uploads/, extracted/, results/
-4. Writes metadata.json to S3
+4. Writes metadata.json to S3 (includes pain_point field)
 5. Returns client_id to frontend
 
 **File:** backend/lambdas/clients/lambda_function.py
@@ -479,17 +761,19 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
 - openpyxl==3.1.2
 
 **What it does:**
-1. Reads client metadata from S3
+1. Reads client metadata from S3 (including pain_point)
 2. Lists all files in {client_id}/uploads/
 3. Extracts text from each file:
    - CSV: Parse with csv module, include header + 10 sample rows
    - PDF: Extract text with pypdf (first 10 pages)
    - Excel: Extract with openpyxl (all sheets, first 10 rows each)
    - TXT: Read directly
-4. Sends extracted text + company info to Claude API
-5. Uses "First Party Trick" prompt for MBA-level analysis
-6. Writes analysis.json to {client_id}/results/
-7. Returns job_id and status
+4. Reads skills from {client_id}/skills/ (markdown files)
+5. Sends extracted text + company info + pain point to Claude API
+6. Uses "First Party Trick" prompt for MBA-level analysis
+7. If pain_point present: injects PRIORITY instruction (pain point = #1 problem, leads summary, front-loads 30-day plan)
+8. Writes analysis.json to {client_id}/results/
+9. Returns job_id and status
 
 **File:** backend/lambdas/enrich/lambda_function.py
 **Deploy:** backend/lambdas/enrich/deploy-enrich.sh
@@ -699,7 +983,7 @@ cd backend
 ## BUILD HISTORY
 
 **Session Date:** February 28 - March 1, 2026
-**Build Count:** 29 completed builds
+**Build Count:** 30 completed builds
 
 **Build Order:**
 
@@ -908,6 +1192,18 @@ cd backend
     - Version badge hidden on mobile to save horizontal space
     - Deployed to production via CloudFront
 
+30. **Immediate Pain Point Field**
+    - Added "Immediate Pain Point" textarea to CompanyInfoModal (8th field, after Description)
+    - Placeholder: "What's the one problem you need solved right now?"
+    - Frontend sends `painPoint` in /clients API call
+    - xo-clients Lambda stores as `pain_point` in metadata.json
+    - xo-enrich Lambda reads `pain_point` from metadata, includes in enrichment context
+    - When pain point is present, Claude prompt gets PRIORITY instruction:
+      - Makes pain point the #1 problem in analysis
+      - Leads executive summary with it
+      - Front-loads 30-day action plan with steps addressing it
+    - All three deployments updated: frontend, xo-clients Lambda, xo-enrich Lambda
+
 ---
 
 ## PENDING ITEMS
@@ -973,7 +1269,7 @@ cd backend
 The XO Quickstart prototype is **fully operational** and deployed to production. A domain partner can:
 
 1. Visit https://d36la414u58rw5.cloudfront.net
-2. Fill out company information (7 fields including enrichment targets)
+2. Fill out company information (8 fields including pain point and enrichment targets)
 3. Upload business documents (15 file types supported)
 4. Click "Start Enrichment" and watch AI process their data
 5. Receive MBA-level business analysis in <60 seconds:

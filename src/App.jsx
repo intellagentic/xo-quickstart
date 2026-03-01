@@ -23,7 +23,8 @@ export default function App() {
     contactTitle: '',
     contactLinkedIn: '',
     industry: '',
-    description: ''
+    description: '',
+    painPoint: ''
   })
 
   // Theme state - persisted to localStorage
@@ -465,6 +466,28 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose }) {
                 }}
               />
             </div>
+
+            {/* Immediate Pain Point */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+                Immediate Pain Point
+              </label>
+              <textarea
+                value={localData.painPoint}
+                onChange={(e) => setLocalData({ ...localData, painPoint: e.target.value })}
+                placeholder="What's the one problem you need solved right now?"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '0.625rem',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
           </div>
 
           {/* Save Button */}
@@ -589,7 +612,8 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
           contactTitle: companyData.contactTitle,
           contactLinkedIn: companyData.contactLinkedIn,
           industry: companyData.industry,
-          description: companyData.description
+          description: companyData.description,
+          painPoint: companyData.painPoint
         })
       })
 

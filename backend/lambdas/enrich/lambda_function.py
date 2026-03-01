@@ -69,6 +69,7 @@ def lambda_handler(event, context):
         contact_linkedin = metadata.get('contact_linkedin', '')
         industry = metadata.get('industry', '')
         description = metadata.get('description', '')
+        pain_point = metadata.get('pain_point', '')
 
         # Extract text from uploaded files
         extracted_text = extract_all_files(client_id)
@@ -88,7 +89,7 @@ def lambda_handler(event, context):
         print(f"Analyzing {len(extracted_text)} files for client: {client_id}")
         analysis = analyze_with_claude(
             company_name, website, contact_name, contact_title,
-            contact_linkedin, industry, description, extracted_text, skills
+            contact_linkedin, industry, description, pain_point, extracted_text, skills
         )
 
         # Write results to S3
@@ -313,7 +314,7 @@ def extract_pdf(file_content):
 
 
 def analyze_with_claude(company_name, website, contact_name, contact_title,
-                        contact_linkedin, industry, description, extracted_text, skills=None):
+                        contact_linkedin, industry, description, pain_point, extracted_text, skills=None):
     """
     Call Claude API with First Party Trick prompt
     Returns structured analysis JSON
@@ -337,6 +338,8 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
         enrichment_info.append(f"Industry: {industry}")
     if description:
         enrichment_info.append(f"Description: {description}")
+    if pain_point:
+        enrichment_info.append(f"Immediate Pain Point: {pain_point}")
 
     enrichment_section = "\n".join(enrichment_info) if enrichment_info else "Not provided"
 
@@ -358,7 +361,11 @@ CLIENT DATA (Uploaded Documents):
 {files_summary}
 {skills_section}
 TASK:
-Analyze this business like an MBA analyst presenting on Monday morning. Provide:
+Analyze this business like an MBA analyst presenting on Monday morning.{f"""
+
+PRIORITY: The client has identified this as their immediate pain point: '{pain_point}'. Make this the #1 problem in your analysis. Lead the executive summary with it, ensure it appears first in the problems list with specific evidence and a concrete recommendation, and front-load the 30-day action plan with steps that directly address it.""" if pain_point else ""}
+
+Provide:
 
 1. EXECUTIVE SUMMARY: 2-3 paragraph overview of the business, operations, and financial indicators based on the data provided.
 

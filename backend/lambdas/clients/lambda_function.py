@@ -60,6 +60,7 @@ def lambda_handler(event, context):
         contact_linkedin = body.get('contactLinkedIn', '').strip()
         industry = body.get('industry', '').strip()
         description = body.get('description', '').strip()
+        pain_point = body.get('painPoint', '').strip()
 
         # Validate required fields
         if not company_name:
@@ -100,6 +101,7 @@ def lambda_handler(event, context):
             'contact_linkedin': contact_linkedin,
             'industry': industry,
             'description': description,
+            'pain_point': pain_point,
             'created_at': datetime.utcnow().isoformat(),
             'status': 'active'
         }
