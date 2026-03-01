@@ -11,7 +11,7 @@ import logoDark from './assets/logo-dark.png'
 const API_BASE = 'https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod'
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results | configuration
+  const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results | skills | configuration
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -190,6 +190,29 @@ export default function App() {
                 <FileText size={20} />
                 Results
               </button>
+              <button
+                onClick={() => navigateTo('skills')}
+                disabled={!clientId}
+                style={{
+                  width: '100%',
+                  background: currentScreen === 'skills' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                  border: 'none',
+                  borderLeft: currentScreen === 'skills' ? '3px solid #dc2626' : '3px solid transparent',
+                  color: currentScreen === 'skills' ? '#dc2626' : 'rgba(255, 255, 255, 0.7)',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: clientId ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  opacity: clientId ? 1 : 0.5,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Database size={20} />
+                Skills
+              </button>
               <div style={{
                 height: '1px',
                 background: 'rgba(255, 255, 255, 0.1)',
@@ -269,6 +292,7 @@ export default function App() {
           />
         )}
         {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} />}
+        {currentScreen === 'skills' && <SkillsScreen clientId={clientId} />}
         {currentScreen === 'configuration' && <ConfigurationScreen />}
       </main>
 
@@ -1305,6 +1329,341 @@ function EnrichScreen({ clientId, onComplete }) {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// SKILLS SCREEN
+// ============================================================
+function SkillsScreen({ clientId }) {
+  const [skills, setSkills] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [editingSkill, setEditingSkill] = useState(null)
+
+  useEffect(() => {
+    if (clientId) {
+      fetchSkills()
+    }
+  }, [clientId])
+
+  const fetchSkills = async () => {
+    try {
+      setLoading(true)
+      // TODO: Call API endpoint to list skills from S3
+      // For now, mock data
+      setSkills([])
+    } catch (err) {
+      console.error('Failed to fetch skills:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (skillName) => {
+    if (!confirm(`Delete skill "${skillName}"?`)) return
+
+    try {
+      // TODO: Call API endpoint to delete skill from S3
+      setSkills(prev => prev.filter(s => s.name !== skillName))
+    } catch (err) {
+      alert('Failed to delete skill: ' + err.message)
+    }
+  }
+
+  return (
+    <div>
+      {/* Skills Header */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="panel-header-left">
+            <Database size={20} className="icon-red" />
+            <h2>Skills</h2>
+            <span className="badge-count blue">{skills.length}</span>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="action-btn red"
+            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+          >
+            <Plus size={18} />
+            Add Skill
+          </button>
+        </div>
+      </div>
+
+      {/* Skills List */}
+      <div style={{ marginTop: '1rem' }}>
+        {loading ? (
+          <div className="panel">
+            <div className="empty-state">
+              <Loader2 size={48} style={{ color: '#dc2626', animation: 'spin 1s linear infinite' }} />
+              <p>Loading skills...</p>
+            </div>
+          </div>
+        ) : skills.length === 0 ? (
+          <div className="panel">
+            <div className="empty-state">
+              <Database size={48} style={{ color: '#ccc' }} />
+              <p>No skills yet. Add your first skill to enhance AI analysis.</p>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {skills.map((skill, index) => (
+              <div key={index} className="panel">
+                <div style={{
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.25rem' }}>
+                      {skill.name}
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: '#666', margin: 0 }}>
+                      {skill.preview || 'Markdown skill content'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => {
+                        setEditingSkill(skill)
+                        setShowAddModal(true)
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#3b82f6',
+                        cursor: 'pointer',
+                        padding: '0.5rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(skill.name)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#dc2626',
+                        cursor: 'pointer',
+                        padding: '0.5rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Skill Modal */}
+      {showAddModal && (
+        <AddSkillModal
+          clientId={clientId}
+          skill={editingSkill}
+          onClose={() => {
+            setShowAddModal(false)
+            setEditingSkill(null)
+          }}
+          onSave={() => {
+            setShowAddModal(false)
+            setEditingSkill(null)
+            fetchSkills()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// ADD SKILL MODAL
+// ============================================================
+function AddSkillModal({ clientId, skill, onClose, onSave }) {
+  const [skillName, setSkillName] = useState(skill?.name || '')
+  const [skillContent, setSkillContent] = useState(skill?.content || '')
+  const [saving, setSaving] = useState(false)
+  const [uploadMode, setUploadMode] = useState(false)
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.md')) {
+      alert('Please upload a .md file')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setSkillContent(event.target.result)
+      setSkillName(file.name.replace('.md', ''))
+      setUploadMode(false)
+    }
+    reader.readAsText(file)
+  }
+
+  const handleSave = async () => {
+    if (!skillName.trim()) {
+      alert('Skill name is required')
+      return
+    }
+    if (!skillContent.trim()) {
+      alert('Skill content is required')
+      return
+    }
+
+    setSaving(true)
+    try {
+      // TODO: Call API endpoint to save skill to S3
+      // For now, just simulate success
+      await new Promise(resolve => setTimeout(resolve, 500))
+      onSave()
+    } catch (err) {
+      alert('Failed to save skill: ' + err.message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Database size={20} className="icon-red" />
+            <h2>{skill ? 'Edit Skill' : 'Add Skill'}</h2>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {/* Skill Name */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+                Skill Name *
+              </label>
+              <input
+                type="text"
+                value={skillName}
+                onChange={(e) => setSkillName(e.target.value)}
+                placeholder="e.g., waste-management-analysis"
+                style={{
+                  width: '100%',
+                  padding: '0.625rem',
+                  border: '1px solid #e5e5e5',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+
+            {/* Upload or Write Toggle */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button
+                onClick={() => setUploadMode(!uploadMode)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3b82f6',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  textDecoration: 'underline'
+                }}
+              >
+                {uploadMode ? 'Write manually' : 'Upload .md file'}
+              </button>
+            </div>
+
+            {/* Upload Mode */}
+            {uploadMode ? (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+                  Upload Markdown File
+                </label>
+                <input
+                  type="file"
+                  accept=".md"
+                  onChange={handleFileUpload}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    border: '1px solid #e5e5e5',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+            ) : (
+              /* Skill Content */
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: '#1a1a1a' }}>
+                  Skill Content (Markdown) *
+                </label>
+                <textarea
+                  value={skillContent}
+                  onChange={(e) => setSkillContent(e.target.value)}
+                  placeholder="# Skill Instructions&#10;&#10;Write your skill instructions in Markdown format.&#10;&#10;This will be injected into the Claude prompt during enrichment."
+                  rows={12}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    border: '1px solid #e5e5e5',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontFamily: 'Monaco, Menlo, Consolas, monospace',
+                    resize: 'vertical',
+                    lineHeight: 1.6
+                  }}
+                />
+                <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.5rem' }}>
+                  Tip: Use markdown formatting. This content will be provided to Claude during analysis.
+                </p>
+              </div>
+            )}
+
+            {/* Save Button */}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="action-btn red"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                marginTop: '0.5rem',
+                opacity: saving ? 0.7 : 1
+              }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} />
+                  {skill ? 'Update Skill' : 'Save Skill'}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

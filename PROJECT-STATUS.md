@@ -64,7 +64,7 @@
 
 **Framework:** React 18.2.0 + Vite 5.4.14
 **Deployment:** S3 static hosting + CloudFront CDN
-**Build:** Production optimized bundle (190 KB JS, 5.7 KB CSS, 37 KB logos)
+**Build:** Production optimized bundle (196 KB JS, 5.7 KB CSS, 37 KB logos)
 
 ### Components Structure
 
@@ -76,6 +76,8 @@ src/
     - UploadScreen            (3-step journey with founder quotes)
     - EnrichScreen            (AI processing with progress tracking)
     - ResultsScreen           (Analysis display with expandable sections)
+    - SkillsScreen            (Skills management - list, add, edit, delete)
+    - AddSkillModal           (Skill creation/editing modal)
     - ConfigurationScreen     (Theme toggle, button config, live preview)
 
   assets/
@@ -86,7 +88,7 @@ src/
   main.jsx         -- React entry point
 ```
 
-### Four-Screen Flow
+### Five-Screen Flow
 
 1. **Upload Screen** (3-step journey layout with founder testimonials)
    - Header: Hamburger menu (left), XO logo, title, Intellagentic logo (right)
@@ -99,6 +101,7 @@ src/
 2. **Enrich Screen**
    - "Start Enrichment" button triggers /enrich Lambda
    - Real-time progress tracking (5 stages: extract, transcribe, research, analyze, complete)
+   - Lambda reads skills from S3 and injects into Claude prompt
    - Auto-navigates to results when complete
 
 3. **Results Screen**
@@ -108,7 +111,15 @@ src/
    - 30/60/90 Day Action Plan
    - Data Sources (client data, web enrichment, AI analysis)
 
-4. **Configuration Screen** (new - shell implementation)
+4. **Skills Screen** (new)
+   - List of domain-specific skills (markdown files from S3)
+   - "+ Add Skill" button opens modal
+   - Modal: skill name, markdown content (monospace textarea), or upload .md file
+   - Each skill can be edited or deleted
+   - Skills injected into Claude prompt during enrichment
+   - Empty state: "No skills yet. Add your first skill to enhance AI analysis."
+
+5. **Configuration Screen** (shell implementation)
    - Theme toggle (dark/light mode - UI only, non-functional)
    - Configure Buttons section: draggable-looking cards with edit/copy/delete icons
    - Live Preview section: shows button rendering in real-time
@@ -361,6 +372,10 @@ curl https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod/results/client_
   +-- extracted/            <- Text extracted from files (future use)
   |     +-- customers.txt
   |     +-- recording_transcript.txt
+  |
+  +-- skills/               <- Domain-specific skills/instructions (markdown)
+  |     +-- waste-management-analysis.md
+  |     +-- route-optimization.md
   |
   +-- results/              <- Analysis output from Claude
   |     +-- analysis.json
@@ -795,6 +810,18 @@ cd backend
     - Moved Intellagentic logo from left to far right in header
     - Removed footer logo (logo-dark.png no longer displayed at bottom)
     - Final header layout: Hamburger | XO logo | Title | [space] | Intellagentic logo
+
+21. **Skills Management Feature**
+    - Added "Skills" menu item to hamburger sidebar (between Results and Configuration)
+    - Created SkillsScreen component with skills list view
+    - Created AddSkillModal for skill creation/editing
+    - Skill modal features: name field, markdown content textarea (monospace), upload .md file option
+    - Skills stored in S3 under {client_id}/skills/skill-name.md
+    - Updated enrich Lambda to read skills from S3 and inject into Claude prompt
+    - Added read_skills() function to Lambda
+    - Skills appear as "DOMAIN-SPECIFIC SKILLS & INSTRUCTIONS" section in analysis prompt
+    - Each skill can be viewed, edited, or deleted
+    - Empty state guidance: "Add your first skill to enhance AI analysis"
 
 ---
 

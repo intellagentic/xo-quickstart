@@ -80,11 +80,15 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'No files found to analyze'})
             }
 
+        # Read skills from S3
+        skills = read_skills(client_id)
+        print(f"Loaded {len(skills)} skills for client: {client_id}")
+
         # Call Claude API with First Party Trick prompt
         print(f"Analyzing {len(extracted_text)} files for client: {client_id}")
         analysis = analyze_with_claude(
             company_name, website, contact_name, contact_title,
-            contact_linkedin, industry, description, extracted_text
+            contact_linkedin, industry, description, extracted_text, skills
         )
 
         # Write results to S3
@@ -132,6 +136,45 @@ def read_metadata(client_id):
     except Exception as e:
         print(f"Error reading metadata: {str(e)}")
         return {}
+
+
+def read_skills(client_id):
+    """Read all skill files from S3 skills folder"""
+    skills = []
+
+    try:
+        # List all files in skills folder
+        response = s3_client.list_objects_v2(
+            Bucket=BUCKET_NAME,
+            Prefix=f"{client_id}/skills/"
+        )
+
+        if 'Contents' not in response:
+            return skills
+
+        for obj in response['Contents']:
+            key = obj['Key']
+            filename = key.split('/')[-1]
+
+            # Skip folder markers and non-markdown files
+            if not filename or filename == '' or not filename.endswith('.md'):
+                continue
+
+            print(f"Loading skill: {filename}")
+
+            # Get skill file from S3
+            file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
+            skill_content = file_obj['Body'].read().decode('utf-8')
+
+            skills.append({
+                'name': filename.replace('.md', ''),
+                'content': skill_content
+            })
+
+    except Exception as e:
+        print(f"Error reading skills: {str(e)}")
+
+    return skills
 
 
 def extract_all_files(client_id):
@@ -270,7 +313,7 @@ def extract_pdf(file_content):
 
 
 def analyze_with_claude(company_name, website, contact_name, contact_title,
-                        contact_linkedin, industry, description, extracted_text):
+                        contact_linkedin, industry, description, extracted_text, skills=None):
     """
     Call Claude API with First Party Trick prompt
     Returns structured analysis JSON
@@ -297,6 +340,14 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
 
     enrichment_section = "\n".join(enrichment_info) if enrichment_info else "Not provided"
 
+    # Build skills section
+    skills_section = ""
+    if skills and len(skills) > 0:
+        skills_section = "\n\nDOMAIN-SPECIFIC SKILLS & INSTRUCTIONS:\n"
+        skills_section += "The following skills provide domain-specific knowledge and analysis instructions. Use these to enhance your analysis:\n\n"
+        for skill in skills:
+            skills_section += f"=== SKILL: {skill['name']} ===\n{skill['content']}\n\n"
+
     prompt = f"""You are an MBA-level business analyst conducting a First Party Trick analysis. You have been given access to internal documents from a company. Analyze this business and provide strategic insights.
 
 COMPANY INFORMATION:
@@ -305,7 +356,7 @@ Company Name: {company_name}
 
 CLIENT DATA (Uploaded Documents):
 {files_summary}
-
+{skills_section}
 TASK:
 Analyze this business like an MBA analyst presenting on Monday morning. Provide:
 
