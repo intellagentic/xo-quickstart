@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit3, Trash, Plus } from 'lucide-react'
+import logoLight from './assets/logo-light.png'
+import logoDark from './assets/logo-dark.png'
 
 // ============================================================
 // XO PROTOTYPE - MAIN APP
@@ -9,9 +11,10 @@ import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2,
 const API_BASE = 'https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod'
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results
+  const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results | configuration
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [clientId, setClientId] = useState(null) // Set after upload completes
   const [companyData, setCompanyData] = useState({
     name: '',
@@ -23,12 +26,32 @@ export default function App() {
     description: ''
   })
 
+  const navigateTo = (screen) => {
+    setCurrentScreen(screen)
+    setShowSidebar(false)
+  }
+
   return (
     <div>
       {/* Header */}
       <header className="header">
         <div className="header-inner">
           <div className="header-left">
+            <button
+              onClick={() => setShowSidebar(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Menu size={24} />
+            </button>
             <div className="logo-box">XO</div>
             <div className="header-title">
               <h1>
@@ -38,8 +61,165 @@ export default function App() {
               <p>{companyData.name || 'Domain Partner Onboarding'}</p>
             </div>
           </div>
+          <div className="header-right">
+            <img src={logoLight} alt="Intellagentic" style={{ height: '26px' }} />
+          </div>
         </div>
       </header>
+
+      {/* Sidebar */}
+      {showSidebar && (
+        <>
+          {/* Overlay */}
+          <div
+            onClick={() => setShowSidebar(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 200
+            }}
+          />
+          {/* Sidebar Panel */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '280px',
+              background: '#1a1a2e',
+              zIndex: 201,
+              boxShadow: '2px 0 8px rgba(0, 0, 0, 0.2)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {/* Sidebar Header */}
+            <div style={{
+              padding: '1rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="logo-box" style={{ width: '32px', height: '32px', fontSize: '1rem' }}>XO</div>
+                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem' }}>Menu</span>
+              </div>
+              <button
+                onClick={() => setShowSidebar(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  cursor: 'pointer',
+                  padding: '0.25rem'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Menu Items */}
+            <nav style={{ flex: 1, padding: '1rem 0' }}>
+              <button
+                onClick={() => navigateTo('upload')}
+                style={{
+                  width: '100%',
+                  background: currentScreen === 'upload' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                  border: 'none',
+                  borderLeft: currentScreen === 'upload' ? '3px solid #dc2626' : '3px solid transparent',
+                  color: currentScreen === 'upload' ? '#dc2626' : 'rgba(255, 255, 255, 0.7)',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Upload size={20} />
+                Upload
+              </button>
+              <button
+                onClick={() => navigateTo('enrich')}
+                disabled={!clientId}
+                style={{
+                  width: '100%',
+                  background: currentScreen === 'enrich' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                  border: 'none',
+                  borderLeft: currentScreen === 'enrich' ? '3px solid #dc2626' : '3px solid transparent',
+                  color: currentScreen === 'enrich' ? '#dc2626' : 'rgba(255, 255, 255, 0.7)',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: clientId ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  opacity: clientId ? 1 : 0.5,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Sparkles size={20} />
+                Enrich
+              </button>
+              <button
+                onClick={() => navigateTo('results')}
+                disabled={!clientId}
+                style={{
+                  width: '100%',
+                  background: currentScreen === 'results' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                  border: 'none',
+                  borderLeft: currentScreen === 'results' ? '3px solid #dc2626' : '3px solid transparent',
+                  color: currentScreen === 'results' ? '#dc2626' : 'rgba(255, 255, 255, 0.7)',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: clientId ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  opacity: clientId ? 1 : 0.5,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FileText size={20} />
+                Results
+              </button>
+              <div style={{
+                height: '1px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                margin: '0.75rem 1rem'
+              }} />
+              <button
+                onClick={() => navigateTo('configuration')}
+                style={{
+                  width: '100%',
+                  background: currentScreen === 'configuration' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                  border: 'none',
+                  borderLeft: currentScreen === 'configuration' ? '3px solid #dc2626' : '3px solid transparent',
+                  color: currentScreen === 'configuration' ? '#dc2626' : 'rgba(255, 255, 255, 0.7)',
+                  padding: '0.875rem 1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 500,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Settings size={20} />
+                Configuration
+              </button>
+            </nav>
+          </div>
+        </>
+      )}
 
       {/* Main Content */}
       <main className="main">
@@ -89,6 +269,7 @@ export default function App() {
           />
         )}
         {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} />}
+        {currentScreen === 'configuration' && <ConfigurationScreen />}
       </main>
 
       {/* Company Information Modal */}
@@ -445,18 +626,18 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.5rem'
+        gap: '0.75rem',
+        marginBottom: '1rem'
       }}>
 
         {/* Step 1: Domain Expertise */}
         <div style={{
           background: '#1a1a2e',
           borderRadius: '12px',
-          padding: '1rem',
+          padding: '0.875rem',
           border: step1Complete ? '2px solid #dc2626' : '2px solid transparent',
           transition: 'all 0.3s',
-          minHeight: '260px',
+          minHeight: '220px',
           display: 'flex',
           flexDirection: 'column'
         }}>
@@ -571,10 +752,10 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
         <div style={{
           background: '#1a1a2e',
           borderRadius: '12px',
-          padding: '1rem',
+          padding: '0.875rem',
           border: step2Complete ? '2px solid #dc2626' : '2px solid transparent',
           transition: 'all 0.3s',
-          minHeight: '260px',
+          minHeight: '220px',
           display: 'flex',
           flexDirection: 'column'
         }}>
@@ -673,11 +854,11 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
         <div style={{
           background: allStepsComplete ? '#1a1a2e' : 'rgba(26, 26, 46, 0.5)',
           borderRadius: '12px',
-          padding: '1rem',
+          padding: '0.875rem',
           border: '2px solid transparent',
           opacity: allStepsComplete ? 1 : 0.6,
           transition: 'all 0.3s',
-          minHeight: '260px',
+          minHeight: '220px',
           display: 'flex',
           flexDirection: 'column'
         }}>
@@ -744,6 +925,81 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
               </p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Founder Quotes */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '1.5rem',
+        margin: '1.25rem 0 1rem',
+        padding: '0 0.5rem'
+      }}>
+        {/* Alan's Quote */}
+        <div style={{
+          position: 'relative',
+          padding: '0.25rem 0'
+        }}>
+          <div style={{
+            fontSize: '3.5rem',
+            lineHeight: 0.8,
+            color: '#dc2626',
+            fontFamily: 'Georgia, serif',
+            marginBottom: '0.25rem',
+            opacity: 0.8
+          }}>
+            "
+          </div>
+          <p style={{
+            fontSize: '0.95rem',
+            fontStyle: 'italic',
+            color: '#1a1a1a',
+            lineHeight: 1.6,
+            marginBottom: '0.625rem'
+          }}>
+            I wasn't leading. I was typing at 6:00 AM. I became my own admin clerk.
+          </p>
+          <p style={{
+            fontSize: '0.75rem',
+            color: '#666',
+            margin: 0
+          }}>
+            — Alan Moore, Co-Founder & CEO, Intellagentic
+          </p>
+        </div>
+
+        {/* Ken's Quote */}
+        <div style={{
+          position: 'relative',
+          padding: '0.25rem 0'
+        }}>
+          <div style={{
+            fontSize: '3.5rem',
+            lineHeight: 0.8,
+            color: '#dc2626',
+            fontFamily: 'Georgia, serif',
+            marginBottom: '0.25rem',
+            opacity: 0.8
+          }}>
+            "
+          </div>
+          <p style={{
+            fontSize: '0.95rem',
+            fontStyle: 'italic',
+            color: '#1a1a1a',
+            lineHeight: 1.6,
+            marginBottom: '0.625rem'
+          }}>
+            We're business operators first, not technologists. We built this because we needed it.
+          </p>
+          <p style={{
+            fontSize: '0.75rem',
+            color: '#666',
+            margin: 0
+          }}>
+            — Ken Scott, Co-Founder & President, Intellagentic
+          </p>
         </div>
       </div>
 
@@ -1049,6 +1305,210 @@ function EnrichScreen({ clientId, onComplete }) {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// CONFIGURATION SCREEN
+// ============================================================
+function ConfigurationScreen() {
+  const [darkMode, setDarkMode] = useState(false)
+  const [buttons, setButtons] = useState([
+    { id: 1, label: 'New Partner', icon: 'Building2', color: 'red' },
+    { id: 2, label: 'Upload', icon: 'Upload', color: 'blue' },
+    { id: 3, label: 'Enrich', icon: 'Sparkles', color: 'green' }
+  ])
+
+  return (
+    <div>
+      {/* Configuration Header */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="panel-header-left">
+            <Settings size={20} className="icon-red" />
+            <h2>Configuration</h2>
+          </div>
+        </div>
+      </div>
+
+      {/* Theme Toggle */}
+      <div className="panel" style={{ marginTop: '1rem' }}>
+        <div className="panel-header">
+          <h2>Theme</h2>
+        </div>
+        <div style={{ padding: '1.25rem' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1rem',
+            background: '#fafafa',
+            borderRadius: '10px',
+            border: '1px solid #e5e5e5'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {darkMode ? <Moon size={20} className="icon-blue" /> : <Sun size={20} className="icon-amber" />}
+              <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#1a1a1a' }}>
+                {darkMode ? 'Dark Mode' : 'Light Mode'}
+              </span>
+            </div>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              style={{
+                width: '52px',
+                height: '28px',
+                borderRadius: '14px',
+                border: 'none',
+                background: darkMode ? '#3b82f6' : '#e5e5e5',
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{
+                width: '22px',
+                height: '22px',
+                borderRadius: '50%',
+                background: 'white',
+                position: 'absolute',
+                top: '3px',
+                left: darkMode ? '27px' : '3px',
+                transition: 'all 0.2s',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+              }} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Configure Buttons & Preview */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: '1rem',
+        marginTop: '1rem'
+      }}>
+        {/* Configure Buttons */}
+        <div className="panel">
+          <div className="panel-header">
+            <h2>Configure Buttons</h2>
+          </div>
+          <div style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '1rem' }}>
+              {buttons.map((button) => (
+                <div
+                  key={button.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '1rem',
+                    background: '#fafafa',
+                    border: '1px solid #e5e5e5',
+                    borderRadius: '10px'
+                  }}
+                >
+                  <GripVertical size={16} style={{ color: '#9ca3af', cursor: 'grab' }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>
+                      {button.label}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
+                      {button.icon} • {button.color}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        padding: '0.25rem'
+                      }}
+                    >
+                      <Copy size={16} />
+                    </button>
+                    <button
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#6b7280',
+                        cursor: 'pointer',
+                        padding: '0.25rem'
+                      }}
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#dc2626',
+                        cursor: 'pointer',
+                        padding: '0.25rem'
+                      }}
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="action-btn blue"
+              style={{
+                width: '100%',
+                justifyContent: 'center'
+              }}
+            >
+              <Plus size={18} />
+              Add Button
+            </button>
+          </div>
+        </div>
+
+        {/* Live Preview */}
+        <div className="panel">
+          <div className="panel-header">
+            <h2>Live Preview</h2>
+          </div>
+          <div style={{ padding: '1.25rem' }}>
+            <div style={{
+              background: '#f0f0f0',
+              borderRadius: '10px',
+              padding: '1.5rem',
+              minHeight: '200px'
+            }}>
+              <p style={{
+                fontSize: '0.75rem',
+                color: '#888',
+                textAlign: 'center',
+                marginBottom: '1rem',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                letterSpacing: '0.05em'
+              }}>
+                Preview
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                {buttons.map((button) => (
+                  <button
+                    key={button.id}
+                    className={`action-btn ${button.color}`}
+                    style={{
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    {button.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
