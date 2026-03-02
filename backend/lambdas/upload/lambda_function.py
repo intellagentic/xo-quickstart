@@ -160,8 +160,8 @@ def handle_upload(event, user):
 
         # Record upload in DB with file_size
         cur.execute("""
-            INSERT INTO uploads (client_id, filename, file_type, s3_key, file_size)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO uploads (client_id, filename, file_type, s3_key, file_size, status)
+            VALUES (%s, %s, %s, %s, %s, 'active')
             RETURNING id
         """, (db_client_id, file_name, file_type, s3_key, file_size))
         upload_id = str(cur.fetchone()[0])

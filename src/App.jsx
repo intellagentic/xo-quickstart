@@ -2236,9 +2236,9 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 600,
-                background: gdriveConnected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                color: gdriveConnected ? '#3b82f6' : 'rgba(255, 255, 255, 0.6)',
-                border: gdriveConnected ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255, 255, 255, 0.15)',
+                background: gdriveConnected ? 'rgba(59, 130, 246, 0.15)' : 'var(--surface-secondary, rgba(0,0,0,0.05))',
+                color: gdriveConnected ? '#3b82f6' : 'var(--text-secondary)',
+                border: gdriveConnected ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border-color)',
                 cursor: gdriveLoading ? 'wait' : 'pointer', transition: 'all 0.2s'
               }}
             >
@@ -2250,8 +2250,10 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               <span key={name} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 600,
-                background: 'rgba(255, 255, 255, 0.04)', color: 'rgba(255, 255, 255, 0.25)',
-                border: '1px solid rgba(255, 255, 255, 0.08)'
+                background: 'var(--surface-secondary, rgba(0,0,0,0.03))',
+                color: 'var(--text-muted)',
+                border: '1px solid var(--border-color)',
+                opacity: 0.5
               }}>
                 {name === 'NotebookLM' ? <FileText size={11} /> : <Cloud size={11} />} {name}
               </span>
