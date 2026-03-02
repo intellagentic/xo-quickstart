@@ -840,6 +840,7 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({})
   const [error, setError] = useState(null)
+  const [audioContext, setAudioContext] = useState({}) // { filename: { date, participants, topic } }
 
   // Google Drive state
   const [gdriveConnected, setGdriveConnected] = useState(false)
@@ -902,6 +903,17 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
       return validTypes.includes(file.type) || validExtensions.includes(ext)
     })
     setFiles(prev => [...prev, ...filtered])
+    // Auto-initialize audio context for new audio files
+    const today = new Date().toISOString().split('T')[0]
+    const newContexts = {}
+    filtered.forEach(file => {
+      if (isAudioFile(file.name)) {
+        newContexts[file.name] = { date: today, participants: '', topic: '' }
+      }
+    })
+    if (Object.keys(newContexts).length > 0) {
+      setAudioContext(prev => ({ ...prev, ...newContexts }))
+    }
   }
 
   const isAudioFile = (filename) => {
@@ -909,8 +921,25 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
     return ['mp3', 'wav', 'm4a', 'aac'].includes(ext)
   }
 
+  const updateAudioContext = (filename, field, value) => {
+    setAudioContext(prev => ({
+      ...prev,
+      [filename]: { ...prev[filename], [field]: value }
+    }))
+  }
+
   const removeFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
+    setFiles(prev => {
+      const removed = prev[index]
+      if (removed && isAudioFile(removed.name)) {
+        setAudioContext(ac => {
+          const copy = { ...ac }
+          delete copy[removed.name]
+          return copy
+        })
+      }
+      return prev.filter((_, i) => i !== index)
+    })
   }
 
   const handleUpload = async () => {
@@ -963,14 +992,33 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
       const importedFiles = files.filter(f => f._imported)
 
       if (manualFiles.length > 0) {
-        // Get presigned URLs for manual files only
-        console.log('Getting presigned URLs for', manualFiles.length, 'manual files')
+        // Build context JSON blobs for audio files
+        const contextUploads = [] // { name, blob }
+        manualFiles.forEach(f => {
+          if (isAudioFile(f.name) && audioContext[f.name]) {
+            const ctx = audioContext[f.name]
+            const contextBlob = new Blob(
+              [JSON.stringify({ date: ctx.date, participants: ctx.participants, topic: ctx.topic })],
+              { type: 'application/json' }
+            )
+            contextUploads.push({ name: `${f.name}.context.json`, blob: contextBlob })
+          }
+        })
+
+        // Combined file list: manual files + context JSONs
+        const allUploadEntries = [
+          ...manualFiles.map(f => ({ name: f.name, type: f.type })),
+          ...contextUploads.map(c => ({ name: c.name, type: 'application/json' }))
+        ]
+
+        // Get presigned URLs for all files (manual + context)
+        console.log('Getting presigned URLs for', allUploadEntries.length, 'files (inc. context)')
         const uploadResponse = await fetch(`${API_BASE}/upload`, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
             client_id,
-            files: manualFiles.map(f => ({ name: f.name, type: f.type }))
+            files: allUploadEntries
           })
         })
 
@@ -999,6 +1047,21 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
 
           setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
           console.log(`Successfully uploaded: ${file.name}`)
+        }
+
+        // Upload context JSON files for audio
+        for (let i = 0; i < contextUploads.length; i++) {
+          const ctx = contextUploads[i]
+          const url = upload_urls[manualFiles.length + i]
+          console.log(`Uploading audio context: ${ctx.name}`)
+          const ctxResponse = await fetch(url, {
+            method: 'PUT',
+            body: ctx.blob,
+            headers: { 'Content-Type': 'application/json' }
+          })
+          if (!ctxResponse.ok) {
+            console.warn(`Failed to upload context for ${ctx.name}`)
+          }
         }
       }
 
@@ -1397,6 +1460,78 @@ function UploadScreen({ setClientId, companyData, onComplete, onOpenCompanyModal
                 style={{ display: 'none' }}
               />
             </div>
+
+            {/* Audio Context Forms */}
+            {files.filter(f => isAudioFile(f.name)).length > 0 && (
+              <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {files.filter(f => isAudioFile(f.name)).map(file => {
+                  const ctx = audioContext[file.name] || { date: '', participants: '', topic: '' }
+                  return (
+                    <div key={file.name} style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '0.625rem 0.75rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
+                        <Music size={14} style={{ color: '#dc2626' }} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>{file.name}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: '0.375rem' }}>
+                        <input
+                          type="date"
+                          value={ctx.date}
+                          onChange={e => updateAudioContext(file.name, 'date', e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '4px',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            padding: '0.35rem 0.4rem',
+                            outline: 'none',
+                            colorScheme: 'dark'
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="e.g., Ken Scott, Alan Moore"
+                          value={ctx.participants}
+                          onChange={e => updateAudioContext(file.name, 'participants', e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '4px',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            padding: '0.35rem 0.5rem',
+                            outline: 'none'
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="e.g., Weekly strategy call"
+                          value={ctx.topic}
+                          onChange={e => updateAudioContext(file.name, 'topic', e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '4px',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            padding: '0.35rem 0.5rem',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Sources Strip */}
             <div style={{

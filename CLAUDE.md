@@ -61,6 +61,7 @@ xo-client-data/{client_id}/results/
 2. Small diffs. One component at a time.
 3. Test the build after each major addition: npm run build
 4. Do not over-engineer. Three screens. Simple S3 write. Claude API call. Render results.
+5. After every component or feature is completed, always ask "Update PROJECT-STATUS.md and push to github?" before moving to the next task.
 
 ## Commands
 npm run dev          # local dev server

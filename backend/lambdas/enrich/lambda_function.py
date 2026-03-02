@@ -2,10 +2,17 @@
 XO Platform - POST /enrich Lambda
 Analyzes uploaded documents using Claude API.
 Reads metadata from PostgreSQL, tracks enrichment in DB.
+
+Two-phase async pattern:
+  Phase 1 (synchronous): Auth, validate, create enrichment record, self-invoke async
+  Phase 2 (async): Extract text, transcribe audio, analyze with Claude, write results
 """
 
 import json
 import os
+import time
+import re
+import uuid
 import boto3
 import io
 import csv
@@ -14,27 +21,30 @@ from anthropic import Anthropic
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
+lambda_client = boto3.client('lambda')
+transcribe_client = boto3.client('transcribe')
+
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+FUNCTION_NAME = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'xo-enrich')
+AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'}
 
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 def lambda_handler(event, context):
     """
-    Trigger AI enrichment pipeline.
+    Two-phase enrichment handler.
 
-    Expected input:
-    {
-        "client_id": "client_1234567890_abcd"
-    }
-
-    Returns:
-    {
-        "job_id": "client_1234567890_abcd",
-        "status": "complete"
-    }
+    Phase 1 (API Gateway request): Auth, validate, create record, self-invoke async.
+    Phase 2 (async invocation): Run full enrichment pipeline.
     """
+
+    # Phase 2: async pipeline execution
+    if event.get('_async_phase'):
+        return _run_enrichment_pipeline(event)
+
+    # Phase 1: synchronous API Gateway handler
 
     # Handle OPTIONS preflight
     if event.get('httpMethod') == 'OPTIONS':
@@ -46,7 +56,6 @@ def lambda_handler(event, context):
         return err
 
     conn = None
-    enrichment_id = None
 
     try:
         body = json.loads(event.get('body', '{}'))
@@ -94,106 +103,50 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'Client not found'})
             }
 
-        company_name = row[0] or 'Unknown Company'
-        website = row[1] or ''
-        contact_name = row[2] or ''
-        contact_title = row[3] or ''
-        contact_linkedin = row[4] or ''
-        industry = row[5] or ''
-        description = row[6] or ''
-        pain_point = row[7] or ''
-        db_client_id = row[8]
+        db_client_id = str(row[8])
 
-        # Create enrichment tracking record
+        # Create enrichment tracking record with stage
         cur.execute("""
-            INSERT INTO enrichments (client_id, status)
-            VALUES (%s, 'processing')
+            INSERT INTO enrichments (client_id, status, stage)
+            VALUES (%s, 'processing', 'extracting')
             RETURNING id
-        """, (str(db_client_id),))
-        enrichment_id = cur.fetchone()[0]
+        """, (db_client_id,))
+        enrichment_id = str(cur.fetchone()[0])
         conn.commit()
-
-        # Read skills from DB (with S3 fallback)
-        skills = read_skills_from_db(cur, db_client_id, client_id)
-        print(f"Loaded {len(skills)} skills for client: {client_id}")
-
         cur.close()
-
-        # Extract text from uploaded files (still from S3)
-        extracted_text = extract_all_files(client_id)
-
-        if not extracted_text:
-            # Update enrichment status to error
-            cur2 = conn.cursor()
-            cur2.execute("""
-                UPDATE enrichments SET status = 'error', completed_at = NOW()
-                WHERE id = %s
-            """, (str(enrichment_id),))
-            conn.commit()
-            cur2.close()
-            conn.close()
-            return {
-                'statusCode': 400,
-                'headers': CORS_HEADERS,
-                'body': json.dumps({'error': 'No files found to analyze'})
-            }
-
-        # Call Claude API with First Party Trick prompt
-        print(f"Analyzing {len(extracted_text)} files for client: {client_id}")
-        analysis = analyze_with_claude(
-            company_name, website, contact_name, contact_title,
-            contact_linkedin, industry, description, pain_point, extracted_text, skills,
-            model=model_to_use
-        )
-
-        # Write results to S3
-        results_key = f"{client_id}/results/analysis.json"
-        s3_client.put_object(
-            Bucket=BUCKET_NAME,
-            Key=results_key,
-            Body=json.dumps(analysis, indent=2),
-            ContentType='application/json'
-        )
-
-        # Update enrichment status to complete
-        cur3 = conn.cursor()
-        cur3.execute("""
-            UPDATE enrichments
-            SET status = 'complete', completed_at = NOW(), results_s3_key = %s
-            WHERE id = %s
-        """, (results_key, str(enrichment_id)))
-        conn.commit()
-        cur3.close()
         conn.close()
 
-        print(f"Analysis complete for client: {client_id}")
+        # Self-invoke async for the heavy lifting
+        async_payload = {
+            '_async_phase': True,
+            'client_id': client_id,
+            'db_client_id': db_client_id,
+            'enrichment_id': enrichment_id,
+            'user_id': user['user_id'],
+            'model': model_to_use
+        }
+
+        lambda_client.invoke(
+            FunctionName=FUNCTION_NAME,
+            InvocationType='Event',
+            Payload=json.dumps(async_payload)
+        )
+
+        print(f"Async enrichment invoked for client: {client_id}, enrichment: {enrichment_id}")
 
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
             'body': json.dumps({
                 'job_id': client_id,
-                'status': 'complete'
+                'status': 'processing'
             })
         }
 
     except Exception as e:
-        print(f"Error during enrichment: {str(e)}")
+        print(f"Error during enrichment setup: {str(e)}")
         import traceback
         traceback.print_exc()
-
-        # Update enrichment status to error if we have a record
-        if conn and enrichment_id:
-            try:
-                cur_err = conn.cursor()
-                cur_err.execute("""
-                    UPDATE enrichments SET status = 'error', completed_at = NOW()
-                    WHERE id = %s
-                """, (str(enrichment_id),))
-                conn.commit()
-                cur_err.close()
-            except Exception:
-                pass
 
         if conn:
             try:
@@ -209,6 +162,286 @@ def lambda_handler(event, context):
                 'message': str(e)
             })
         }
+
+
+def _run_enrichment_pipeline(event):
+    """
+    Phase 2: Async enrichment pipeline.
+    Runs text extraction, audio transcription, Claude analysis, and writes results.
+    """
+    client_id = event['client_id']
+    db_client_id = event['db_client_id']
+    enrichment_id = event['enrichment_id']
+    user_id = event['user_id']
+    model = event.get('model', 'claude-opus-4-5-20250529')
+
+    conn = None
+
+    try:
+        conn = get_db_connection()
+
+        # Read client metadata
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT company_name, website_url, contact_name, contact_title,
+                   contact_linkedin, industry, description, pain_point
+            FROM clients WHERE id = %s
+        """, (db_client_id,))
+        row = cur.fetchone()
+        if not row:
+            update_enrichment_stage(conn, enrichment_id, 'error', status='error')
+            conn.close()
+            return {'status': 'error', 'message': 'Client not found'}
+
+        company_name = row[0] or 'Unknown Company'
+        website = row[1] or ''
+        contact_name = row[2] or ''
+        contact_title = row[3] or ''
+        contact_linkedin = row[4] or ''
+        industry = row[5] or ''
+        description = row[6] or ''
+        pain_point = row[7] or ''
+
+        # Read skills
+        skills = read_skills_from_db(cur, db_client_id, client_id)
+        print(f"Loaded {len(skills)} skills for client: {client_id}")
+        cur.close()
+
+        # Stage: extracting
+        update_enrichment_stage(conn, enrichment_id, 'extracting')
+        extracted_text = extract_all_files(client_id)
+        print(f"Extracted text from {len(extracted_text)} files")
+
+        # Stage: transcribing
+        audio_files = find_audio_files(client_id)
+        if audio_files:
+            update_enrichment_stage(conn, enrichment_id, 'transcribing')
+            print(f"Found {len(audio_files)} audio files to transcribe")
+            transcripts = transcribe_audio_files(client_id, audio_files)
+            # Merge transcripts into extracted_text
+            for filename, transcript in transcripts.items():
+                extracted_text[filename] = transcript
+            print(f"Transcribed {len(transcripts)} audio files")
+        else:
+            print("No audio files found, skipping transcription stage")
+
+        if not extracted_text:
+            update_enrichment_stage(conn, enrichment_id, 'error', status='error')
+            conn.close()
+            return {'status': 'error', 'message': 'No files found to analyze'}
+
+        # Stage: researching (placeholder for future web research)
+        update_enrichment_stage(conn, enrichment_id, 'researching')
+        print("Research stage: placeholder (no web research yet)")
+
+        # Stage: analyzing
+        update_enrichment_stage(conn, enrichment_id, 'analyzing')
+        print(f"Analyzing {len(extracted_text)} files for client: {client_id}")
+        analysis = analyze_with_claude(
+            company_name, website, contact_name, contact_title,
+            contact_linkedin, industry, description, pain_point, extracted_text, skills,
+            model=model
+        )
+
+        # Write results to S3
+        results_key = f"{client_id}/results/analysis.json"
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=results_key,
+            Body=json.dumps(analysis, indent=2),
+            ContentType='application/json'
+        )
+
+        # Stage: complete
+        cur2 = conn.cursor()
+        cur2.execute("""
+            UPDATE enrichments
+            SET status = 'complete', stage = 'complete', completed_at = NOW(), results_s3_key = %s
+            WHERE id = %s
+        """, (results_key, enrichment_id))
+        conn.commit()
+        cur2.close()
+        conn.close()
+
+        print(f"Analysis complete for client: {client_id}")
+        return {'status': 'complete', 'client_id': client_id}
+
+    except Exception as e:
+        print(f"Error during enrichment pipeline: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        if conn:
+            try:
+                update_enrichment_stage(conn, enrichment_id, 'error', status='error')
+            except Exception:
+                pass
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        return {'status': 'error', 'message': str(e)}
+
+
+def update_enrichment_stage(conn, enrichment_id, stage, status=None):
+    """Update the enrichment stage (and optionally status) in DB."""
+    try:
+        cur = conn.cursor()
+        if status:
+            cur.execute("""
+                UPDATE enrichments SET stage = %s, status = %s, completed_at = NOW()
+                WHERE id = %s
+            """, (stage, status, enrichment_id))
+        else:
+            cur.execute("""
+                UPDATE enrichments SET stage = %s WHERE id = %s
+            """, (stage, enrichment_id))
+        conn.commit()
+        cur.close()
+        print(f"Stage updated: {stage}")
+    except Exception as e:
+        print(f"Error updating stage to {stage}: {e}")
+
+
+def find_audio_files(client_id):
+    """List audio files in the client's uploads folder."""
+    audio_files = []
+    try:
+        response = s3_client.list_objects_v2(
+            Bucket=BUCKET_NAME,
+            Prefix=f"{client_id}/uploads/"
+        )
+        if 'Contents' not in response:
+            return audio_files
+
+        for obj in response['Contents']:
+            key = obj['Key']
+            filename = key.split('/')[-1]
+            if not filename:
+                continue
+            ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
+            if ext in AUDIO_EXTENSIONS:
+                audio_files.append(key)
+    except Exception as e:
+        print(f"Error listing audio files: {e}")
+    return audio_files
+
+
+def read_audio_context(client_id, filename):
+    """Read {filename}.context.json from S3 uploads folder if it exists."""
+    context_key = f"{client_id}/uploads/{filename}.context.json"
+    try:
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=context_key)
+        return json.loads(response['Body'].read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def transcribe_audio_files(client_id, audio_s3_keys):
+    """Transcribe all audio files using AWS Transcribe. Returns {filename: transcript_text}."""
+    transcripts = {}
+    for s3_key in audio_s3_keys:
+        filename = s3_key.split('/')[-1]
+        try:
+            transcript = transcribe_single_file(client_id, s3_key, filename)
+            if transcript:
+                # Build header with context if available
+                ctx = read_audio_context(client_id, filename)
+                if ctx:
+                    header_parts = [f"Audio Transcript ({filename})"]
+                    if ctx.get('date'):
+                        header_parts.append(f"Date: {ctx['date']}")
+                    if ctx.get('participants'):
+                        header_parts.append(f"Participants: {ctx['participants']}")
+                    if ctx.get('topic'):
+                        header_parts.append(f"Topic: {ctx['topic']}")
+                    header = " -- ".join(header_parts)
+                else:
+                    header = f"Audio Transcript ({filename})"
+
+                transcripts[filename] = f"{header}\n\n{transcript}"
+                # Save transcript to extracted folder
+                transcript_key = f"{client_id}/extracted/{filename}.transcript.txt"
+                s3_client.put_object(
+                    Bucket=BUCKET_NAME,
+                    Key=transcript_key,
+                    Body=transcript,
+                    ContentType='text/plain'
+                )
+                print(f"Saved transcript: {transcript_key}")
+        except Exception as e:
+            print(f"Error transcribing {filename}: {e}")
+    return transcripts
+
+
+def transcribe_single_file(client_id, s3_key, filename):
+    """Start and poll an AWS Transcribe job for a single audio file."""
+    # Build job name: xo-{client_id_suffix}-{safe_filename}-{uuid}
+    client_suffix = client_id[-12:] if len(client_id) > 12 else client_id
+    safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename.rsplit('.', 1)[0])
+    job_name = f"xo-{client_suffix}-{safe_filename}-{uuid.uuid4().hex[:8]}"
+    job_name = job_name[:200]  # Transcribe max job name length
+
+    ext = filename.lower().rsplit('.', 1)[-1]
+    media_format_map = {
+        'mp3': 'mp3', 'wav': 'wav', 'm4a': 'mp4', 'aac': 'mp4',
+        'ogg': 'ogg', 'flac': 'flac', 'wma': 'mp3'
+    }
+    media_format = media_format_map.get(ext, 'mp3')
+
+    media_uri = f"s3://{BUCKET_NAME}/{s3_key}"
+    output_key = f"{client_id}/extracted/.transcribe-output/{filename}.json"
+
+    print(f"Starting transcription job: {job_name} for {filename}")
+
+    transcribe_client.start_transcription_job(
+        TranscriptionJobName=job_name,
+        Media={'MediaFileUri': media_uri},
+        MediaFormat=media_format,
+        LanguageCode='en-US',
+        OutputBucketName=BUCKET_NAME,
+        OutputKey=output_key
+    )
+
+    # Poll for completion (max 240s)
+    max_wait = 240
+    elapsed = 0
+    while elapsed < max_wait:
+        time.sleep(5)
+        elapsed += 5
+
+        response = transcribe_client.get_transcription_job(
+            TranscriptionJobName=job_name
+        )
+        status = response['TranscriptionJob']['TranscriptionJobStatus']
+
+        if status == 'COMPLETED':
+            print(f"Transcription complete: {job_name} ({elapsed}s)")
+            return read_transcribe_output(output_key)
+        elif status == 'FAILED':
+            reason = response['TranscriptionJob'].get('FailureReason', 'Unknown')
+            print(f"Transcription failed: {job_name} - {reason}")
+            return None
+
+        print(f"Transcription in progress: {job_name} ({elapsed}s)")
+
+    print(f"Transcription timed out: {job_name} after {max_wait}s")
+    return None
+
+
+def read_transcribe_output(output_key):
+    """Read and parse AWS Transcribe output JSON from S3."""
+    try:
+        response = s3_client.get_object(Bucket=BUCKET_NAME, Key=output_key)
+        output = json.loads(response['Body'].read().decode('utf-8'))
+        transcripts = output.get('results', {}).get('transcripts', [])
+        if transcripts:
+            return transcripts[0].get('transcript', '')
+        return ''
+    except Exception as e:
+        print(f"Error reading transcribe output ({output_key}): {e}")
+        return None
 
 
 def read_skills_from_db(cur, db_client_id, client_id):
@@ -293,6 +526,16 @@ def extract_all_files(client_id):
             filename = key.split('/')[-1]
 
             if not filename or filename == '':
+                continue
+
+            # Skip context metadata files (uploaded alongside audio)
+            if filename.endswith('.context.json'):
+                continue
+
+            # Skip audio files — handled by Transcribe stage
+            ext = filename.lower().rsplit('.', 1)[-1] if '.' in filename else ''
+            if ext in AUDIO_EXTENSIONS:
+                print(f"Audio file — will be handled by Transcribe: {filename}")
                 continue
 
             print(f"Processing file: {filename}")

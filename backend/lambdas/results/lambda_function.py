@@ -47,7 +47,7 @@ def lambda_handler(event, context):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT e.status, e.results_s3_key
+            SELECT e.status, e.results_s3_key, e.stage
             FROM enrichments e
             JOIN clients c ON e.client_id = c.id
             WHERE c.s3_folder = %s AND c.user_id = %s
@@ -60,7 +60,7 @@ def lambda_handler(event, context):
         conn.close()
 
         if row:
-            enrichment_status, results_s3_key = row
+            enrichment_status, results_s3_key, enrichment_stage = row
 
             if enrichment_status == 'processing':
                 return {
@@ -68,6 +68,7 @@ def lambda_handler(event, context):
                     'headers': CORS_HEADERS,
                     'body': json.dumps({
                         'status': 'processing',
+                        'stage': enrichment_stage or 'extracting',
                         'message': 'Analysis in progress'
                     })
                 }

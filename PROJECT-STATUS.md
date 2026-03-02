@@ -3,7 +3,7 @@
 **Date:** March 1, 2026
 **Project:** XO Quickstart - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.8)
+**Status:** Deployed & Operational (v1.9)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -1785,16 +1785,40 @@ cd backend
     - Frontend build: ~226 KB JS
     - Deployed: xo-auth Lambda, xo-enrich Lambda, frontend, CloudFront invalidation
 
+36. **Audio Transcription + Context Metadata** (Session 9 - March 1, 2026)
+    - **AWS Transcribe integration** for MP3, WAV, M4A, AAC, OGG, FLAC, WMA files
+    - Audio files now transcribed during enrichment and included in Claude analysis
+    - **Async Lambda pattern**: xo-enrich refactored to two-phase execution
+      - Phase 1 (synchronous, <2s): auth, validate, create enrichment record, self-invoke async → return immediately
+      - Phase 2 (async invocation): extract text → transcribe audio → analyze with Claude → write results
+      - Fixes API Gateway 29-second timeout for large enrichments
+    - **Stage tracking**: new `enrichments.stage` DB column (extracting → transcribing → researching → analyzing → complete)
+      - xo-results Lambda returns `stage` in polling response
+      - Frontend stage tracker already wired (5 stages with icons including "Transcribing Audio")
+    - **Transcription pipeline**: `find_audio_files()` → `transcribe_single_file()` (poll every 5s, max 240s) → `read_transcribe_output()`
+    - Transcripts saved to `{client_id}/extracted/{filename}.transcript.txt`
+    - Raw Transcribe output saved to `{client_id}/extracted/.transcribe-output/{filename}.json`
+    - **Audio context metadata**: per-audio-file context form in upload screen
+      - Date of recording (date picker, defaults to today)
+      - Participants (text field, e.g., "Ken Scott, Alan Moore")
+      - Context/Topic (text field, e.g., "Weekly strategy call")
+      - Saved as `{filename}.context.json` alongside audio in S3 uploads folder
+    - **Context-aware transcripts**: enrich Lambda reads context JSON and prepends to each transcript:
+      `"Audio Transcript (file.mp3) -- Date: 2026-03-01 -- Participants: Ken, Alan -- Topic: Strategy call"`
+    - `extract_all_files()` skips audio files (handled by Transcribe) and `.context.json` files (metadata only)
+    - **DB migration**: `ALTER TABLE enrichments ADD COLUMN IF NOT EXISTS stage VARCHAR(50) DEFAULT 'extracting'`
+    - **IAM**: transcribe:StartTranscriptionJob, transcribe:GetTranscriptionJob, lambda:InvokeFunction (self-invoke)
+    - Frontend build: ~229 KB JS
+    - Deployed: xo-enrich Lambda, xo-results Lambda, frontend, CloudFront invalidation, DB migration
+    - Files: 4 files modified (schema.sql, enrich/lambda_function.py, results/lambda_function.py, App.jsx)
+
 ---
 
 ## PENDING ITEMS
 
 ### Immediate Enhancements
 
-1. **Audio Transcription**
-   - Integrate Whisper API for MP3/WAV/M4A/AAC files
-   - Extract transcripts before Claude analysis
-   - Store transcripts in {client_id}/extracted/
+1. ~~**Audio Transcription**~~ **DONE (v1.9)** -- AWS Transcribe, context metadata, transcript extraction pipeline
 
 2. **Web Enrichment**
    - Research company website (if provided)
@@ -1811,11 +1835,7 @@ cd backend
 
 ### Advanced Features
 
-4. **Async Job Processing**
-   - Move to SQS queue for enrichment jobs
-   - DynamoDB table for job status tracking
-   - WebSocket or polling for real-time progress
-   - Email notifications on completion
+4. ~~**Async Job Processing**~~ **DONE (v1.9)** -- Lambda self-invoke async pattern, DB stage tracking, frontend polling
 
 5. **Richie's Encryption**
    - End-to-end encryption for uploaded files
@@ -1853,9 +1873,10 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 2. Enter email and password on the Invitation screen (auto-creates account or logs in)
 3. Fill out company information (8 fields including pain point and enrichment targets)
 4. Upload business documents (15 file types supported) or import from Google Drive
-5. Choose AI model in Configuration (Opus 4.5 default or Sonnet 4.5)
-6. Click "Start Enrichment" and watch AI process their data
-7. Receive MBA-level business analysis:
+5. Add context metadata for audio files (date, participants, topic)
+6. Choose AI model in Configuration (Opus 4.5 default or Sonnet 4.5)
+7. Click "Start Enrichment" and watch AI process their data (async with live stage tracking)
+8. Receive MBA-level business analysis:
    - Executive summary of their business
    - 3-5 critical problems identified with evidence and recommendations
    - Proposed database schema (3-5 tables with columns and relationships)
@@ -1869,13 +1890,12 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 - Auth: bcrypt password hashing + JWT tokens (24h expiry)
 - AI: Claude Opus 4.5 (default) or Sonnet 4.5 (user-selectable) via Anthropic API
 - Storage: S3 with folder-per-client structure (files + analysis.json)
+- Transcription: AWS Transcribe for audio files (MP3, WAV, M4A, AAC, OGG, FLAC, WMA)
 - Integrations: Google Drive (OAuth2 connector with file picker)
 - Region: us-west-1 (AWS)
 
 **What's Not Built Yet:**
-- Audio transcription (files accepted but not processed)
 - Web enrichment (URLs collected but not researched)
-- Async processing (runs synchronously in Lambda, 5-min timeout)
 - UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode)
 
 **Performance:**
@@ -1893,7 +1913,7 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 
 **Repository:** All code is version-controlled at https://github.com/intellagentic/xo-quickstart with proper .gitignore to exclude secrets.
 
-**Next Step:** Google Cloud Console OAuth client setup (redirect URI), then scale to production with async jobs, UI for new DB fields, and full enrichment pipeline (audio transcription, web research). Model selector is live -- Opus 4.5 default for best quality, Sonnet 4.5 available for speed.
+**Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode). Audio transcription and async processing are live. Model selector is live -- Opus 4.5 default for best quality, Sonnet 4.5 available for speed.
 
 ---
 
