@@ -2618,24 +2618,85 @@ function SkillsScreen({ clientId }) {
 // ============================================================
 function AddSkillModal({ clientId, skill, onClose, onSave }) {
   const [skillName, setSkillName] = useState(skill?.name || '')
-  const [skillContent, setSkillContent] = useState(skill?.content || '')
+  const [focusOn, setFocusOn] = useState('')
+  const [ignoreAvoid, setIgnoreAvoid] = useState('')
+  const [successCriteria, setSuccessCriteria] = useState('')
+  const [industryTerms, setIndustryTerms] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadMode, setUploadMode] = useState(false)
+  const [uploadedContent, setUploadedContent] = useState('')
+
+  // Parse existing skill content back into structured fields when editing
+  useEffect(() => {
+    if (skill?.content) {
+      const content = skill.content
+      const extractSection = (heading) => {
+        const regex = new RegExp(`## ${heading}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`)
+        const match = content.match(regex)
+        if (!match) return ''
+        return match[1].replace(/^[-*]\s+/gm, '').trim()
+      }
+      setFocusOn(extractSection('Focus Areas'))
+      setIgnoreAvoid(extractSection('Ignore List'))
+      setSuccessCriteria(extractSection('Success Criteria'))
+      setIndustryTerms(extractSection('Industry Terms'))
+    }
+  }, [skill])
+
+  // Convert structured fields to markdown
+  const buildMarkdown = () => {
+    let md = `# ${skillName.trim()}\n\n`
+
+    if (focusOn.trim()) {
+      md += `## Focus Areas\n\n`
+      focusOn.trim().split('\n').filter(l => l.trim()).forEach(line => {
+        md += `- ${line.trim()}\n`
+      })
+      md += `\n`
+    }
+
+    if (ignoreAvoid.trim()) {
+      md += `## Ignore List\n\n`
+      ignoreAvoid.trim().split('\n').filter(l => l.trim()).forEach(line => {
+        md += `- ${line.trim()}\n`
+      })
+      md += `\n`
+    }
+
+    if (successCriteria.trim()) {
+      md += `## Success Criteria\n\n`
+      successCriteria.trim().split('\n').filter(l => l.trim()).forEach(line => {
+        md += `- ${line.trim()}\n`
+      })
+      md += `\n`
+    }
+
+    if (industryTerms.trim()) {
+      md += `## Industry Terms\n\n`
+      industryTerms.trim().split('\n').filter(l => l.trim()).forEach(line => {
+        md += `- ${line.trim()}\n`
+      })
+      md += `\n`
+    }
+
+    return md
+  }
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
     if (!file) return
 
-    if (!file.name.endsWith('.md')) {
-      alert('Please upload a .md file')
+    const validExts = ['.md', '.txt']
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+    if (!validExts.includes(ext)) {
+      alert('Please upload a .md or .txt file')
       return
     }
 
     const reader = new FileReader()
     reader.onload = (event) => {
-      setSkillContent(event.target.result)
-      setSkillName(file.name.replace('.md', ''))
-      setUploadMode(false)
+      setUploadedContent(event.target.result)
+      setSkillName(file.name.replace(/\.(md|txt)$/, ''))
     }
     reader.readAsText(file)
   }
@@ -2645,8 +2706,11 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
       alert('Skill name is required')
       return
     }
-    if (!skillContent.trim()) {
-      alert('Skill content is required')
+
+    const content = uploadMode && uploadedContent ? uploadedContent : buildMarkdown()
+
+    if (!uploadMode && !focusOn.trim() && !ignoreAvoid.trim() && !successCriteria.trim() && !industryTerms.trim()) {
+      alert('Please fill in at least one field')
       return
     }
 
@@ -2662,6 +2726,31 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
     }
   }
 
+  const fieldStyle = {
+    width: '100%',
+    padding: '0.625rem',
+    border: '1px solid var(--border-color)',
+    borderRadius: '8px',
+    fontSize: '0.875rem',
+    fontFamily: 'inherit',
+    resize: 'vertical',
+    lineHeight: 1.6
+  }
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    marginBottom: '0.25rem',
+    color: 'var(--text-primary)'
+  }
+
+  const hintStyle = {
+    fontSize: '0.75rem',
+    color: 'var(--text-muted)',
+    margin: '0 0 0.5rem 0'
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
@@ -2675,12 +2764,14 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
           </button>
         </div>
         <div className="modal-body">
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 1rem 0', lineHeight: 1.5 }}>
+            Answer in plain English. The AI will use your answers to guide its analysis.
+          </p>
+
           <div style={{ display: 'grid', gap: '1rem' }}>
             {/* Skill Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Skill Name *
-              </label>
+              <label style={labelStyle}>Skill Name *</label>
               <input
                 type="text"
                 value={skillName}
@@ -2697,7 +2788,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
               />
             </div>
 
-            {/* Upload or Write Toggle */}
+            {/* Mode Toggle */}
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button
                 onClick={() => setUploadMode(!uploadMode)}
@@ -2708,22 +2799,22 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                   cursor: 'pointer',
                   fontSize: '0.85rem',
                   fontWeight: 500,
-                  textDecoration: 'underline'
+                  textDecoration: 'underline',
+                  padding: 0
                 }}
               >
-                {uploadMode ? 'Write manually' : 'Upload .md file'}
+                {uploadMode ? 'Use guided form instead' : 'Advanced: Upload .md file'}
               </button>
             </div>
 
-            {/* Upload Mode */}
             {uploadMode ? (
+              /* Upload Mode for Power Users */
               <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                  Upload Markdown File
-                </label>
+                <label style={labelStyle}>Upload Skill File</label>
+                <p style={hintStyle}>Upload a .md or .txt file with your custom skill instructions.</p>
                 <input
                   type="file"
-                  accept=".md"
+                  accept=".md,.txt"
                   onChange={handleFileUpload}
                   style={{
                     width: '100%',
@@ -2734,33 +2825,76 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                     fontFamily: 'inherit'
                   }}
                 />
+                {uploadedContent && (
+                  <div style={{
+                    marginTop: '0.75rem',
+                    padding: '0.75rem',
+                    background: 'rgba(34,197,94,0.08)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(34,197,94,0.2)'
+                  }}>
+                    <p style={{ fontSize: '0.8rem', color: '#22c55e', margin: 0, fontWeight: 500 }}>
+                      <CheckCircle size={14} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                      File loaded: {uploadedContent.length} characters
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
-              /* Skill Content */
-              <div>
-                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                  Skill Content (Markdown) *
-                </label>
-                <textarea
-                  value={skillContent}
-                  onChange={(e) => setSkillContent(e.target.value)}
-                  placeholder="# Skill Instructions&#10;&#10;Write your skill instructions in Markdown format.&#10;&#10;This will be injected into the Claude prompt during enrichment."
-                  rows={12}
-                  style={{
-                    width: '100%',
-                    padding: '0.625rem',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    fontFamily: 'Monaco, Menlo, Consolas, monospace',
-                    resize: 'vertical',
-                    lineHeight: 1.6
-                  }}
-                />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                  Tip: Use markdown formatting. This content will be provided to Claude during analysis.
-                </p>
-              </div>
+              /* Structured Form Fields */
+              <>
+                {/* Focus On */}
+                <div>
+                  <label style={labelStyle}>What should the AI focus on?</label>
+                  <p style={hintStyle}>What metrics, problems, or themes matter most? One idea per line.</p>
+                  <textarea
+                    value={focusOn}
+                    onChange={(e) => setFocusOn(e.target.value)}
+                    placeholder="Revenue trends and cash flow patterns&#10;Customer churn and retention rates&#10;Operational bottlenecks in the delivery process"
+                    rows={3}
+                    style={fieldStyle}
+                  />
+                </div>
+
+                {/* Ignore / Avoid */}
+                <div>
+                  <label style={labelStyle}>What should the AI ignore or avoid?</label>
+                  <p style={hintStyle}>Topics, assumptions, or recommendations to skip. One per line.</p>
+                  <textarea
+                    value={ignoreAvoid}
+                    onChange={(e) => setIgnoreAvoid(e.target.value)}
+                    placeholder="Don't recommend switching CRM platforms&#10;Skip branding and logo suggestions&#10;Ignore data older than 2023"
+                    rows={3}
+                    style={fieldStyle}
+                  />
+                </div>
+
+                {/* Success Criteria */}
+                <div>
+                  <label style={labelStyle}>What does success look like?</label>
+                  <p style={hintStyle}>What outcome would make this analysis valuable? One per line.</p>
+                  <textarea
+                    value={successCriteria}
+                    onChange={(e) => setSuccessCriteria(e.target.value)}
+                    placeholder="Identify the top 3 revenue leaks&#10;Propose a database schema for tracking routes&#10;Give a 90-day action plan with specific milestones"
+                    rows={3}
+                    style={fieldStyle}
+                  />
+                </div>
+
+                {/* Industry Terms */}
+                <div>
+                  <label style={labelStyle}>Any industry terms or jargon to know?</label>
+                  <p style={hintStyle}>Help the AI understand your domain. One term or phrase per line.</p>
+                  <textarea
+                    value={industryTerms}
+                    onChange={(e) => setIndustryTerms(e.target.value)}
+                    placeholder="MRR = Monthly Recurring Revenue&#10;Churn rate = percentage of customers lost per month&#10;ARR = Annual Recurring Revenue"
+                    rows={3}
+                    style={fieldStyle}
+                  />
+                </div>
+              </>
             )}
 
             {/* Save Button */}
