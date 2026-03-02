@@ -3,7 +3,7 @@
 **Date:** March 1, 2026
 **Project:** XO Quickstart - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.20)
+**Status:** Deployed & Operational (v1.21)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -1322,8 +1322,8 @@ All Lambdas require JWT auth (except /auth/login). Auth is provided by `auth_hel
 
 ## CLAUDE API INTEGRATION
 
-**Default Model:** claude-opus-4-5-20250529 (user-selectable)
-**Alternative Model:** claude-sonnet-4-20250514 (faster, cheaper)
+**Default Model:** claude-sonnet-4-5-20250929 (user-selectable)
+**Available Models:** claude-opus-4-6 (best), claude-sonnet-4-5-20250929 (default), claude-haiku-4-5-20251001 (fastest)
 **Max Tokens:** 8000
 **Temperature:** 0.7
 **Model Selection:** Per-user preference stored in PostgreSQL, sent in /enrich request body
@@ -1515,7 +1515,7 @@ cd backend
 ## BUILD HISTORY
 
 **Session Date:** March 1, 2026
-**Build Count:** 47 completed builds
+**Build Count:** 48 completed builds
 
 **Build Order:**
 
@@ -2022,6 +2022,21 @@ cd backend
       - `transcribe:StartTranscriptionJob` + `transcribe:GetTranscriptionJob` on `*`
     - Verified clean execution with no AccessDeniedException
 
+48. **Model ID Update — Opus 4.6, Sonnet 4.5, Haiku 4.5** (Session 13 - March 2, 2026)
+    - **Updated all model IDs** across the entire stack (4 files, 14 occurrences):
+      - Old default: `claude-opus-4-5-20250529` → New default: `claude-sonnet-4-5-20250929`
+      - Old allowed: `[claude-opus-4-5-20250529, claude-sonnet-4-20250514]` → New allowed: `[claude-opus-4-6, claude-sonnet-4-5-20250929, claude-haiku-4-5-20251001]`
+    - **xo-enrich Lambda**: updated defaults, allowed list, Phase 2 fallback, `analyze_with_claude()` default parameter
+    - **xo-auth Lambda**: updated `_success_response` default, DB query COALESCE default, `handle_preferences` allowed list
+    - **Frontend (App.jsx)**: updated MODEL_LABELS (3 entries), Configuration selector (3 cards: Opus purple, Sonnet blue, Haiku green), default preferredModel
+    - **schema.sql**: updated `preferred_model` column default
+    - **Configuration screen** now shows 3 model cards:
+      - Claude Opus 4.6 (purple #a855f7) — Best analysis, deeper reasoning
+      - Claude Sonnet 4.5 (blue #3b82f6) — Balanced speed and quality (default)
+      - Claude Haiku 4.5 (green #22c55e) — Fastest responses, lowest cost
+    - Deployed: xo-enrich Lambda, xo-auth Lambda, frontend to S3/CloudFront
+    - Files: App.jsx, auth/lambda_function.py, enrich/lambda_function.py, schema.sql
+
 ---
 
 ## PENDING ITEMS
@@ -2100,7 +2115,7 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 - Backend: 7 Python Lambdas behind API Gateway (+ xo-psycopg2 layer)
 - Database: PostgreSQL 15 on RDS (db.t3.micro) -- 6 tables
 - Auth: bcrypt password hashing + JWT tokens (24h expiry)
-- AI: Claude Opus 4.5 (default) or Sonnet 4.5 (user-selectable) via Anthropic API
+- AI: Claude Sonnet 4.5 (default), Opus 4.6, or Haiku 4.5 (user-selectable) via Anthropic API
 - Storage: S3 with folder-per-client structure (files + analysis.json)
 - Transcription: AWS Transcribe for audio files (MP3, WAV, M4A, AAC, OGG, FLAC, WMA)
 - Integrations: Google Drive (OAuth2 connector with file picker)

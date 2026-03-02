@@ -374,7 +374,7 @@ export default function App() {
 
   // Model preference state
   const [preferredModel, setPreferredModel] = useState(
-    initialAuth.user?.preferred_model || 'claude-opus-4-5-20250529'
+    initialAuth.user?.preferred_model || 'claude-sonnet-4-5-20250929'
   )
 
   const handleLogin = (userData, token) => {
@@ -2390,8 +2390,9 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 // ENRICH SCREEN
 // ============================================================
 const MODEL_LABELS = {
-  'claude-opus-4-5-20250529': 'Claude Opus 4.5',
-  'claude-sonnet-4-20250514': 'Claude Sonnet 4.5'
+  'claude-opus-4-6': 'Claude Opus 4.6',
+  'claude-sonnet-4-5-20250929': 'Claude Sonnet 4.5',
+  'claude-haiku-4-5-20251001': 'Claude Haiku 4.5'
 }
 
 function EnrichScreen({ clientId, onComplete, preferredModel }) {
@@ -3449,8 +3450,9 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
         </div>
         <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
           {[
-            { id: 'claude-opus-4-5-20250529', label: 'Claude Opus 4.5', desc: 'Best analysis, deeper reasoning', color: '#a855f7' },
-            { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4.5', desc: 'Faster responses, lower cost', color: '#3b82f6' }
+            { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', desc: 'Best analysis, deeper reasoning', color: '#a855f7' },
+            { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', desc: 'Balanced speed and quality (default)', color: '#3b82f6' },
+            { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', desc: 'Fastest responses, lowest cost', color: '#22c55e' }
           ].map(m => {
             const isSelected = preferredModel === m.id
             return (

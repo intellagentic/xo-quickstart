@@ -48,7 +48,7 @@ def _make_token(user_id, email, name):
     return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
 
-def _success_response(user_id, email, name, preferred_model='claude-opus-4-5-20250529', status=200):
+def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-20250929', status=200):
     token = _make_token(user_id, email, name)
     return {
         'statusCode': status,
@@ -78,7 +78,7 @@ def handle_login(event):
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-opus-4-5-20250529') FROM users WHERE email = %s",
+            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929') FROM users WHERE email = %s",
             (email,)
         )
         row = cur.fetchone()
@@ -270,7 +270,7 @@ def handle_preferences(event):
         body = json.loads(event.get('body', '{}'))
         preferred_model = body.get('preferred_model', '')
 
-        allowed_models = ['claude-opus-4-5-20250529', 'claude-sonnet-4-20250514']
+        allowed_models = ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']
         if preferred_model not in allowed_models:
             return {
                 'statusCode': 400,

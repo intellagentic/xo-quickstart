@@ -76,14 +76,14 @@ def lambda_handler(event, context):
 
         # Also read user's preferred_model as fallback
         cur.execute(
-            "SELECT COALESCE(preferred_model, 'claude-opus-4-5-20250529') FROM users WHERE id = %s",
+            "SELECT COALESCE(preferred_model, 'claude-sonnet-4-5-20250929') FROM users WHERE id = %s",
             (user['user_id'],)
         )
         user_row = cur.fetchone()
-        db_model = user_row[0] if user_row else 'claude-opus-4-5-20250529'
+        db_model = user_row[0] if user_row else 'claude-sonnet-4-5-20250929'
 
         # Priority: request body > user preference > default
-        allowed_models = ['claude-opus-4-5-20250529', 'claude-sonnet-4-20250514']
+        allowed_models = ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']
         model_to_use = requested_model if requested_model in allowed_models else db_model
         print(f"Using model: {model_to_use}")
 
@@ -183,7 +183,7 @@ def _run_enrichment_pipeline(event):
     db_client_id = event['db_client_id']
     enrichment_id = event['enrichment_id']
     user_id = event['user_id']
-    model = event.get('model', 'claude-opus-4-5-20250529')
+    model = event.get('model', 'claude-sonnet-4-5-20250929')
     active_keys = event.get('active_keys', None)
 
     conn = None
@@ -709,7 +709,7 @@ def extract_pdf(file_content):
 
 def analyze_with_claude(company_name, website, contact_name, contact_title,
                         contact_linkedin, industry, description, pain_point, extracted_text, skills=None,
-                        model='claude-opus-4-5-20250529', client_config=None, system_skills=None):
+                        model='claude-sonnet-4-5-20250929', client_config=None, system_skills=None):
     """
     Call Claude API with First Party Trick prompt.
     Returns structured analysis JSON.

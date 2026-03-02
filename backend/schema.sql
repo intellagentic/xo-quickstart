@@ -117,7 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_buttons_user_id ON buttons(user_id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_drive_refresh_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_drive_connected_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE uploads ADD COLUMN IF NOT EXISTS source VARCHAR(50) DEFAULT 'manual';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_model VARCHAR(100) DEFAULT 'claude-opus-4-5-20250529';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_model VARCHAR(100) DEFAULT 'claude-sonnet-4-5-20250929';
 
 -- ============================================================
 -- ENRICHMENT STAGE TRACKING (migration)
