@@ -1975,7 +1975,9 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                       borderRadius: '10px',
                       opacity: isActive ? 1 : 0.5,
                       filter: isActive ? 'none' : 'grayscale(30%)',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      position: 'relative',
+                      overflow: 'visible'
                     }}
                   >
                     {/* File Icon */}
@@ -2033,7 +2035,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                     </button>
 
                     {/* Kebab Menu */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div style={{ position: 'static', flexShrink: 0 }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : upload.id) }}
                         style={{
@@ -2046,7 +2048,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 
                       {isMenuOpen && (
                         <div style={{
-                          position: 'absolute', right: 0, top: '100%', zIndex: 50,
+                          position: 'absolute', right: '0.875rem', top: 'calc(100% - 4px)', zIndex: 50,
                           background: 'var(--surface-primary, #1a1a2e)',
                           border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
                           borderRadius: '8px', padding: '0.25rem 0', minWidth: '140px',
