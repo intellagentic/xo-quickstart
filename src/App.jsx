@@ -1896,7 +1896,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
       {/* ── Panel 1: Source Library ── */}
-      <div className="panel">
+      <div className="panel" style={{ overflow: 'visible' }}>
         <div className="panel-header">
           <div className="panel-header-left">
             <FolderOpen size={20} className="icon-red" />
@@ -2035,7 +2035,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                     </button>
 
                     {/* Kebab Menu */}
-                    <div style={{ position: 'static', flexShrink: 0 }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : upload.id) }}
                         style={{
@@ -2048,7 +2048,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 
                       {isMenuOpen && (
                         <div style={{
-                          position: 'absolute', right: '0.875rem', top: 'calc(100% - 4px)', zIndex: 50,
+                          position: 'absolute', right: 0, top: '100%', zIndex: 50,
                           background: 'var(--surface-primary, #1a1a2e)',
                           border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
                           borderRadius: '8px', padding: '0.25rem 0', minWidth: '140px',
