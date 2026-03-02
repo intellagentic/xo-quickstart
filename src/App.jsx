@@ -1415,7 +1415,21 @@ function UploadScreen({ setClientId, clientId, companyData, onComplete, onOpenCo
               MBA-level analysis. Problems identified. Schema proposed. Action plan delivered.
             </p>
 
-            {!allStepsComplete && (
+            {allStepsComplete ? (
+              <button
+                onClick={onComplete}
+                className="action-btn red"
+                style={{
+                  justifyContent: 'center',
+                  padding: '0.75rem',
+                  fontSize: '0.9rem',
+                  width: '100%'
+                }}
+              >
+                <Sparkles size={18} />
+                Enrich
+              </button>
+            ) : (
               <p style={{
                 fontSize: '0.75rem',
                 color: 'rgba(255, 255, 255, 0.5)',
@@ -1597,22 +1611,6 @@ function UploadScreen({ setClientId, clientId, companyData, onComplete, onOpenCo
         </div>
       )}
 
-      {/* Continue Button - Only show when both steps complete */}
-      {allStepsComplete && (
-        <button
-          onClick={onComplete}
-          className="action-btn red"
-          style={{
-            width: '100%',
-            padding: '1.25rem',
-            fontSize: '1.125rem',
-            justifyContent: 'center'
-          }}
-        >
-          <Sparkles size={24} />
-          Continue to Enrichment
-        </button>
-      )}
     </div>
   )
 }
