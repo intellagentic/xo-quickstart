@@ -401,8 +401,10 @@ export default function App() {
     setUser(null)
     setAuthToken(null)
     setIsLoggedIn(false)
+    setClientId(null)
     localStorage.removeItem('xo-token')
     localStorage.removeItem('xo-user')
+    localStorage.removeItem('xo-client-id')
     setCurrentScreen('upload')
   }
 
@@ -410,7 +412,7 @@ export default function App() {
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
-  const [clientId, setClientId] = useState(null) // Set after upload completes
+  const [clientId, setClientId] = useState(() => localStorage.getItem('xo-client-id') || null)
   const [companyData, setCompanyData] = useState({
     name: '',
     website: '',
@@ -435,6 +437,11 @@ export default function App() {
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
+
+  // Persist clientId to localStorage
+  useEffect(() => {
+    if (clientId) localStorage.setItem('xo-client-id', clientId)
+  }, [clientId])
 
   // Custom buttons state - synced with PostgreSQL via API
   const [configButtons, setConfigButtons] = useState(DEFAULT_BUTTONS)
