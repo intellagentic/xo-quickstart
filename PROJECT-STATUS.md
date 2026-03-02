@@ -3,7 +3,7 @@
 **Date:** March 1, 2026
 **Project:** XO Quickstart - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.15)
+**Status:** Deployed & Operational (v1.16)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -1900,6 +1900,18 @@ cd backend
     - **Loading state** also redesigned to match: centered spinner icon at 64px, heading "Loading Skills"
     - **Skill cards** use bordered rows within the single panel body (no nested panels)
     - Frontend build: ~238 KB JS
+    - Deployed: frontend to S3, CloudFront invalidation
+    - Files: 1 file modified (App.jsx)
+
+42. **Enrichment Info Modal** (Session 10 - March 1, 2026)
+    - **Replaced clipped popover** with centered modal overlay — enrichment info was opening downward and falling off screen
+    - Uses `modal-overlay` class (same as other modals) for consistent backdrop + centering
+    - Card: 400px wide, `maxWidth: 90vw`, rounded corners, shadow
+    - Header row with title + X close button
+    - Same 6-step content, slightly larger text for readability (0.85rem labels, 0.8rem descriptions)
+    - Dismiss on click outside (overlay) or X button
+    - Model badge + "Change model in Configuration" footer preserved
+    - Frontend build: ~239 KB JS
     - Deployed: frontend to S3, CloudFront invalidation
     - Files: 1 file modified (App.jsx)
 

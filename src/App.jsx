@@ -2204,7 +2204,7 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
               Our AI will extract text from documents, transcribe audio files,<br />
               research your company online, and generate a comprehensive analysis.
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
               <button
                 onClick={startEnrichment}
                 className="action-btn red"
@@ -2214,7 +2214,7 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
                 Start Enrichment
               </button>
               <button
-                onClick={() => setShowInfoPopover(!showInfoPopover)}
+                onClick={() => setShowInfoPopover(true)}
                 style={{
                   background: 'none',
                   border: '2px solid var(--border-color)',
@@ -2233,88 +2233,99 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
               >
                 <AlertCircle size={18} />
               </button>
+            </div>
 
-              {/* Enrichment Info Popover */}
-              {showInfoPopover && (
-                <>
-                  <div
-                    onClick={() => setShowInfoPopover(false)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 12px)',
-                    right: 0,
-                    width: 340,
+            {/* Enrichment Info Modal */}
+            {showInfoPopover && (
+              <div className="modal-overlay" onClick={() => setShowInfoPopover(false)}>
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: 400,
+                    maxWidth: '90vw',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '12px',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                    zIndex: 100,
-                    padding: '1.25rem',
-                    textAlign: 'left'
-                  }}>
-                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.875rem' }}>
+                    padding: '1.5rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                       What happens when you click Enrich?
                     </h4>
-                    {[
-                      { num: '1', label: 'Extract', desc: 'Read all uploaded documents, transcribe audio files', icon: FileText },
-                      { num: '2', label: 'Context', desc: 'Company info, pain points, and survival metrics guide the analysis', icon: Building2 },
-                      { num: '3', label: 'Skills', desc: 'System + domain + client skills shape how AI thinks', icon: Database },
-                      { num: '4', label: 'Web Research', desc: 'Company, competitors, and market research', icon: Globe },
-                      { num: '5', label: 'AI Analysis', desc: `${MODEL_LABELS[preferredModel] || 'Claude'} produces MBA-level analysis`, icon: Sparkles },
-                      { num: '6', label: 'Output', desc: 'Problems, architecture, schema, 30/60/90 day plan', icon: CheckCircle }
-                    ].map(step => (
-                      <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', marginBottom: '0.625rem' }}>
-                        <div style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          background: 'rgba(220, 38, 38, 0.1)',
-                          color: '#dc2626',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          flexShrink: 0,
-                          marginTop: 1
-                        }}>
-                          {step.num}
-                        </div>
-                        <div>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>{step.label}</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '0.375rem' }}>{step.desc}</span>
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{
-                      marginTop: '0.75rem',
-                      paddingTop: '0.625rem',
-                      borderTop: '1px solid var(--border-color)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      <span style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
-                        background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
-                      }}>
-                        {MODEL_LABELS[preferredModel] || preferredModel}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        Change model in Configuration
-                      </span>
-                    </div>
+                    <button
+                      onClick={() => setShowInfoPopover(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                </>
-              )}
-            </div>
+                  {[
+                    { num: '1', label: 'Extract', desc: 'Read all uploaded documents, transcribe audio files', icon: FileText },
+                    { num: '2', label: 'Context', desc: 'Company info, pain points, and survival metrics guide the analysis', icon: Building2 },
+                    { num: '3', label: 'Skills', desc: 'System + domain + client skills shape how AI thinks', icon: Database },
+                    { num: '4', label: 'Web Research', desc: 'Company, competitors, and market research', icon: Globe },
+                    { num: '5', label: 'AI Analysis', desc: `${MODEL_LABELS[preferredModel] || 'Claude'} produces MBA-level analysis`, icon: Sparkles },
+                    { num: '6', label: 'Output', desc: 'Problems, architecture, schema, 30/60/90 day plan', icon: CheckCircle }
+                  ].map(step => (
+                    <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', marginBottom: '0.75rem' }}>
+                      <div style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        background: 'rgba(220, 38, 38, 0.1)',
+                        color: '#dc2626',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        marginTop: 1
+                      }}>
+                        {step.num}
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{step.label}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.375rem' }}>{step.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{
+                    marginTop: '0.75rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+                      background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+                    }}>
+                      {MODEL_LABELS[preferredModel] || preferredModel}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Change model in Configuration
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
