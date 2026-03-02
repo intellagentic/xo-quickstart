@@ -207,6 +207,13 @@ def _run_enrichment_pipeline(event):
         print(f"Loaded {len(skills)} skills for client: {client_id}")
         cur.close()
 
+        # Read client-config.md if it exists
+        client_config = read_client_config(client_id)
+        if client_config:
+            print(f"Loaded client-config.md ({len(client_config)} chars)")
+        else:
+            print("No client-config.md found")
+
         # Stage: extracting
         update_enrichment_stage(conn, enrichment_id, 'extracting')
         extracted_text = extract_all_files(client_id)
@@ -240,7 +247,7 @@ def _run_enrichment_pipeline(event):
         analysis = analyze_with_claude(
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point, extracted_text, skills,
-            model=model
+            model=model, client_config=client_config
         )
 
         # Write results to S3
@@ -441,6 +448,18 @@ def read_transcribe_output(output_key):
         return ''
     except Exception as e:
         print(f"Error reading transcribe output ({output_key}): {e}")
+        return None
+
+
+def read_client_config(client_id):
+    """Read client-config.md from S3 if it exists."""
+    try:
+        response = s3_client.get_object(
+            Bucket=BUCKET_NAME,
+            Key=f"{client_id}/client-config.md"
+        )
+        return response['Body'].read().decode('utf-8')
+    except Exception:
         return None
 
 
@@ -647,7 +666,7 @@ def extract_pdf(file_content):
 
 def analyze_with_claude(company_name, website, contact_name, contact_title,
                         contact_linkedin, industry, description, pain_point, extracted_text, skills=None,
-                        model='claude-opus-4-5-20250529'):
+                        model='claude-opus-4-5-20250529', client_config=None):
     """
     Call Claude API with First Party Trick prompt.
     Returns structured analysis JSON.
@@ -674,10 +693,15 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
 
     enrichment_section = "\n".join(enrichment_info) if enrichment_info else "Not provided"
 
+    # Client config section (persistent context, like a CLAUDE.md for this client)
+    config_section = ""
+    if client_config:
+        config_section = f"\n\nCLIENT CONFIGURATION (persistent context for this engagement):\n{client_config}\n"
+
     skills_section = ""
     if skills and len(skills) > 0:
         skills_section = "\n\nDOMAIN-SPECIFIC SKILLS & INSTRUCTIONS:\n"
-        skills_section += "The following skills provide domain-specific knowledge and analysis instructions. Use these to enhance your analysis:\n\n"
+        skills_section += "The following skills provide domain-specific knowledge and analysis instructions. Follow these instructions carefully -- they override default behavior:\n\n"
         for skill in skills:
             skills_section += f"=== SKILL: {skill['name']} ===\n{skill['content']}\n\n"
 
@@ -690,77 +714,101 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
 COMPANY INFORMATION:
 Company Name: {company_name}
 {enrichment_section}
-
+{config_section}
 CLIENT DATA (Uploaded Documents):
 {files_summary}
 {skills_section}
 TASK:
 Analyze this business like an MBA analyst presenting on Monday morning.{pain_point_section}
 
-Provide:
+Provide your analysis in structured, technical format. Follow these formatting rules strictly:
 
-1. EXECUTIVE SUMMARY: 2-3 paragraph overview of the business, operations, and financial indicators based on the data provided.
+1. EXECUTIVE SUMMARY
+   - Lead with the single biggest finding in the first sentence
+   - 2-3 paragraphs maximum
+   - Reference specific data points, not generalities
 
-2. PROBLEMS IDENTIFIED: Top 3-5 critical business problems. For each problem:
+2. PROBLEMS IDENTIFIED (top 3-5)
+   For each problem provide:
    - Title (clear, specific)
    - Severity (high/medium/low)
-   - Evidence (specific data points from documents)
-   - Recommendation (actionable solution)
+   - Evidence: cite specific data from the documents (row counts, dollar amounts, percentages)
+   - Recommendation: concrete action with expected outcome
 
-3. PROPOSED DATA SCHEMA: Design a database schema to manage this business. Include:
-   - 3-5 core tables
-   - For each table: name, purpose, key columns (name, type, description)
-   - Relationships between tables
+3. PROPOSED ARCHITECTURE
+   - Provide an ASCII diagram showing the proposed system architecture using box-drawing characters (+, -, |, v, >)
+   - Show data flow between components
+   - Example format:
+     +----------+     +----------+     +---------+
+     | Source A  |---->| Process  |---->| Output  |
+     +----------+     +----------+     +---------+
 
-4. 30/60/90 DAY ACTION PLAN:
-   - 30-day: Immediate actions to stabilize and assess
-   - 60-day: Quick wins and process improvements
-   - 90-day: Strategic initiatives and measurement
+4. PROPOSED DATA SCHEMA
+   - For each table, use this format:
+     Table: table_name -- purpose
+     | Column | Type | Description |
+     |--------|------|-------------|
+     | id | UUID | Primary key |
+   - Show relationships between tables after the table definitions
+
+5. 30/60/90 DAY ACTION PLAN
+   - Numbered items within each phase
+   - Each action should be specific and measurable
+   - Include expected cost or effort level where possible
+
+6. BOTTOM LINE
+   - One paragraph: what to do first, what it will cost, what outcome to expect
+   - Be direct -- this is the slide the CEO reads
 
 OUTPUT FORMAT:
-Return ONLY valid JSON in this exact structure:
+Return ONLY valid JSON in this exact structure. The "summary", "architecture_diagram", and "bottom_line" fields contain plain text. Schema "columns" use table format. All text fields can include newline characters (\\n) for formatting:
 {{
   "status": "complete",
-  "summary": "executive summary text...",
+  "summary": "Executive summary text with specific data references...",
   "problems": [
     {{
       "title": "Problem Title",
       "severity": "high|medium|low",
-      "evidence": "specific evidence from data...",
-      "recommendation": "actionable recommendation..."
+      "evidence": "Specific evidence citing data: row counts, dollar amounts, percentages from documents...",
+      "recommendation": "Concrete action: do X, expect Y outcome, costs approximately Z..."
     }}
   ],
+  "architecture_diagram": "ASCII diagram showing proposed system architecture using +, -, |, v, > characters...",
   "schema": {{
     "tables": [
       {{
         "name": "table_name",
-        "purpose": "what this table stores",
+        "purpose": "what this table manages",
         "columns": [
           {{"name": "column_name", "type": "data_type", "description": "what it stores"}}
         ]
       }}
+    ],
+    "relationships": [
+      "table_a.column -> table_b.column (one-to-many)"
     ]
   }},
   "plan": [
     {{
       "phase": "30-day",
-      "actions": ["action 1", "action 2", "action 3"]
+      "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }},
     {{
       "phase": "60-day",
-      "actions": ["action 1", "action 2", "action 3"]
+      "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }},
     {{
       "phase": "90-day",
-      "actions": ["action 1", "action 2", "action 3"]
+      "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }}
   ],
+  "bottom_line": "Direct summary: what to do first, what it costs, what to expect...",
   "sources": [
     {{"type": "client_data", "reference": "filename or data source"}}
   ]
 }}
 
-Be specific. Use actual data from the documents. Think like a management consultant."""
+Be specific. Use actual data from the documents. Think like a management consultant presenting to the CEO."""
 
     try:
         message = anthropic_client.messages.create(

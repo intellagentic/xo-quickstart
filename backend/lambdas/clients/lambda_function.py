@@ -83,6 +83,21 @@ def lambda_handler(event, context):
         for folder in folders:
             s3_client.put_object(Bucket=BUCKET_NAME, Key=folder, Body='')
 
+        # Generate client-config.md
+        config_md = generate_client_config(
+            company_name, website, contact_name, contact_title,
+            contact_linkedin, industry, description, pain_point
+        )
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=f"{client_id}/client-config.md",
+            Body=config_md,
+            ContentType='text/markdown'
+        )
+
+        # Copy default skill template to client's skills folder
+        copy_default_skill(client_id)
+
         # Insert into PostgreSQL
         conn = get_db_connection()
         cur = conn.cursor()
@@ -99,8 +114,15 @@ def lambda_handler(event, context):
         ))
 
         db_id = str(cur.fetchone()[0])
+
+        # Insert default skill into DB so it shows in Skills screen
+        cur2 = conn.cursor()
+        cur2.execute("""
+            INSERT INTO skills (client_id, name, s3_key)
+            VALUES (%s, %s, %s)
+        """, (db_id, 'analysis-template', f"{client_id}/skills/analysis-template.md"))
         conn.commit()
-        cur.close()
+        cur2.close()
         conn.close()
 
         print(f"Created client: {client_id} (db: {db_id}) for company: {company_name}")
@@ -125,3 +147,141 @@ def lambda_handler(event, context):
                 'message': str(e)
             })
         }
+
+
+DEFAULT_SKILL_TEMPLATE = """# Analysis Skill -- Default Template
+
+Edit this skill to customize how Claude analyzes this client's data. Each section shapes a different aspect of the analysis.
+
+---
+
+## Context
+
+Who is this client? What do they do? What stage are they at?
+
+- Industry:
+- Business model:
+- Company size:
+- Key stakeholders:
+
+---
+
+## Focus Areas
+
+What metrics, problems, or themes should the analysis prioritize?
+
+1. Revenue and cash flow patterns
+2. Operational bottlenecks
+3. Customer acquisition and retention
+4. Process inefficiencies
+5. Data quality and gaps
+
+---
+
+## Ignore List
+
+What should the analysis skip or de-prioritize?
+
+- Do not focus on branding or marketing aesthetics
+- Do not recommend complete platform rebuilds
+- Do not speculate about competitor strategies without data
+
+---
+
+## Output Format
+
+How should findings be structured?
+
+- Lead with the single biggest insight -- the thing the CEO needs to hear Monday morning
+- Use ASCII diagrams for any proposed system architecture
+- Present database schemas as formatted tables (name | type | description)
+- Number all recommendations and tie each to specific evidence from the data
+- End with a concrete bottom line: what to do first and what it will cost
+
+---
+
+## Authority Boundaries
+
+What should Claude recommend directly vs. flag for human review?
+
+### Recommend Directly
+- Process improvements based on clear data patterns
+- Data schema designs based on the uploaded documents
+- Quick wins achievable within 30 days
+- Metrics to start tracking immediately
+
+### Flag for Human Review
+- Any recommendation requiring >$10K investment
+- Staffing changes or organizational restructuring
+- Technology platform migrations
+- Regulatory or compliance-related decisions
+- Anything requiring legal review
+"""
+
+
+def copy_default_skill(client_id):
+    """Copy the default skill template to the client's skills folder in S3."""
+    try:
+        s3_client.put_object(
+            Bucket=BUCKET_NAME,
+            Key=f"{client_id}/skills/analysis-template.md",
+            Body=DEFAULT_SKILL_TEMPLATE.strip(),
+            ContentType='text/markdown'
+        )
+        print(f"Copied default skill to {client_id}/skills/analysis-template.md")
+    except Exception as e:
+        print(f"Error copying default skill: {e}")
+
+
+def generate_client_config(company_name, website, contact_name, contact_title,
+                           contact_linkedin, industry, description, pain_point):
+    """Generate a client-config.md structured context document."""
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+    sections = []
+    sections.append(f"# Client Configuration -- {company_name}")
+    sections.append(f"\n**Created:** {today}")
+    sections.append("**Purpose:** Persistent context injected into every Claude analysis for this client.")
+    sections.append("")
+    sections.append("---")
+    sections.append("")
+    sections.append("## Company Profile")
+    sections.append("")
+    sections.append(f"- **Company Name:** {company_name}")
+    if website:
+        sections.append(f"- **Website:** {website}")
+    if industry:
+        sections.append(f"- **Industry:** {industry}")
+    if description:
+        sections.append(f"- **Description:** {description}")
+
+    if contact_name or contact_title or contact_linkedin:
+        sections.append("")
+        sections.append("## Primary Contact")
+        sections.append("")
+        if contact_name:
+            sections.append(f"- **Name:** {contact_name}")
+        if contact_title:
+            sections.append(f"- **Title:** {contact_title}")
+        if contact_linkedin:
+            sections.append(f"- **LinkedIn:** {contact_linkedin}")
+
+    if pain_point:
+        sections.append("")
+        sections.append("## Immediate Pain Point")
+        sections.append("")
+        sections.append(f"{pain_point}")
+        sections.append("")
+        sections.append("This is the client's #1 priority. Every analysis should lead with this.")
+
+    sections.append("")
+    sections.append("---")
+    sections.append("")
+    sections.append("## Analysis Instructions")
+    sections.append("")
+    sections.append("- Treat this client as a real business engagement, not a demo")
+    sections.append("- Reference their specific data, not generic industry advice")
+    sections.append("- Every recommendation must tie back to evidence from their documents")
+    sections.append("- Use their company name and industry context throughout the analysis")
+
+    return "\n".join(sections) + "\n"

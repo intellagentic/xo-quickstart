@@ -3531,6 +3531,31 @@ function ResultsScreen({ setShowModal, clientId }) {
         </div>
       </div>
 
+      {/* Bottom Line */}
+      {displayResults.bottom_line && (
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-header-left">
+              <Zap size={20} className="icon-red" />
+              <h2>Bottom Line</h2>
+            </div>
+          </div>
+          <div style={{ padding: '1.25rem' }}>
+            <div style={{
+              background: 'rgba(220, 38, 38, 0.05)',
+              border: '1px solid rgba(220, 38, 38, 0.15)',
+              borderLeft: '4px solid #dc2626',
+              borderRadius: '8px',
+              padding: '1rem 1.25rem'
+            }}>
+              <p style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                {displayResults.bottom_line}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Problems Identified */}
       <div className="panel">
         <div className="panel-header">
@@ -3615,6 +3640,35 @@ function ResultsScreen({ setShowModal, clientId }) {
         </div>
       </div>
 
+      {/* Proposed Architecture */}
+      {displayResults.architecture_diagram && (
+        <div className="panel">
+          <div className="panel-header">
+            <div className="panel-header-left">
+              <Package size={20} className="icon-red" />
+              <h2>Proposed Architecture</h2>
+            </div>
+          </div>
+          <div style={{ padding: '1.25rem' }}>
+            <pre style={{
+              background: 'var(--bg-card-alt)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '1.25rem',
+              fontSize: '0.75rem',
+              lineHeight: 1.5,
+              fontFamily: 'Monaco, Menlo, Consolas, monospace',
+              color: 'var(--text-primary)',
+              overflowX: 'auto',
+              margin: 0,
+              whiteSpace: 'pre'
+            }}>
+              {displayResults.architecture_diagram}
+            </pre>
+          </div>
+        </div>
+      )}
+
       {/* Proposed Schema */}
       <div className="panel">
         <div className="panel-header">
@@ -3692,6 +3746,31 @@ function ResultsScreen({ setShowModal, clientId }) {
               )}
             </div>
           ))}
+          {/* Schema Relationships */}
+          {displayResults.schema?.relationships?.length > 0 && (
+            <div style={{
+              marginTop: '0.25rem',
+              padding: '0.75rem 1rem',
+              background: 'var(--bg-card-alt)',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)'
+            }}>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                Relationships
+              </p>
+              {displayResults.schema.relationships.map((rel, i) => (
+                <p key={i} style={{
+                  fontSize: '0.8rem',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'Monaco, Menlo, Consolas, monospace',
+                  margin: '0.25rem 0',
+                  lineHeight: 1.5
+                }}>
+                  {rel}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 **Date:** March 1, 2026
 **Project:** XO Quickstart - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.9)
+**Status:** Deployed & Operational (v1.10)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -1812,6 +1812,32 @@ cd backend
     - Deployed: xo-enrich Lambda, xo-results Lambda, frontend, CloudFront invalidation, DB migration
     - Files: 4 files modified (schema.sql, enrich/lambda_function.py, results/lambda_function.py, App.jsx)
 
+37. **Enrichment Templates, Structured Output, Client Config** (Session 9 - March 1, 2026)
+    - **Default skill template** (`backend/templates/default-skill.md`): ships with every new client
+      - 5 sections: Context, Focus Areas, Ignore List, Output Format, Authority Boundaries
+      - Editable via Skills screen -- customizes how Claude analyzes each client
+      - xo-clients Lambda copies `analysis-template.md` to `{client_id}/skills/` on client creation
+      - Skill record inserted into DB (skills table) so it appears in Skills screen immediately
+    - **Structured output prompt**: complete rewrite of the First Party Trick prompt
+      - ASCII architecture diagrams (box-drawing characters) for proposed systems
+      - Table-format database schemas (Column | Type | Description)
+      - Schema relationships as explicit `table.column -> table.column` declarations
+      - Numbered, measurable actions in 30/60/90 day plan
+      - Bottom Line section: direct CEO-level summary (what to do, what it costs, what to expect)
+      - New JSON fields: `architecture_diagram`, `schema.relationships`, `bottom_line`
+    - **Client config** (`{client_id}/client-config.md`): generated on client creation
+      - Structured context document from New Partner form inputs
+      - Sections: Company Profile, Primary Contact, Immediate Pain Point, Analysis Instructions
+      - Injected into every Claude call as persistent context (like CLAUDE.md for each client)
+      - Read by enrich Lambda via `read_client_config()` function
+    - **Frontend Results screen enhancements**:
+      - New "Bottom Line" panel with red accent bar (appears first, after summary)
+      - New "Proposed Architecture" panel with monospace pre-formatted ASCII diagram
+      - Schema relationships section below table definitions
+    - Frontend build: ~231 KB JS
+    - Deployed: xo-clients Lambda, xo-enrich Lambda, frontend, CloudFront invalidation
+    - Files: 5 files created/modified (default-skill.md, clients/lambda_function.py, enrich/lambda_function.py, App.jsx, CLAUDE.md)
+
 ---
 
 ## PENDING ITEMS
@@ -1876,11 +1902,13 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 5. Add context metadata for audio files (date, participants, topic)
 6. Choose AI model in Configuration (Opus 4.5 default or Sonnet 4.5)
 7. Click "Start Enrichment" and watch AI process their data (async with live stage tracking)
-8. Receive MBA-level business analysis:
+8. Receive structured MBA-level business analysis:
    - Executive summary of their business
    - 3-5 critical problems identified with evidence and recommendations
-   - Proposed database schema (3-5 tables with columns and relationships)
-   - 30/60/90 day action plan
+   - ASCII architecture diagram for proposed system
+   - Proposed database schema (tables with columns, types, relationships)
+   - 30/60/90 day action plan with numbered, measurable actions
+   - Bottom line summary (CEO-level: what to do first, cost, expected outcome)
    - Source attribution
 
 **Technology Stack:**
@@ -1913,7 +1941,7 @@ The XO Quickstart prototype is **fully operational** and deployed to production.
 
 **Repository:** All code is version-controlled at https://github.com/intellagentic/xo-quickstart with proper .gitignore to exclude secrets.
 
-**Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode). Audio transcription and async processing are live. Model selector is live -- Opus 4.5 default for best quality, Sonnet 4.5 available for speed.
+**Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode). Skills API endpoints (currently TODO stubs in frontend). Audio transcription, async processing, structured output, and client config are all live.
 
 ---
 
