@@ -9,8 +9,12 @@ echo "📦 Building /enrich Lambda package..."
 # Clean previous build
 rm -rf package function.zip
 
-# Install dependencies
-pip3 install -r requirements.txt -t package/ --quiet
+# Install dependencies targeting Lambda runtime (Python 3.11, Amazon Linux x86_64)
+pip3 install -r requirements.txt -t package/ --quiet \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.11 \
+  --only-binary=:all:
 
 # Copy Lambda function and auth helper
 cp lambda_function.py package/

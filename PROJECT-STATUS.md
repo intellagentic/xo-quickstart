@@ -3,7 +3,7 @@
 **Date:** March 1, 2026
 **Project:** XO Quickstart - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.18)
+**Status:** Deployed & Operational (v1.19)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -1515,7 +1515,7 @@ cd backend
 ## BUILD HISTORY
 
 **Session Date:** March 1, 2026
-**Build Count:** 44 completed builds
+**Build Count:** 45 completed builds
 
 **Build Order:**
 
@@ -1993,6 +1993,15 @@ cd backend
     - **Upload status default**: Upload Lambda explicitly sets `status='active'` on INSERT (both upload and replace handlers). DB column enforced as NOT NULL DEFAULT 'active'. Fixed existing inactive rows.
     - Branch: feature/source-library
     - Files: App.jsx, clients/lambda_function.py, upload/lambda_function.py
+
+45. **Fix xo-enrich Lambda pydantic_core Import Error** (Session 13 - March 2, 2026)
+    - **Root cause**: Local `pip3` is Python 3.14 (macOS ARM). `pip3 install -t package/` installed `pydantic_core` compiled as `cpython-314-darwin.so` — wrong Python version (3.14 vs 3.11) and wrong platform (macOS ARM vs Amazon Linux x86_64).
+    - **Symptom**: `[ERROR] Runtime.ImportModuleError: Unable to import module 'lambda_function': No module named 'pydantic_core._pydantic_core'` — all enrichment requests failing.
+    - **Fix**: Updated `deploy-enrich.sh` to use platform-targeting flags: `--platform manylinux2014_x86_64 --implementation cp --python-version 3.11 --only-binary=:all:`
+    - **Result**: `pydantic_core/_pydantic_core.cpython-311-x86_64-linux-gnu.so` — correct binary for Lambda runtime
+    - **Also fixed**: `deploy-gdrive.sh` with same platform flags to prevent future issues
+    - Deployed xo-enrich Lambda, verified clean INIT and 200 response
+    - Files: deploy-enrich.sh, deploy-gdrive.sh
 
 ---
 
