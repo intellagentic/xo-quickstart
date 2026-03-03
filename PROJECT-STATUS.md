@@ -1,9 +1,9 @@
 # XO CAPTURE - PROJECT STATUS
 
-**Date:** March 1, 2026
+**Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.22)
+**Status:** Deployed & Operational (v1.24)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -76,13 +76,14 @@ App (root)
 |
 +-- LoginScreen (if !isLoggedIn)
 |     +-- Header bar (same as main app: XO logo box, "Rapid Deployment", Intellagentic logo)
-|     +-- "Invitation" heading (uppercase, letter-spaced, subtle gray)
-|     +-- Email field (Mail icon)
-|     +-- Password field (Lock icon + Eye/EyeOff toggle)
-|     +-- "Continue" button (#dc2626 red)
-|     +-- Helper text: "Enter your email and password to get started."
+|     +-- "Welcome" heading (uppercase, letter-spaced, subtle gray)
+|     +-- Google Sign-In button (via Google Identity Services library)
+|     +-- "or" divider
+|     +-- "Sign in with email instead" link (toggles to email/password form)
+|     +-- [Email form] Email field (Mail icon) + Password field (Lock icon) + "Continue" button
+|     +-- Forgot Password? link + Reset Password expandable form
 |     +-- Error banner (AlertTriangle, red)
-|     +-- Auto-creates account if email is new; logs in if existing
+|     +-- Google OAuth admin login → dashboard; email/password login → single-client workspace
 |
 +-- [Authenticated App] (if isLoggedIn)
 |
@@ -90,10 +91,14 @@ App (root)
 |     +-- Hamburger Menu Button
 |     +-- XO Logo Box
 |     +-- Title (desktop: "XO Capture" / mobile: "Rapid Prototype")
+|     +-- Subtitle: "Client Dashboard" (on dashboard) or company name (in workspace)
 |     +-- Intellagentic Logo (right)
 |
 +-- Sidebar (slide-out, 280px)
+|     +-- All Clients   (Building2 icon) -- admin only, navigates to dashboard
+|     +-- ---divider---  -- admin only
 |     +-- Welcome        (Home icon)
+|     +-- Sources        (FolderOpen icon)
 |     +-- Enrich         (Sparkles icon)
 |     +-- Results        (FileText icon)
 |     +-- Skills         (Database icon)
@@ -101,6 +106,19 @@ App (root)
 |     +-- Configuration  (Settings icon)
 |     +-- Theme Toggle   (Sun/Moon)
 |     +-- Sign Out       (LogOut icon, red)
+|
++-- DashboardScreen (admin only, currentScreen === 'dashboard')
+|     +-- Header: "All Clients (N)" + "+ New Client" button
+|     +-- Grid of client cards (auto-fill, min 300px)
+|     |     +-- Company name (bold) + chevron right
+|     |     +-- Industry badge (pill)
+|     |     +-- Source count (FolderOpen icon) + enrichment status badge
+|     |     +-- Last enriched date (if available)
+|     +-- Click card → enters workspace scoped to that client
+|     +-- "+ New Client" → opens CompanyInfoModal → creates client → enters workspace
+|     +-- Empty state: "No clients yet" + "Create First Client" button
+|     +-- Loading state: spinner
+|     +-- Error state: retry button
 |
 +-- CompanyInfoModal
 |     +-- Company Name *
@@ -342,8 +360,19 @@ STEP 3: ENRICH + RESULTS
 |                                          - return JSON or     |
 |                                            {status:processing}|
 |                                                               |
+|  POST     /auth/google     xo-auth       Google OAuth login    |
+|                                          - verify ID token     |
+|                                          - check allowed emails|
+|                                          - upsert user         |
+|                                          - return JWT+is_admin |
+|                                                               |
 |  PUT      /auth/preferences xo-auth      Update user prefs     |
 |                                          (model selection)     |
+|                                                               |
+|  GET      /clients/list   xo-clients    List all clients      |
+|                                          - source count        |
+|                                          - enrichment status   |
+|                                          - last enrichment date|
 |                                                               |
 |  GET      /gdrive/auth-url xo-gdrive-    Get OAuth consent URL |
 |                            import                              |
@@ -552,10 +581,12 @@ src/
 
 **Resources:**
 - /auth/login (POST) -- authenticate or auto-create user, return JWT + preferred_model
+- /auth/google (POST) -- Google OAuth login for admin users (verify ID token, check allowed list)
 - /auth/register (POST) -- explicit user registration
 - /auth/reset-password (POST) -- reset password (no email verification)
 - /auth/preferences (PUT) -- update user preferences (model selection)
-- /clients (POST)
+- /clients (GET/POST/PUT)
+- /clients/list (GET) -- list all clients for user with source count + enrichment stats
 - /upload (POST)
 - /enrich (POST)
 - /results/{id} (GET)
@@ -1129,14 +1160,18 @@ All Lambdas require JWT auth (except /auth/login). Auth is provided by `auth_hel
 **Handler:** lambda_function.lambda_handler
 
 **What it does:**
-1. Routes by path: /auth/login, /auth/register, /auth/reset-password, /auth/preferences
-2. POST /auth/login: **Auto-create flow** -- if email exists, verify bcrypt password; if not, create new user
-3. POST /auth/register: Explicit registration with optional name field
-4. POST /auth/reset-password: Updates bcrypt hash directly (prototype, no email verification)
-5. PUT /auth/preferences: Update user preferences (preferred_model) -- requires JWT auth
-6. Returns JWT (24h expiry, HS256) with user_id, email, name
-7. Login response includes preferred_model (default: claude-opus-4-5-20250529)
-8. Name auto-derived from email prefix for auto-created accounts (e.g., ken.scott → Ken Scott)
+1. Routes by path: /auth/google, /auth/login, /auth/register, /auth/reset-password, /auth/preferences
+2. POST /auth/google: **Google OAuth login** -- verify ID token via Google tokeninfo endpoint, check email against ALLOWED_EMAILS list (4 admin emails), upsert user (sentinel password_hash blocks password login), return JWT with `is_admin=true`
+3. POST /auth/login: **Auto-create flow** -- if email exists, verify bcrypt password; if not, create new user (is_admin=false)
+4. POST /auth/register: Explicit registration with optional name field
+5. POST /auth/reset-password: Updates bcrypt hash directly (prototype, no email verification)
+6. PUT /auth/preferences: Update user preferences (preferred_model) -- requires JWT auth
+7. Returns JWT (24h expiry, HS256) with user_id, email, name, is_admin
+8. Login response includes preferred_model + is_admin flag
+9. Name auto-derived from email prefix for auto-created accounts (e.g., ken.scott → Ken Scott)
+
+**Admin Emails (ALLOWED_EMAILS):** alan.moore@intellagentic.io, ken.scott@intellagentic.io, rs@multiversant.com, vn@multiversant.com
+**Env Vars:** DATABASE_URL, JWT_SECRET, BUCKET_NAME, ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID
 
 **File:** backend/lambdas/auth/lambda_function.py
 
@@ -1149,20 +1184,25 @@ All Lambdas require JWT auth (except /auth/login). Auth is provided by `auth_hel
 **Timeout:** 30 seconds
 **Handler:** lambda_function.lambda_handler
 
-**What it does (method router with 3 handlers):**
+**What it does (method router with 4 handlers):**
 
-1. **GET /clients?client_id=X** — Fetch existing client data
+1. **GET /clients/list** — List all clients for user with stats (admin dashboard)
+   - Returns: company_name, industry, client_id, source_count, enrichment_status, enrichment_date
+   - Subqueries: COUNT active uploads, latest enrichment status/date
+   - Ordered by updated_at DESC
+
+2. **GET /clients?client_id=X** — Fetch existing client data
    - If client_id provided, fetch by s3_folder; otherwise fetch most recent for user
    - Returns all fields: company_name, website, contactName, contactTitle, contactLinkedIn, industry, description, painPoint, client_id, timestamps
 
-2. **POST /clients** — Create new client
+3. **POST /clients** — Create new client
    - Validates company_name, generates unique client_id: `client_{timestamp}_{md5hash}`
    - Creates S3 folder structure: uploads/, extracted/, results/
    - Generates client-config.md in S3, copies default skill template
    - INSERT INTO clients + skills tables
    - Returns client_id (S3 folder) + id (DB UUID)
 
-3. **PUT /clients** — Update existing client
+4. **PUT /clients** — Update existing client
    - Requires client_id in body
    - Updates all fields + updated_at timestamp
    - Regenerates client-config.md in S3
@@ -1514,8 +1554,8 @@ cd backend
 
 ## BUILD HISTORY
 
-**Session Date:** March 1, 2026
-**Build Count:** 51 completed builds
+**Session Date:** March 3, 2026
+**Build Count:** 53 completed builds
 
 **Build Order:**
 
@@ -2062,6 +2102,31 @@ cd backend
     - Deployed xo-enrich Lambda
     - Files: enrich/lambda_function.py
 
+52. **Google OAuth Login + Multi-Client Admin Dashboard** (Session 14 - March 3, 2026)
+    - **Google OAuth login** for admin users via Google Identity Services (GIS) library
+      - Frontend: Google Sign-In button as primary, "Sign in with email instead" link for fallback
+      - Backend: `POST /auth/google` — verifies Google ID token via Google's tokeninfo endpoint (stdlib `urllib`, no new deps)
+      - Hardcoded `ALLOWED_EMAILS` list: 4 admin emails (alan.moore@intellagentic.io, ken.scott@intellagentic.io, rs@multiversant.com, vn@multiversant.com)
+      - Google users created with sentinel `password_hash='google-oauth-no-password'` (blocks password login)
+      - JWT includes `is_admin` flag; frontend uses it to show dashboard vs single-client flow
+    - **Admin Dashboard** (`DashboardScreen` component)
+      - Fetches `GET /clients/list` — returns all clients with source count, enrichment status/date
+      - Grid of client cards: company name, industry badge, source count, enrichment status badge (none/processing/complete/error), last enrichment date
+      - Click card → fetches full client data, enters workspace scoped to that client
+      - "+ New Client" button → opens CompanyInfoModal → creates client → enters workspace
+      - Empty state, loading state, error state with retry
+    - **Sidebar update**: "All Clients" (Building2 icon) at top for admin users, with divider
+    - **Header subtitle**: "Client Dashboard" when on dashboard, company name in workspace
+    - **API Gateway**: Added `/auth/google` (POST+OPTIONS → xo-auth), `/clients/list` (GET+OPTIONS → xo-clients), deployed to prod
+    - **GOOGLE_CLIENT_ID** env var added to xo-auth Lambda (same value from xo-gdrive-import)
+    - Self-serve email/password login preserved — non-admin users go straight to single-client workspace
+    - Files: auth/lambda_function.py, clients/lambda_function.py, shared/auth_helper.py, App.jsx
+
+53. **Add vn@multiversant.com to Allowed Admin Emails** (Session 14 - March 3, 2026)
+    - Added Vamsi Nama (vn@multiversant.com) to ALLOWED_EMAILS list in xo-auth Lambda
+    - Redeployed xo-auth Lambda
+    - Files: auth/lambda_function.py
+
 ---
 
 ## PENDING ITEMS
@@ -2120,7 +2185,7 @@ cd backend
 The XO Capture prototype is **fully operational** and deployed to production. A domain partner can:
 
 1. Visit https://d36la414u58rw5.cloudfront.net
-2. Enter email and password on the Invitation screen (auto-creates account or logs in)
+2. Sign in with Google (admin users) or email/password (self-serve). Admin users see a multi-client dashboard.
 3. Fill out company information (8 fields including pain point and enrichment targets)
 4. Upload business documents (15 file types supported) or import from Google Drive
 5. Add context metadata for audio files (date, participants, topic)
@@ -2139,7 +2204,7 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Frontend: React 18 + Vite, deployed to S3/CloudFront
 - Backend: 7 Python Lambdas behind API Gateway (+ xo-psycopg2 layer)
 - Database: PostgreSQL 15 on RDS (db.t3.micro) -- 6 tables
-- Auth: bcrypt password hashing + JWT tokens (24h expiry)
+- Auth: Google OAuth (admin) + bcrypt password (self-serve) + JWT tokens (24h expiry, is_admin flag)
 - AI: Claude Sonnet 4.5 (default), Opus 4.6, or Haiku 4.5 (user-selectable) via Anthropic API
 - Storage: S3 with folder-per-client structure (files + analysis.json)
 - Transcription: AWS Transcribe for audio files (MP3, WAV, M4A, AAC, OGG, FLAC, WMA)

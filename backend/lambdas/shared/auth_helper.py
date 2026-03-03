@@ -44,7 +44,8 @@ def verify_token(event):
         return {
             'user_id': payload['user_id'],
             'email': payload['email'],
-            'name': payload.get('name', '')
+            'name': payload.get('name', ''),
+            'is_admin': payload.get('is_admin', False)
         }
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None

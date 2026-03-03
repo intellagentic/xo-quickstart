@@ -33,8 +33,11 @@ def lambda_handler(event, context):
         return err
 
     method = event.get('httpMethod', '')
+    path = event.get('path', '')
 
-    if method == 'GET':
+    if path.endswith('/clients/list') and method == 'GET':
+        return handle_list_clients(event, user)
+    elif method == 'GET':
         return handle_get_client(event, user)
     elif method == 'PUT':
         return handle_update_client(event, user)
@@ -45,6 +48,57 @@ def lambda_handler(event, context):
             'statusCode': 405,
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Method not allowed: {method}'})
+        }
+
+
+def handle_list_clients(event, user):
+    """GET /clients/list — List all clients for the logged-in user with stats."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            SELECT c.id, c.company_name, c.industry, c.s3_folder, c.status,
+                   c.created_at, c.updated_at,
+                   (SELECT COUNT(*) FROM uploads u WHERE u.client_id = c.id AND u.status = 'active') as source_count,
+                   (SELECT e.status FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_status,
+                   (SELECT e.completed_at FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_date
+            FROM clients c WHERE c.user_id = %s ORDER BY c.updated_at DESC
+        """, (user['user_id'],))
+
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        clients = []
+        for row in rows:
+            clients.append({
+                'id': str(row[0]),
+                'company_name': row[1] or '',
+                'industry': row[2] or '',
+                'client_id': row[3] or '',
+                'status': row[4] or 'active',
+                'created_at': row[5].isoformat() if row[5] else None,
+                'updated_at': row[6].isoformat() if row[6] else None,
+                'source_count': row[7] or 0,
+                'enrichment_status': row[8] or 'none',
+                'enrichment_date': row[9].isoformat() if row[9] else None
+            })
+
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'clients': clients})
+        }
+
+    except Exception as e:
+        print(f"Error listing clients: {str(e)}")
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Internal server error', 'message': str(e)})
         }
 
 

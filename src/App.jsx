@@ -34,9 +34,12 @@ function isTokenExpired(token) {
 }
 
 // ============================================================
-// LOGIN SCREEN
+// LOGIN SCREEN — Google OAuth + Email/Password fallback
 // ============================================================
+const GOOGLE_CLIENT_ID = '801271873723-7htidmimhfl2qbdl4jv5leap0tqvu8gh.apps.googleusercontent.com'
+
 function LoginScreen({ onLogin }) {
+  const [showEmailForm, setShowEmailForm] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -49,6 +52,62 @@ function LoginScreen({ onLogin }) {
   const [forgotError, setForgotError] = useState('')
   const [forgotSuccess, setForgotSuccess] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
+
+  // Load Google Identity Services library
+  useEffect(() => {
+    if (showEmailForm) return // Don't load if showing email form
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCallback
+        })
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-btn'),
+          { theme: 'outline', size: 'large', width: 360, text: 'signin_with' }
+        )
+      }
+    }
+    document.body.appendChild(script)
+
+    return () => {
+      // Cleanup: remove the script if component unmounts
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+  }, [showEmailForm])
+
+  const handleGoogleCallback = async (response) => {
+    setError('')
+    setLoading(true)
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Google sign-in failed')
+        setLoading(false)
+        return
+      }
+
+      localStorage.setItem('xo-token', data.token)
+      localStorage.setItem('xo-user', JSON.stringify(data.user))
+      onLogin(data.user, data.token)
+    } catch (err) {
+      setError('Connection failed. Please try again.')
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -163,10 +222,10 @@ function LoginScreen({ onLogin }) {
             fontSize: '1.05rem', fontWeight: 400, color: '#9ca3af',
             letterSpacing: '0.15em', textTransform: 'uppercase',
           }}>
-            Invitation
+            Welcome
           </p>
 
-          <form onSubmit={handleSubmit} style={{
+          <div style={{
             background: '#ffffff', padding: '40px', borderRadius: '20px',
             border: '1px solid #e5e7eb', boxShadow: '0 4px 24px rgba(0,0,0,0.06)'
           }}>
@@ -181,75 +240,131 @@ function LoginScreen({ onLogin }) {
               </div>
             )}
 
-            {/* Email */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                Email Address
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                <input type="email" placeholder="you@company.com" required value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError('') }}
-                  style={inputStyle} onFocus={inputFocus} onBlur={inputBlur} />
-              </div>
-            </div>
+            {!showEmailForm ? (
+              <>
+                {/* Google Sign-In Button */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', minHeight: '44px' }}>
+                  <div id="google-signin-btn"></div>
+                  {loading && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', fontSize: '14px' }}>
+                      <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                      Signing in...
+                    </div>
+                  )}
+                </div>
 
-            {/* Password */}
-            <div style={{ marginBottom: '28px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  required value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError('') }}
-                  style={{ ...inputStyle, paddingRight: '48px' }} onFocus={inputFocus} onBlur={inputBlur} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}>
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
+                {/* Divider */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', margin: '24px 0'
+                }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                  <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>or</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                </div>
 
-            {/* Submit */}
-            <button type="submit" disabled={loading}
-              style={{
-                width: '100%', padding: '16px', background: '#dc2626', border: 'none', borderRadius: '12px',
-                color: 'white', fontSize: '16px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.3s ease', letterSpacing: '0.02em', opacity: loading ? 0.7 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-              }}
-              onMouseEnter={(e) => { if (!loading) { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 12px 32px rgba(220,38,38,0.3)' } }}
-              onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none' }}>
-              {loading && <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />}
-              {loading ? 'Signing in...' : 'Continue'}
-            </button>
+                {/* Email fallback link */}
+                <p style={{ textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmailForm(true); setError('') }}
+                    style={{
+                      background: 'none', border: 'none', color: '#6b7280', fontSize: '14px',
+                      cursor: 'pointer', textDecoration: 'underline', padding: 0
+                    }}
+                  >
+                    Sign in with email instead
+                  </button>
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Email/Password Form */}
+                <form onSubmit={handleSubmit}>
+                  {/* Email */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                      Email Address
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                      <input type="email" placeholder="you@company.com" required value={email}
+                        onChange={(e) => { setEmail(e.target.value); setError('') }}
+                        style={inputStyle} onFocus={inputFocus} onBlur={inputBlur} />
+                    </div>
+                  </div>
 
-            {/* Forgot Password link */}
-            <p style={{ textAlign: 'center', marginTop: '16px' }}>
-              <button
-                type="button"
-                onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotError(''); setForgotSuccess('') }}
-                style={{
-                  background: 'none', border: 'none', color: '#9ca3af', fontSize: '13px',
-                  cursor: 'pointer', textDecoration: 'underline', padding: 0
-                }}
-              >
-                Forgot Password?
-              </button>
-            </p>
+                  {/* Password */}
+                  <div style={{ marginBottom: '28px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                      Password
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        required value={password}
+                        onChange={(e) => { setPassword(e.target.value); setError('') }}
+                        style={{ ...inputStyle, paddingRight: '48px' }} onFocus={inputFocus} onBlur={inputBlur} />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex', alignItems: 'center' }}>
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                  </div>
 
-            {/* Helper text */}
-            <p style={{
-              textAlign: 'center', marginTop: '12px',
-              fontSize: '13px', color: '#9ca3af', lineHeight: '1.5'
-            }}>
-              Enter your email and password to get started.
-            </p>
-          </form>
+                  {/* Submit */}
+                  <button type="submit" disabled={loading}
+                    style={{
+                      width: '100%', padding: '16px', background: '#dc2626', border: 'none', borderRadius: '12px',
+                      color: 'white', fontSize: '16px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.3s ease', letterSpacing: '0.02em', opacity: loading ? 0.7 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                    }}
+                    onMouseEnter={(e) => { if (!loading) { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 12px 32px rgba(220,38,38,0.3)' } }}
+                    onMouseLeave={(e) => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = 'none' }}>
+                    {loading && <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />}
+                    {loading ? 'Signing in...' : 'Continue'}
+                  </button>
+                </form>
+
+                {/* Forgot Password link */}
+                <p style={{ textAlign: 'center', marginTop: '16px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotError(''); setForgotSuccess('') }}
+                    style={{
+                      background: 'none', border: 'none', color: '#9ca3af', fontSize: '13px',
+                      cursor: 'pointer', textDecoration: 'underline', padding: 0
+                    }}
+                  >
+                    Forgot Password?
+                  </button>
+                </p>
+
+                {/* Back to Google */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', margin: '16px 0 8px'
+                }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                  <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 500 }}>or</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                </div>
+                <p style={{ textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowEmailForm(false); setError('') }}
+                    style={{
+                      background: 'none', border: 'none', color: '#6b7280', fontSize: '14px',
+                      cursor: 'pointer', textDecoration: 'underline', padding: 0
+                    }}
+                  >
+                    Sign in with Google
+                  </button>
+                </p>
+              </>
+            )}
+          </div>
 
           {/* Forgot Password Form */}
           {showForgot && (
@@ -349,6 +464,164 @@ function LoginScreen({ onLogin }) {
   )
 }
 
+
+// ============================================================
+// DASHBOARD SCREEN — Admin multi-client view
+// ============================================================
+function DashboardScreen({ onSelectClient, onCreateClient }) {
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetchClients()
+  }, [])
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/clients/list`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setClients(data.clients || [])
+      } else {
+        setError('Failed to load clients')
+      }
+    } catch {
+      setError('Connection failed')
+    }
+    setLoading(false)
+  }
+
+  const enrichmentBadge = (status) => {
+    const map = {
+      none: { bg: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-muted, #6b7280)', label: 'Not enriched' },
+      processing: { bg: '#fef9c3', color: '#a16207', label: 'Processing' },
+      completed: { bg: '#dcfce7', color: '#16a34a', label: 'Complete' },
+      complete: { bg: '#dcfce7', color: '#16a34a', label: 'Complete' },
+      error: { bg: '#fef2f2', color: '#dc2626', label: 'Error' },
+      failed: { bg: '#fef2f2', color: '#dc2626', label: 'Error' },
+    }
+    const s = map[status] || map.none
+    return (
+      <span style={{
+        display: 'inline-block', padding: '2px 10px', borderRadius: '9999px',
+        fontSize: '0.75rem', fontWeight: 600, background: s.bg, color: s.color
+      }}>
+        {s.label}
+      </span>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: '#dc2626', margin: '0 auto 1rem' }} />
+        <p style={{ color: 'var(--text-muted, #6b7280)' }}>Loading clients...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+        <AlertTriangle size={32} style={{ color: '#dc2626', margin: '0 auto 1rem' }} />
+        <p style={{ color: 'var(--text-muted, #6b7280)' }}>{error}</p>
+        <button onClick={fetchClients} className="action-btn" style={{ marginTop: '1rem' }}>
+          <RefreshCw size={16} /> Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (clients.length === 0) {
+    return (
+      <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+        <Building2 size={48} style={{ color: 'var(--text-muted, #9ca3af)', margin: '0 auto 1rem' }} />
+        <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>No clients yet</h3>
+        <p style={{ color: 'var(--text-muted, #6b7280)', marginBottom: '1.5rem' }}>Create your first client to get started.</p>
+        <button onClick={onCreateClient} className="action-btn red" style={{ margin: '0 auto' }}>
+          <Plus size={16} /> Create First Client
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          All Clients <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.9rem' }}>({clients.length})</span>
+        </h2>
+        <button onClick={onCreateClient} className="action-btn red">
+          <Plus size={16} /> New Client
+        </button>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: '1rem'
+      }}>
+        {clients.map(client => (
+          <div
+            key={client.id}
+            onClick={() => onSelectClient(client)}
+            style={{
+              background: 'var(--bg-primary, #ffffff)',
+              border: '1px solid var(--border-color, #e5e7eb)',
+              borderRadius: '12px',
+              padding: '1.25rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              position: 'relative'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#dc2626'
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(220,38,38,0.1)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color, #e5e7eb)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                {client.company_name}
+              </h3>
+              <ChevronRight size={16} style={{ color: 'var(--text-muted, #9ca3af)', flexShrink: 0, marginTop: '2px' }} />
+            </div>
+
+            {client.industry && (
+              <span style={{
+                display: 'inline-block', padding: '2px 10px', borderRadius: '9999px',
+                fontSize: '0.75rem', fontWeight: 500,
+                background: 'var(--bg-secondary, #f3f4f6)',
+                color: 'var(--text-muted, #6b7280)',
+                marginBottom: '0.75rem'
+              }}>
+                {client.industry}
+              </span>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-muted, #6b7280)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <FolderOpen size={14} /> {client.source_count} source{client.source_count !== 1 ? 's' : ''}
+              </span>
+              {enrichmentBadge(client.enrichment_status)}
+            </div>
+
+            {client.enrichment_date && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)', marginTop: '0.5rem' }}>
+                Last enriched: {new Date(client.enrichment_date).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // Restore session synchronously before first render
 function getInitialAuth() {
   try {
@@ -377,11 +650,17 @@ export default function App() {
     initialAuth.user?.preferred_model || 'claude-sonnet-4-5-20250929'
   )
 
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState(initialAuth.user?.is_admin || false)
+
   const handleLogin = (userData, token) => {
     setUser(userData)
     setAuthToken(token)
     setIsLoggedIn(true)
+    const admin = !!userData.is_admin
+    setIsAdmin(admin)
     if (userData.preferred_model) setPreferredModel(userData.preferred_model)
+    if (admin) setCurrentScreen('dashboard')
   }
 
   const saveModelPreference = async (model) => {
@@ -401,6 +680,7 @@ export default function App() {
     setUser(null)
     setAuthToken(null)
     setIsLoggedIn(false)
+    setIsAdmin(false)
     setClientId(null)
     localStorage.removeItem('xo-token')
     localStorage.removeItem('xo-user')
@@ -408,7 +688,9 @@ export default function App() {
     setCurrentScreen('upload')
   }
 
-  const [currentScreen, setCurrentScreen] = useState('upload') // upload | enrich | results | skills | configuration
+  const [currentScreen, setCurrentScreen] = useState(() => {
+    return initialAuth.user?.is_admin ? 'dashboard' : 'upload'
+  }) // dashboard | upload | enrich | results | skills | configuration
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -569,6 +851,48 @@ export default function App() {
     }
   }
 
+  // Dashboard: select an existing client and enter workspace
+  const handleSelectClient = async (client) => {
+    setClientId(client.client_id)
+    localStorage.setItem('xo-client-id', client.client_id)
+    // Fetch full company data
+    try {
+      const res = await fetch(`${API_BASE}/clients?client_id=${client.client_id}`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setCompanyData({
+          name: data.company_name || '',
+          website: data.website || '',
+          contactName: data.contactName || '',
+          contactTitle: data.contactTitle || '',
+          contactLinkedIn: data.contactLinkedIn || '',
+          industry: data.industry || '',
+          description: data.description || '',
+          painPoint: data.painPoint || ''
+        })
+      }
+    } catch (err) {
+      console.error('Failed to fetch client:', err)
+    }
+    setCurrentScreen('upload')
+  }
+
+  // Dashboard: create new client
+  const handleCreateNewClient = () => {
+    setClientId(null)
+    localStorage.removeItem('xo-client-id')
+    setCompanyData({ name: '', website: '', contactName: '', contactTitle: '', contactLinkedIn: '', industry: '', description: '', painPoint: '' })
+    setShowCompanyModal(true)
+  }
+
+  // After company modal save, navigate to workspace if coming from dashboard
+  const handleClientCreateFromDashboard = async (data) => {
+    await handleClientCreate(data)
+    if (currentScreen === 'dashboard') {
+      setCurrentScreen('upload')
+    }
+  }
+
   // Auth gate
   if (!isLoggedIn) {
     return <LoginScreen onLogin={handleLogin} />
@@ -602,7 +926,7 @@ export default function App() {
                 <span className="header-title-mobile">Rapid Prototype</span>
                 <span className="version-badge">Rapid Prototype</span>
               </h1>
-              <p>{companyData.name || 'Domain Partner Onboarding'}</p>
+              <p>{currentScreen === 'dashboard' ? 'Client Dashboard' : (companyData.name || 'Domain Partner Onboarding')}</p>
             </div>
           </div>
           <div className="header-right">
@@ -670,6 +994,36 @@ export default function App() {
 
             {/* Menu Items */}
             <nav style={{ flex: 1, padding: '1rem 0' }}>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => navigateTo('dashboard')}
+                    style={{
+                      width: '100%',
+                      background: currentScreen === 'dashboard' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+                      border: 'none',
+                      borderLeft: currentScreen === 'dashboard' ? '3px solid #dc2626' : '3px solid transparent',
+                      color: currentScreen === 'dashboard' ? '#dc2626' : '#ffffff',
+                      padding: '0.875rem 1.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Building2 size={20} />
+                    All Clients
+                  </button>
+                  <div style={{
+                    height: '1px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    margin: '0.5rem 1rem'
+                  }} />
+                </>
+              )}
               {[
                 { screen: 'upload', icon: Home, label: 'Welcome' },
                 { screen: 'sources', icon: FolderOpen, label: 'Sources' },
@@ -807,6 +1161,12 @@ export default function App() {
       {/* Main Content */}
       <main className="main">
         {/* Screen Content */}
+        {currentScreen === 'dashboard' && (
+          <DashboardScreen
+            onSelectClient={handleSelectClient}
+            onCreateClient={handleCreateNewClient}
+          />
+        )}
         {currentScreen === 'upload' && (
           <UploadScreen
             setClientId={setClientId}
@@ -843,7 +1203,7 @@ export default function App() {
           companyData={companyData}
           setCompanyData={setCompanyData}
           onClose={() => setShowCompanyModal(false)}
-          onClientCreate={handleClientCreate}
+          onClientCreate={handleClientCreateFromDashboard}
         />
       )}
     </div>
@@ -3332,6 +3692,7 @@ const DEFAULT_BUTTONS = [
 
 // Internal route map for button navigation
 const ROUTE_MAP = {
+  '/dashboard': 'dashboard',
   '/upload': 'upload',
   '/sources': 'sources',
   '/enrich': 'enrich',

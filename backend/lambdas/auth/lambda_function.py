@@ -1,19 +1,29 @@
 """
 XO Platform - Auth Lambda
-Routes: POST /auth/login, POST /auth/register, POST /auth/reset-password
+Routes: POST /auth/login, POST /auth/register, POST /auth/reset-password, POST /auth/google
 
 Login auto-creates accounts: if the email doesn't exist, a new user is created.
+Google OAuth login restricted to allowed admin emails.
 """
 
 import json
 import os
 import bcrypt
 import jwt
+import urllib.request
 from datetime import datetime, timedelta, timezone
 import psycopg2
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 JWT_SECRET = os.environ.get('JWT_SECRET', '')
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+
+ALLOWED_EMAILS = [
+    'alan.moore@intellagentic.io',
+    'ken.scott@intellagentic.io',
+    'rs@multiversant.com',
+    'vn@multiversant.com'
+]
 
 CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
@@ -28,7 +38,9 @@ def lambda_handler(event, context):
 
     path = event.get('path', '')
 
-    if path.endswith('/auth/preferences'):
+    if path.endswith('/auth/google'):
+        return handle_google_login(event)
+    elif path.endswith('/auth/preferences'):
         return handle_preferences(event)
     elif path.endswith('/auth/reset-password'):
         return handle_reset_password(event)
@@ -38,26 +50,119 @@ def lambda_handler(event, context):
         return handle_login(event)
 
 
-def _make_token(user_id, email, name):
+def _make_token(user_id, email, name, is_admin=False):
     payload = {
         'user_id': str(user_id),
         'email': email,
         'name': name,
+        'is_admin': is_admin,
         'exp': datetime.now(timezone.utc) + timedelta(hours=24)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 
 
-def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-20250929', status=200):
-    token = _make_token(user_id, email, name)
+def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-20250929', status=200, is_admin=False):
+    token = _make_token(user_id, email, name, is_admin=is_admin)
     return {
         'statusCode': status,
         'headers': CORS_HEADERS,
         'body': json.dumps({
             'token': token,
-            'user': {'id': str(user_id), 'email': email, 'name': name, 'preferred_model': preferred_model}
+            'user': {'id': str(user_id), 'email': email, 'name': name, 'preferred_model': preferred_model, 'is_admin': is_admin}
         })
     }
+
+
+def handle_google_login(event):
+    """POST /auth/google - Verify Google ID token and login/create admin user."""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        credential = body.get('credential', '')
+
+        if not credential:
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Google credential is required'})
+            }
+
+        # Verify token via Google's tokeninfo endpoint
+        try:
+            url = f'https://oauth2.googleapis.com/tokeninfo?id_token={credential}'
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                token_info = json.loads(resp.read().decode('utf-8'))
+        except Exception as e:
+            print(f"Google token verification failed: {e}")
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Invalid Google token'})
+            }
+
+        # Validate audience matches our client ID
+        if token_info.get('aud') != GOOGLE_CLIENT_ID:
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Token audience mismatch'})
+            }
+
+        # Validate email is verified
+        if token_info.get('email_verified') != 'true':
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Email not verified'})
+            }
+
+        email = token_info.get('email', '').lower()
+        name = token_info.get('name', '') or email.split('@')[0].replace('.', ' ').title()
+
+        # Check allowed list
+        if email not in ALLOWED_EMAILS:
+            return {
+                'statusCode': 403,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Access denied. This email is not authorized.'})
+            }
+
+        # Upsert user in database
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT id, email, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929') FROM users WHERE email = %s",
+            (email,)
+        )
+        row = cur.fetchone()
+
+        if row:
+            user_id, user_email, user_name, preferred_model = row
+            cur.close()
+            conn.close()
+            print(f"Google login successful: {user_email}")
+            return _success_response(user_id, user_email, user_name, preferred_model, is_admin=True)
+        else:
+            # Create new user with sentinel password (blocks password login)
+            cur.execute(
+                "INSERT INTO users (email, password_hash, name) VALUES (%s, %s, %s) RETURNING id",
+                (email, 'google-oauth-no-password', name)
+            )
+            user_id = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            conn.close()
+            print(f"New Google OAuth account created: {email}")
+            return _success_response(user_id, email, name, status=201, is_admin=True)
+
+    except Exception as e:
+        print(f"Google login error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Internal server error'})
+        }
 
 
 def handle_login(event):
