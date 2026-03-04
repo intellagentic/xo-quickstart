@@ -942,13 +942,15 @@ export default function App() {
             <div className="logo-box">XO</div>
             <div className="header-title">
               <h1>
-                <span className="header-title-desktop">XO Capture</span>
-                <span className="header-title-mobile">Rapid Prototype</span>
+                <span className="header-title-desktop">Capture</span>
+                <span className="header-title-mobile">Capture</span>
                 <span className="version-badge">Rapid Prototype</span>
               </h1>
-              <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {currentScreen === 'dashboard' ? 'Client Dashboard' : 'Domain Partner Onboarding'}
-              </p>
+              {currentScreen === 'dashboard' && (
+                <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Client Dashboard
+                </p>
+              )}
             </div>
           </div>
           <div className="header-right">
@@ -956,67 +958,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {/* Client Context Bar — shown when inside a workspace */}
-      {currentScreen !== 'dashboard' && clientId && (
-        <div style={{
-          background: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-color)',
-          padding: '0.5rem 1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <button
-            onClick={() => navigateTo('dashboard')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              padding: '0.25rem 0.5rem',
-              borderRadius: '6px',
-              fontSize: '0.8125rem',
-              fontWeight: 500
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
-          >
-            <ChevronLeft size={16} />
-            Back to All Clients
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {companyData.iconUrl ? (
-              <img src={companyData.iconUrl} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
-            ) : (
-              <div style={{
-                width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
-                background: 'var(--bg-tertiary, #374151)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.8125rem', fontWeight: 700, color: '#dc2626'
-              }}>
-                {(companyData.name || '?')[0].toUpperCase()}
-              </div>
-            )}
-            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{companyData.name}</span>
-            {companyData.industry && (
-              <span style={{
-                fontSize: '0.75rem',
-                padding: '0.125rem 0.5rem',
-                borderRadius: '999px',
-                background: 'var(--bg-tertiary, #374151)',
-                color: 'var(--text-secondary)',
-                fontWeight: 500
-              }}>
-                {companyData.industry}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Sidebar */}
       {showSidebar && (
@@ -1266,6 +1207,37 @@ export default function App() {
 
       {/* Main Content */}
       <main className="main">
+        {/* Client Identity Banner — shown when inside a workspace */}
+        {currentScreen !== 'dashboard' && clientId && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            padding: '1.25rem 0 0.75rem 0'
+          }}>
+            {companyData.logoUrl ? (
+              <img src={companyData.logoUrl} alt="" style={{ height: '44px', maxWidth: '140px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0 }} />
+            ) : (
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+                background: '#1a1a2e',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.25rem', fontWeight: 700, color: '#dc2626'
+              }}>
+                {(companyData.name || '?')[0].toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                {companyData.name || 'New Client'}
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                Client Workspace
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Screen Content */}
         {currentScreen === 'dashboard' && (
           <DashboardScreen

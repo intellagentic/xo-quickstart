@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.28)
+**Status:** Deployed & Operational (v1.29)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2233,6 +2233,18 @@ cd backend
     - Conditionally rendered: hidden on dashboard, shown when `clientId` is set
     - Simplified header subtitle: removed duplicate company name/logo from main header; shows "Domain Partner Onboarding" in workspace
     - Reused existing patterns: icon fallback from dashboard cards, `navigateTo()`, `companyData` state
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
+
+59. **Client Banner & Header Cleanup** (Session 17 - March 3, 2026)
+    - **Header**: Renamed "XO Capture" → "Capture" (XO logo-box already present, text was redundant)
+    - **Header subtitle**: Removed entirely in workspace view; only shows "Client Dashboard" on dashboard
+    - **Removed context bar** from session 58 — replaced with in-page client identity banner
+    - **Client Identity Banner**: Rendered inside `<main>` above screen content (between header and dark cards)
+      - Client logo (44px, `companyData.logoUrl`) or letter fallback (44px dark circle, red letter)
+      - Company name (1.25rem, bold)
+      - "Client Workspace" label below in subtle text
+    - Navigation back to dashboard remains in sidebar ("All Clients")
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
 
