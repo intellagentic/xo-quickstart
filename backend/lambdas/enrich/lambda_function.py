@@ -204,7 +204,7 @@ def _run_enrichment_pipeline(event):
                    contact_linkedin, industry, description, pain_point,
                    logo_s3_key, icon_s3_key,
                    COALESCE(streamline_webhook_enabled, FALSE),
-                   contact_email, contact_phone
+                   contact_email, contact_phone, contacts_json
             FROM clients WHERE id = %s
         """, (db_client_id,))
         row = cur.fetchone()
@@ -226,6 +226,20 @@ def _run_enrichment_pipeline(event):
         streamline_webhook_enabled = bool(row[10])
         contact_email = row[11] or ''
         contact_phone = row[12] or ''
+
+        # Parse contacts_json with legacy fallback
+        contacts_json_raw = row[13]
+        contacts = []
+        if contacts_json_raw:
+            try:
+                contacts = json.loads(contacts_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if not contacts:
+            legacy = {'name': contact_name, 'title': contact_title, 'linkedin': contact_linkedin,
+                      'email': contact_email, 'phone': contact_phone}
+            if any(legacy.values()):
+                contacts = [legacy]
 
         # Load system skills (bundled with Lambda, always injected first)
         system_skills = load_system_skills()
@@ -276,7 +290,8 @@ def _run_enrichment_pipeline(event):
         analysis = analyze_with_claude(
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point, extracted_text, skills,
-            model=model, client_config=client_config, system_skills=system_skills
+            model=model, client_config=client_config, system_skills=system_skills,
+            contacts=contacts
         )
 
         # Write results to S3
@@ -305,10 +320,7 @@ def _run_enrichment_pipeline(event):
         if streamline_webhook_enabled:
             _send_streamline_webhook(
                 company_name=company_name,
-                contact_name=contact_name,
-                contact_title=contact_title,
-                contact_email=contact_email,
-                contact_phone=contact_phone,
+                contacts=contacts,
                 model=model,
                 analysis=analysis,
                 source_files=list(extracted_text.keys()),
@@ -374,7 +386,8 @@ def _handle_send_to_streamline(event):
         cur.execute("""
             SELECT c.company_name, c.contact_name, c.contact_title, c.id,
                    e.results_s3_key, c.logo_s3_key, c.icon_s3_key,
-                   c.contact_email, c.contact_phone
+                   c.contact_email, c.contact_phone, c.contacts_json,
+                   c.contact_linkedin
             FROM clients c
             LEFT JOIN enrichments e ON e.client_id = c.id AND e.status = 'complete'
             WHERE c.s3_folder = %s AND c.user_id = %s
@@ -402,6 +415,21 @@ def _handle_send_to_streamline(event):
         contact_email = row[7] or ''
         contact_phone = row[8] or ''
 
+        # Parse contacts_json with legacy fallback
+        contacts_json_raw = row[9]
+        contact_linkedin = row[10] or ''
+        contacts = []
+        if contacts_json_raw:
+            try:
+                contacts = json.loads(contacts_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if not contacts:
+            legacy = {'name': contact_name, 'title': contact_title, 'linkedin': contact_linkedin,
+                      'email': contact_email, 'phone': contact_phone}
+            if any(legacy.values()):
+                contacts = [legacy]
+
         if not results_s3_key:
             return {
                 'statusCode': 404,
@@ -419,10 +447,7 @@ def _handle_send_to_streamline(event):
         # Send to Streamline
         _send_streamline_webhook(
             company_name=company_name,
-            contact_name=contact_name,
-            contact_title=contact_title,
-            contact_email=contact_email,
-            contact_phone=contact_phone,
+            contacts=contacts,
             model=model_used,
             analysis=analysis,
             source_files=source_files,
@@ -883,7 +908,7 @@ def extract_docx(file_content):
         return f"Word document with {len(file_content)} bytes"
 
 
-def _send_streamline_webhook(company_name, contact_name, contact_title, model, analysis, source_files, logo_s3_key='', icon_s3_key='', contact_email='', contact_phone=''):
+def _send_streamline_webhook(company_name, contacts, model, analysis, source_files, logo_s3_key='', icon_s3_key=''):
     """
     POST enrichment results to Streamline webhook URL.
     Non-blocking — logs result but never fails the enrichment.
@@ -895,15 +920,36 @@ def _send_streamline_webhook(company_name, contact_name, contact_title, model, a
     try:
         import urllib.request
 
+        primary = contacts[0] if contacts else {}
+        contact_name = primary.get('name', '')
+        contact_title = primary.get('title', '')
         contact_display = contact_name
         if contact_title:
             contact_display += f" ({contact_title})"
 
+        # Build full contacts array for payload
+        contacts_payload = []
+        for idx, c in enumerate(contacts):
+            display = c.get('name', '')
+            if c.get('title'):
+                display += f" ({c['title']})"
+            contacts_payload.append({
+                "name": c.get('name', ''),
+                "title": c.get('title', ''),
+                "email": c.get('email', ''),
+                "phone": c.get('phone', ''),
+                "linkedin": c.get('linkedin', ''),
+                "display": display
+            })
+
         payload = {
             "client_name": company_name,
+            # Legacy flat fields from primary contact
             "client_contact": contact_display,
-            "client_email": contact_email,
-            "client_phone": contact_phone,
+            "client_email": primary.get('email', ''),
+            "client_phone": primary.get('phone', ''),
+            # Full contacts array
+            "contacts": contacts_payload,
             "enrichment_model": model,
             "enrichment_date": datetime.now(timezone.utc).isoformat(),
             "executive_summary": analysis.get("summary", ""),
@@ -936,7 +982,8 @@ def _send_streamline_webhook(company_name, contact_name, contact_title, model, a
 
 def analyze_with_claude(company_name, website, contact_name, contact_title,
                         contact_linkedin, industry, description, pain_point, extracted_text, skills=None,
-                        model='claude-sonnet-4-5-20250929', client_config=None, system_skills=None):
+                        model='claude-sonnet-4-5-20250929', client_config=None, system_skills=None,
+                        contacts=None):
     """
     Call Claude API with First Party Trick prompt.
     Returns structured analysis JSON.
@@ -950,10 +997,35 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
     enrichment_info = []
     if website:
         enrichment_info.append(f"Company Website: {website}")
-    if contact_name:
-        enrichment_info.append(f"Primary Contact: {contact_name}" + (f" ({contact_title})" if contact_title else ""))
-    if contact_linkedin:
-        enrichment_info.append(f"Contact LinkedIn: {contact_linkedin}")
+
+    # Build contact info from contacts array (preferred) or legacy fields
+    if contacts and len(contacts) > 0:
+        primary = contacts[0]
+        display = primary.get('name', '')
+        if primary.get('title'):
+            display += f" ({primary['title']})"
+        if display:
+            enrichment_info.append(f"Primary Contact: {display}")
+        if primary.get('linkedin'):
+            enrichment_info.append(f"Primary Contact LinkedIn: {primary['linkedin']}")
+        if primary.get('email'):
+            enrichment_info.append(f"Primary Contact Email: {primary['email']}")
+        if primary.get('phone'):
+            enrichment_info.append(f"Primary Contact Phone: {primary['phone']}")
+        for idx, c in enumerate(contacts[1:], start=2):
+            display = c.get('name', '')
+            if c.get('title'):
+                display += f" ({c['title']})"
+            if display:
+                enrichment_info.append(f"Contact {idx}: {display}")
+            if c.get('email'):
+                enrichment_info.append(f"Contact {idx} Email: {c['email']}")
+    else:
+        if contact_name:
+            enrichment_info.append(f"Primary Contact: {contact_name}" + (f" ({contact_title})" if contact_title else ""))
+        if contact_linkedin:
+            enrichment_info.append(f"Contact LinkedIn: {contact_linkedin}")
+
     if industry:
         enrichment_info.append(f"Industry: {industry}")
     if description:

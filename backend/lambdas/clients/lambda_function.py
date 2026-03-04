@@ -134,7 +134,7 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone
+                       contact_email, contact_phone, contacts_json
                 FROM clients WHERE s3_folder = %s AND user_id = %s
             """, (client_id, user['user_id']))
         else:
@@ -144,7 +144,7 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone
+                       contact_email, contact_phone, contacts_json
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -185,6 +185,31 @@ def handle_get_client(event, user):
             except Exception:
                 pass
 
+        # Build contacts array: prefer contacts_json, fallback to legacy columns
+        contacts_json_raw = row[17]
+        if contacts_json_raw:
+            try:
+                contacts = json.loads(contacts_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                contacts = []
+        else:
+            contacts = []
+
+        if not contacts:
+            # Construct from legacy fields
+            legacy = {
+                'name': row[3] or '',
+                'title': row[4] or '',
+                'linkedin': row[5] or '',
+                'email': row[15] or '',
+                'phone': row[16] or ''
+            }
+            if any(legacy.values()):
+                contacts = [legacy]
+
+        # Legacy flat fields from contacts[0] for backward compat
+        primary = contacts[0] if contacts else {}
+
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
@@ -192,9 +217,9 @@ def handle_get_client(event, user):
                 'id': str(row[0]),
                 'company_name': row[1] or '',
                 'website': row[2] or '',
-                'contactName': row[3] or '',
-                'contactTitle': row[4] or '',
-                'contactLinkedIn': row[5] or '',
+                'contactName': primary.get('name', ''),
+                'contactTitle': primary.get('title', ''),
+                'contactLinkedIn': primary.get('linkedin', ''),
                 'industry': row[6] or '',
                 'description': row[7] or '',
                 'painPoint': row[8] or '',
@@ -204,8 +229,9 @@ def handle_get_client(event, user):
                 'logo_url': logo_url,
                 'icon_url': icon_url,
                 'streamline_webhook_enabled': bool(row[14]),
-                'contactEmail': row[15] or '',
-                'contactPhone': row[16] or ''
+                'contactEmail': primary.get('email', ''),
+                'contactPhone': primary.get('phone', ''),
+                'contacts': contacts
             })
         }
     except Exception as e:
@@ -240,6 +266,23 @@ def handle_update_client(event, user):
                 'body': json.dumps({'error': 'company_name is required'})
             }
 
+        # Build contacts array from request
+        contacts = body.get('contacts', [])
+        if not contacts:
+            # Fallback: construct from legacy flat fields if provided
+            legacy = {
+                'name': body.get('contactName', '').strip(),
+                'title': body.get('contactTitle', '').strip(),
+                'linkedin': body.get('contactLinkedIn', '').strip(),
+                'email': body.get('contactEmail', '').strip(),
+                'phone': body.get('contactPhone', '').strip()
+            }
+            if any(legacy.values()):
+                contacts = [legacy]
+
+        # Sync primary contact to legacy columns
+        primary = contacts[0] if contacts else {}
+
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -248,17 +291,19 @@ def handle_update_client(event, user):
             "company_name = %s", "website_url = %s", "contact_name = %s",
             "contact_title = %s", "contact_linkedin = %s",
             "contact_email = %s", "contact_phone = %s",
+            "contacts_json = %s",
             "industry = %s",
             "description = %s", "pain_point = %s", "updated_at = NOW()"
         ]
         params = [
             company_name,
             body.get('website', '').strip(),
-            body.get('contactName', '').strip(),
-            body.get('contactTitle', '').strip(),
-            body.get('contactLinkedIn', '').strip(),
-            body.get('contactEmail', '').strip(),
-            body.get('contactPhone', '').strip(),
+            primary.get('name', ''),
+            primary.get('title', ''),
+            primary.get('linkedin', ''),
+            primary.get('email', ''),
+            primary.get('phone', ''),
+            json.dumps(contacts) if contacts else None,
             body.get('industry', '').strip(),
             body.get('description', '').strip(),
             body.get('painPoint', '').strip(),
@@ -283,14 +328,15 @@ def handle_update_client(event, user):
         config_md = generate_client_config(
             company_name,
             body.get('website', '').strip(),
-            body.get('contactName', '').strip(),
-            body.get('contactTitle', '').strip(),
-            body.get('contactLinkedIn', '').strip(),
+            primary.get('name', ''),
+            primary.get('title', ''),
+            primary.get('linkedin', ''),
             body.get('industry', '').strip(),
             body.get('description', '').strip(),
             body.get('painPoint', '').strip(),
-            contact_email=body.get('contactEmail', '').strip(),
-            contact_phone=body.get('contactPhone', '').strip()
+            contact_email=primary.get('email', ''),
+            contact_phone=primary.get('phone', ''),
+            contacts=contacts
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -403,14 +449,29 @@ def handle_create_client(event, user):
         body = json.loads(event.get('body', '{}'))
         company_name = body.get('company_name', '').strip()
         website = body.get('website', '').strip()
-        contact_name = body.get('contactName', '').strip()
-        contact_title = body.get('contactTitle', '').strip()
-        contact_linkedin = body.get('contactLinkedIn', '').strip()
-        contact_email = body.get('contactEmail', '').strip()
-        contact_phone = body.get('contactPhone', '').strip()
         industry = body.get('industry', '').strip()
         description = body.get('description', '').strip()
         pain_point = body.get('painPoint', '').strip()
+
+        # Build contacts array
+        contacts = body.get('contacts', [])
+        if not contacts:
+            legacy = {
+                'name': body.get('contactName', '').strip(),
+                'title': body.get('contactTitle', '').strip(),
+                'linkedin': body.get('contactLinkedIn', '').strip(),
+                'email': body.get('contactEmail', '').strip(),
+                'phone': body.get('contactPhone', '').strip()
+            }
+            if any(legacy.values()):
+                contacts = [legacy]
+
+        primary = contacts[0] if contacts else {}
+        contact_name = primary.get('name', '')
+        contact_title = primary.get('title', '')
+        contact_linkedin = primary.get('linkedin', '')
+        contact_email = primary.get('email', '')
+        contact_phone = primary.get('phone', '')
 
         # Validate required fields
         if not company_name:
@@ -439,7 +500,8 @@ def handle_create_client(event, user):
         config_md = generate_client_config(
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point,
-            contact_email=contact_email, contact_phone=contact_phone
+            contact_email=contact_email, contact_phone=contact_phone,
+            contacts=contacts
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -459,12 +521,13 @@ def handle_create_client(event, user):
             INSERT INTO clients (
                 user_id, company_name, website_url, contact_name, contact_title,
                 contact_linkedin, contact_email, contact_phone,
-                industry, description, pain_point, s3_folder
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                contacts_json, industry, description, pain_point, s3_folder
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             user['user_id'], company_name, website, contact_name, contact_title,
             contact_linkedin, contact_email, contact_phone,
+            json.dumps(contacts) if contacts else None,
             industry, description, pain_point, client_id
         ))
 
@@ -590,7 +653,7 @@ def copy_default_skill(client_id):
 
 def generate_client_config(company_name, website, contact_name, contact_title,
                            contact_linkedin, industry, description, pain_point,
-                           contact_email='', contact_phone=''):
+                           contact_email='', contact_phone='', contacts=None):
     """Generate a client-config.md structured context document."""
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
@@ -611,7 +674,27 @@ def generate_client_config(company_name, website, contact_name, contact_title,
     if description:
         sections.append(f"- **Description:** {description}")
 
-    if contact_name or contact_title or contact_linkedin or contact_email or contact_phone:
+    # Multi-contact rendering
+    if contacts and len(contacts) > 0:
+        sections.append("")
+        sections.append("## Contacts")
+        for idx, c in enumerate(contacts):
+            label = "### Primary Contact" if idx == 0 else f"### Contact {idx + 1}"
+            sections.append("")
+            sections.append(label)
+            sections.append("")
+            if c.get('name'):
+                sections.append(f"- **Name:** {c['name']}")
+            if c.get('title'):
+                sections.append(f"- **Title:** {c['title']}")
+            if c.get('linkedin'):
+                sections.append(f"- **LinkedIn:** {c['linkedin']}")
+            if c.get('email'):
+                sections.append(f"- **Email:** {c['email']}")
+            if c.get('phone'):
+                sections.append(f"- **Phone:** {c['phone']}")
+    elif contact_name or contact_title or contact_linkedin or contact_email or contact_phone:
+        # Legacy single-contact fallback
         sections.append("")
         sections.append("## Primary Contact")
         sections.append("")

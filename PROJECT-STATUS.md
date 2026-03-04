@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.35)
+**Status:** Deployed & Operational (v1.36)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2296,6 +2296,15 @@ cd backend
     - Removed redundant XO logo-box from sidebar header — now shows user name + email only
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
+
+67. **Multi-Contact Support Per Client** (Session 18 - March 3, 2026)
+    - **Database**: Added `contacts_json TEXT` column to clients table — stores JSON array of contacts
+    - **Clients Lambda**: GET returns `contacts` array (with legacy fallback from `contact_*` columns); PUT/POST accept `contacts` array and sync `contacts[0]` to legacy columns for backward compat; `generate_client_config()` renders all contacts with "Primary Contact" / "Contact 2" / etc. headings
+    - **Enrich Lambda**: Phase 2 reads `contacts_json` with legacy fallback; `analyze_with_claude()` includes all contacts in prompt enrichment info; `_send_streamline_webhook()` sends both legacy flat fields (from primary) and full `contacts` array
+    - **Frontend**: `companyData` state uses `contacts: []` array instead of flat `contactName`/`contactTitle`/etc. fields; CompanyInfoModal renders dynamic contact cards with Add/Remove; each card has 2-column grid (Name, Title, Email, Phone) + full-width LinkedIn; "Primary Contact" badge on first card; empty state with dashed border prompt
+    - **Backward compatible**: Existing clients with only legacy `contact_*` columns appear as a single primary contact card when opened
+    - Files: `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`, `src/App.jsx`
+    - Deployed: DB migration (RDS), xo-clients Lambda, xo-enrich Lambda, frontend (S3/CloudFront)
 
 ---
 

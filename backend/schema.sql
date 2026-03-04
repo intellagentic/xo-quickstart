@@ -156,3 +156,10 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_enabled BOOLEAN 
 -- ============================================================
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_email VARCHAR(500);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(100);
+
+-- ============================================================
+-- MULTI-CONTACT SUPPORT (migration)
+-- JSON array of contacts; first element = primary contact
+-- Legacy contact_* columns synced from contacts[0] on every write
+-- ============================================================
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contacts_json TEXT;

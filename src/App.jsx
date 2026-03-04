@@ -797,11 +797,7 @@ export default function App() {
   const [companyData, setCompanyData] = useState({
     name: '',
     website: '',
-    contactName: '',
-    contactTitle: '',
-    contactLinkedIn: '',
-    contactEmail: '',
-    contactPhone: '',
+    contacts: [],
     industry: '',
     description: '',
     painPoint: '',
@@ -867,14 +863,15 @@ export default function App() {
       const response = await fetch(url, { headers: getAuthHeaders() })
       if (response.ok) {
         const data = await response.json()
+        // Build contacts array: prefer API contacts, fallback to legacy flat fields
+        let contacts = data.contacts || []
+        if (!contacts.length && (data.contactName || data.contactEmail)) {
+          contacts = [{ name: data.contactName || '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
+        }
         setCompanyData({
           name: data.company_name || '',
           website: data.website || '',
-          contactName: data.contactName || '',
-          contactTitle: data.contactTitle || '',
-          contactLinkedIn: data.contactLinkedIn || '',
-          contactEmail: data.contactEmail || '',
-          contactPhone: data.contactPhone || '',
+          contacts,
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
@@ -920,11 +917,7 @@ export default function App() {
             client_id: clientId,
             company_name: data.name,
             website: data.website,
-            contactName: data.contactName,
-            contactTitle: data.contactTitle,
-            contactLinkedIn: data.contactLinkedIn,
-            contactEmail: data.contactEmail,
-            contactPhone: data.contactPhone,
+            contacts: data.contacts || [],
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint
@@ -941,11 +934,7 @@ export default function App() {
           body: JSON.stringify({
             company_name: data.name,
             website: data.website,
-            contactName: data.contactName,
-            contactTitle: data.contactTitle,
-            contactLinkedIn: data.contactLinkedIn,
-            contactEmail: data.contactEmail,
-            contactPhone: data.contactPhone,
+            contacts: data.contacts || [],
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint
@@ -971,14 +960,14 @@ export default function App() {
       const res = await fetch(`${API_BASE}/clients?client_id=${client.client_id}`, { headers: getAuthHeaders() })
       if (res.ok) {
         const data = await res.json()
+        let contacts = data.contacts || []
+        if (!contacts.length && (data.contactName || data.contactEmail)) {
+          contacts = [{ name: data.contactName || '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
+        }
         setCompanyData({
           name: data.company_name || '',
           website: data.website || '',
-          contactName: data.contactName || '',
-          contactTitle: data.contactTitle || '',
-          contactLinkedIn: data.contactLinkedIn || '',
-          contactEmail: data.contactEmail || '',
-          contactPhone: data.contactPhone || '',
+          contacts,
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
@@ -996,7 +985,7 @@ export default function App() {
   const handleCreateNewClient = () => {
     setClientId(null)
     localStorage.removeItem('xo-client-id')
-    setCompanyData({ name: '', website: '', contactName: '', contactTitle: '', contactLinkedIn: '', contactEmail: '', contactPhone: '', industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
+    setCompanyData({ name: '', website: '', contacts: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
     setShowCompanyModal(true)
   }
 
@@ -1399,7 +1388,21 @@ export default function App() {
 // COMPANY INFORMATION MODAL
 // ============================================================
 function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate, clientId }) {
-  const [localData, setLocalData] = useState({ ...companyData })
+  const [localData, setLocalData] = useState({ ...companyData, contacts: [...(companyData.contacts || [])] })
+  const [localContacts, setLocalContacts] = useState(() => {
+    const c = companyData.contacts || []
+    return c.map(ct => ({ ...ct }))
+  })
+
+  const addContact = () => {
+    setLocalContacts(prev => [...prev, { name: '', title: '', email: '', phone: '', linkedin: '' }])
+  }
+  const updateContact = (index, field, value) => {
+    setLocalContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
+  }
+  const removeContact = (index) => {
+    setLocalContacts(prev => prev.filter((_, i) => i !== index))
+  }
   const [logoUrl, setLogoUrl] = useState(companyData.logoUrl || null)
   const [iconUrl, setIconUrl] = useState(companyData.iconUrl || null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -1482,8 +1485,9 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
       alert('Company name is required')
       return
     }
-    setCompanyData(prev => ({ ...localData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
-    if (onClientCreate) onClientCreate(localData)
+    const saveData = { ...localData, contacts: localContacts }
+    setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
+    if (onClientCreate) onClientCreate(saveData)
     onClose()
   }
 
@@ -1559,109 +1563,72 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
               />
             </div>
 
-            {/* Contact Name */}
+            {/* Contacts Section */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Contact Name
-              </label>
-              <input
-                type="text"
-                value={localData.contactName}
-                onChange={(e) => setLocalData({ ...localData, contactName: e.target.value })}
-                placeholder="Primary contact person"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Contacts
+                </label>
+                <button
+                  type="button"
+                  onClick={addContact}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500,
+                    background: 'var(--accent-color, #3b82f6)', color: '#fff',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Add Contact
+                </button>
+              </div>
 
-            {/* Contact Title */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Contact Title/Role
-              </label>
-              <input
-                type="text"
-                value={localData.contactTitle}
-                onChange={(e) => setLocalData({ ...localData, contactTitle: e.target.value })}
-                placeholder="e.g., CEO, Operations Manager"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+              {localContacts.length === 0 && (
+                <div style={{
+                  border: '2px dashed var(--border-color)', borderRadius: '8px',
+                  padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)'
+                }}>
+                  <User size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                  <div style={{ fontSize: '0.85rem' }}>No contacts added yet</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Click "Add Contact" to add a primary contact</div>
+                </div>
+              )}
 
-            {/* Contact Email */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Contact Email
-              </label>
-              <input
-                type="email"
-                value={localData.contactEmail}
-                onChange={(e) => setLocalData({ ...localData, contactEmail: e.target.value })}
-                placeholder="email@company.com"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+              {localContacts.map((contact, idx) => (
+                <div key={idx} style={{
+                  border: '1px solid var(--border-color)', borderRadius: '8px',
+                  padding: '0.75rem', marginBottom: '0.75rem'
+                }}>
+                  {/* Contact card header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: idx === 0 ? 'var(--accent-color, #3b82f6)' : 'var(--text-secondary)' }}>
+                      {idx === 0 ? 'Primary Contact' : `Contact ${idx + 1}`}
+                    </span>
+                    <button type="button" onClick={() => removeContact(idx)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}
+                      title="Remove contact"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
 
-            {/* Contact Phone */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Contact Phone
-              </label>
-              <input
-                type="text"
-                value={localData.contactPhone}
-                onChange={(e) => setLocalData({ ...localData, contactPhone: e.target.value })}
-                placeholder="+1 555-123-4567"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
-            </div>
+                  {/* 2-column grid: Name, Title, Email, Phone */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <input type="text" value={contact.name} onChange={(e) => updateContact(idx, 'name', e.target.value)}
+                      placeholder="Name" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={contact.title} onChange={(e) => updateContact(idx, 'title', e.target.value)}
+                      placeholder="Title / Role" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="email" value={contact.email} onChange={(e) => updateContact(idx, 'email', e.target.value)}
+                      placeholder="Email" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={contact.phone} onChange={(e) => updateContact(idx, 'phone', e.target.value)}
+                      placeholder="Phone" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                  </div>
 
-            {/* LinkedIn URL */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Contact LinkedIn URL
-              </label>
-              <input
-                type="url"
-                value={localData.contactLinkedIn}
-                onChange={(e) => setLocalData({ ...localData, contactLinkedIn: e.target.value })}
-                placeholder="https://linkedin.com/in/..."
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
+                  {/* Full-width LinkedIn */}
+                  <input type="url" value={contact.linkedin} onChange={(e) => updateContact(idx, 'linkedin', e.target.value)}
+                    placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                </div>
+              ))}
             </div>
 
             {/* Industry */}
@@ -4393,9 +4360,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
             client_id: clientId,
             company_name: current.company_name,
             website: current.website,
-            contactName: current.contactName,
-            contactTitle: current.contactTitle,
-            contactLinkedIn: current.contactLinkedIn,
+            contacts: current.contacts || [],
             industry: current.industry,
             description: current.description,
             painPoint: current.painPoint,
