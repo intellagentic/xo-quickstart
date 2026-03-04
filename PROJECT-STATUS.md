@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.36)
+**Status:** Deployed & Operational (v1.37)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2305,6 +2305,16 @@ cd backend
     - **Backward compatible**: Existing clients with only legacy `contact_*` columns appear as a single primary contact card when opened
     - Files: `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`, `src/App.jsx`
     - Deployed: DB migration (RDS), xo-clients Lambda, xo-enrich Lambda, frontend (S3/CloudFront)
+
+68. **Workspace Two-Column Split View** (Session 19 - March 3, 2026)
+    - **Layout**: Replaced 3-column horizontal card grid with permanent two-column split layout (38% left / 62% right)
+    - **Left Column — Client Profile Card**: Logo/icon/letter avatar, company name + industry badge, website link, all contacts inline (name, title, email, phone) with "Primary" badge on first contact, Add Contact + Edit Details buttons
+    - **Right Column — Workflow Cards**: Raw Data and Intellagentic Growth cards stacked vertically with horizontal badge+content layout; step badges renumbered 1 & 2
+    - **Removed**: Domain Expertise card (functionality moved to profile card)
+    - **Responsive**: flexWrap wrap with minWidth constraints — stacks vertically on narrow viewports
+    - **Empty state**: Left column shows "New Partner" button when no client configured
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
 
 ---
 

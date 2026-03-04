@@ -2086,375 +2086,366 @@ function UploadScreen({ setClientId, clientId, companyData, onComplete, onOpenCo
 
   return (
     <div>
-      {/* Journey Steps - Horizontal Layout */}
+      {/* Two-Column Split Layout */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '0.75rem',
-        marginBottom: '1rem'
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '1rem',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap'
       }}>
 
-        {/* Step 1: Domain Expertise */}
+        {/* LEFT COLUMN — Client Profile Card */}
         <div style={{
+          flex: '0 0 38%',
+          minWidth: '280px',
           background: '#1a1a2e',
           borderRadius: '12px',
-          padding: '0.875rem',
-          border: step1Complete ? '2px solid #dc2626' : '2px solid transparent',
-          transition: 'all 0.3s',
-          minHeight: '220px',
+          padding: '1.25rem',
+          border: '2px solid transparent',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          gap: '0.75rem'
         }}>
-          {/* Step Number Circle */}
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            background: step1Complete ? '#dc2626' : 'rgba(220, 38, 38, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '0.75rem',
-            border: '2px solid rgba(220, 38, 38, 0.3)',
-            transition: 'all 0.3s'
-          }}>
-            {step1Complete ? (
-              <CheckCircle2 size={24} style={{ color: 'white' }} />
-            ) : (
-              <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#dc2626' }}>1</span>
-            )}
-          </div>
-
-          {/* Step Content */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: 'white',
-              marginBottom: '0.25rem',
-              letterSpacing: '-0.01em'
-            }}>
-              DOMAIN EXPERTISE
-            </h3>
-            <p style={{
-              fontSize: '0.75rem',
-              color: 'rgba(255, 255, 255, 0.5)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '0.75rem'
-            }}>
-              The Filter
-            </p>
-
-            <p style={{
-              fontSize: '0.85rem',
-              color: 'rgba(255, 255, 255, 0.7)',
-              lineHeight: 1.5,
-              marginBottom: '0.75rem',
-              flex: 1
-            }}>
-              Tell us about your business. YOU are the filter.
-            </p>
-
-            {!companyData.name ? (
+          {!companyData.name ? (
+            <>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>
+                CLIENT PROFILE
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', lineHeight: 1.5 }}>
+                Tell us about your business. YOU are the filter.
+              </p>
               <button
                 onClick={onOpenCompanyModal}
                 className="action-btn red"
-                style={{
-                  justifyContent: 'center',
-                  padding: '0.75rem',
-                  fontSize: '0.9rem',
-                  width: '100%'
-                }}
+                style={{ justifyContent: 'center', padding: '0.75rem', fontSize: '0.9rem', width: '100%' }}
               >
                 <Building2 size={18} />
                 New Partner
               </button>
-            ) : (
-              <div style={{
-                padding: '0.875rem',
-                background: 'rgba(220, 38, 38, 0.1)',
-                border: '1px solid rgba(220, 38, 38, 0.3)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.5rem'
-              }}>
+            </>
+          ) : (
+            <>
+              {/* Logo / Icon / Letter Avatar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                {companyData.logoUrl ? (
+                  <img src={companyData.logoUrl} alt={companyData.name} style={{ height: '48px', maxWidth: '160px', objectFit: 'contain' }} />
+                ) : companyData.iconUrl ? (
+                  <img src={companyData.iconUrl} alt="" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '10px' }} />
+                ) : (
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '10px', flexShrink: 0,
+                    background: 'rgba(220, 38, 38, 0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.25rem', fontWeight: 700, color: '#dc2626'
+                  }}>
+                    {(companyData.name || '?')[0].toUpperCase()}
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'white', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {companyData.name}
-                  </p>
+                  </div>
                   {companyData.industry && (
-                    <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '4px',
+                      marginTop: '0.25rem'
+                    }}>
                       {companyData.industry}
-                    </p>
+                    </span>
                   )}
                 </div>
-                <button
-                  onClick={onOpenCompanyModal}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#dc2626',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '0.25rem',
-                    flexShrink: 0
-                  }}
-                >
-                  Edit
-                </button>
               </div>
-            )}
-          </div>
-        </div>
 
-          {/* Step 2: Raw Data */}
-        <div style={{
-          background: '#1a1a2e',
-          borderRadius: '12px',
-          padding: '0.875rem',
-          border: step2Complete ? '2px solid #dc2626' : '2px solid transparent',
-          transition: 'all 0.3s',
-          minHeight: '220px',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {/* Step Number Circle */}
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            background: step2Complete ? '#dc2626' : 'rgba(220, 38, 38, 0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '0.75rem',
-            border: '2px solid rgba(220, 38, 38, 0.3)',
-            transition: 'all 0.3s'
-          }}>
-            {step2Complete ? (
-              <CheckCircle2 size={24} style={{ color: 'white' }} />
-            ) : (
-              <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#dc2626' }}>2</span>
-            )}
-          </div>
-
-          {/* Step Content */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: 'white',
-              marginBottom: '0.25rem',
-              letterSpacing: '-0.01em'
-            }}>
-              RAW DATA
-            </h3>
-            <p style={{
-              fontSize: '0.75rem',
-              color: 'rgba(255, 255, 255, 0.5)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '0.75rem'
-            }}>
-              The Noise
-            </p>
-
-            <p style={{
-              fontSize: '0.85rem',
-              color: 'rgba(255, 255, 255, 0.7)',
-              lineHeight: 1.5,
-              marginBottom: '0.75rem'
-            }}>
-              Upload documents, connect data sources.
-            </p>
-
-            {sourceCount > 0 ? (
-              <div style={{
-                padding: '0.875rem',
-                background: 'rgba(220, 38, 38, 0.1)',
-                border: '1px solid rgba(220, 38, 38, 0.3)',
-                borderRadius: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <FolderOpen size={18} style={{ color: '#dc2626' }} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'white' }}>
-                      {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>
-                    {activeCount} active
-                  </span>
-                </div>
-                <button
-                  onClick={() => onNavigate('sources')}
+              {/* Website */}
+              {companyData.website && (
+                <a
+                  href={companyData.website.startsWith('http') ? companyData.website : `https://${companyData.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    background: 'rgba(220, 38, 38, 0.15)',
-                    border: '1px solid rgba(220, 38, 38, 0.3)',
-                    borderRadius: '6px',
+                    fontSize: '0.75rem',
                     color: '#dc2626',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
+                    textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.375rem'
+                    gap: '0.375rem',
+                    opacity: 0.8
                   }}
                 >
-                  <FolderOpen size={14} />
-                  Manage Sources
-                </button>
+                  <Globe size={12} />
+                  {companyData.website.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
+
+              {/* Contacts Section */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Contacts
+                  </span>
+                  <button
+                    onClick={onOpenCompanyModal}
+                    style={{
+                      background: 'none', border: 'none', color: '#dc2626',
+                      fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
+                      padding: '0.125rem 0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem'
+                    }}
+                  >
+                    <Plus size={12} />
+                    Add
+                  </button>
+                </div>
+
+                {(companyData.contacts || []).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {(companyData.contacts || []).map((contact, idx) => (
+                      <div key={idx} style={{
+                        padding: '0.625rem',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'white' }}>
+                            {contact.name || 'Unnamed'}
+                          </span>
+                          {idx === 0 && (
+                            <span style={{
+                              fontSize: '0.6rem', fontWeight: 600, color: '#dc2626',
+                              background: 'rgba(220, 38, 38, 0.15)',
+                              padding: '0.1rem 0.35rem', borderRadius: '3px'
+                            }}>
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                        {contact.title && (
+                          <div style={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.5)', marginBottom: '0.2rem' }}>
+                            {contact.title}
+                          </div>
+                        )}
+                        {contact.email && (
+                          <div style={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.4)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Mail size={10} />
+                            {contact.email}
+                          </div>
+                        )}
+                        {contact.phone && (
+                          <div style={{ fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.4)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.1rem' }}>
+                            <Phone size={10} />
+                            {contact.phone}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic', margin: 0 }}>
+                    No contacts added yet
+                  </p>
+                )}
               </div>
-            ) : (
+
+              {/* Edit Details Button */}
               <button
-                onClick={() => onNavigate('sources')}
-                className="action-btn red"
+                onClick={onOpenCompanyModal}
                 style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  background: 'rgba(220, 38, 38, 0.1)',
+                  border: '1px solid rgba(220, 38, 38, 0.25)',
+                  borderRadius: '8px',
+                  color: '#dc2626',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '0.75rem',
-                  fontSize: '0.9rem',
-                  width: '100%'
+                  gap: '0.375rem',
+                  marginTop: '0.25rem'
                 }}
               >
-                <Upload size={18} />
-                Add Sources
+                <Edit2 size={13} />
+                Edit Details
               </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
-        {/* Step 3: Intelligent Growth */}
-        <div style={{
-          background: allStepsComplete ? '#1a1a2e' : '#2a2a3e',
-          borderRadius: '12px',
-          padding: '0.875rem',
-          border: allStepsComplete ? '2px solid transparent' : '2px solid rgba(100, 100, 100, 0.3)',
-          transition: 'all 0.3s',
-          minHeight: '220px',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {/* Step Number Circle */}
+        {/* RIGHT COLUMN — Workflow Cards */}
+        <div style={{ flex: '1 1 0', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+          {/* Raw Data Card */}
           <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            background: allStepsComplete ? 'rgba(220, 38, 38, 0.2)' : 'rgba(150, 150, 150, 0.3)',
+            background: '#1a1a2e',
+            borderRadius: '12px',
+            padding: '0.875rem',
+            border: step2Complete ? '2px solid #dc2626' : '2px solid transparent',
+            transition: 'all 0.3s',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '0.75rem',
-            border: `2px solid ${allStepsComplete ? 'rgba(220, 38, 38, 0.3)' : 'rgba(150, 150, 150, 0.4)'}`,
-            transition: 'all 0.3s'
+            flexDirection: 'column'
           }}>
-            <span style={{
-              fontSize: '1.25rem',
-              fontWeight: 700,
-              color: allStepsComplete ? '#dc2626' : '#999'
-            }}>3</span>
-          </div>
-
-          {/* Step Content */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: allStepsComplete ? 'white' : 'rgba(255, 255, 255, 0.7)',
-              marginBottom: '0.25rem',
-              letterSpacing: '-0.01em'
-            }}>
-              INTELLAGENTIC GROWTH
-            </h3>
-            <p style={{
-              fontSize: '0.75rem',
-              color: allStepsComplete ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.55)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '0.75rem'
-            }}>
-              The Output
-            </p>
-
-            <p style={{
-              fontSize: '0.85rem',
-              color: allStepsComplete ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.65)',
-              lineHeight: 1.5,
-              marginBottom: '0.75rem',
-              flex: 1
-            }}>
-              MBA-level analysis. Problems identified. Schema proposed. Action plan delivered.
-            </p>
-
-            {allStepsComplete ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <button
-                  onClick={() => onNavigate('skills')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    padding: '0.6rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    width: '100%',
-                    background: '#3B82F6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Database size={16} />
-                  Skills
-                </button>
-                <button
-                  onClick={onComplete}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    width: '100%',
-                    background: '#22c55e',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.25)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Sparkles size={18} />
-                  Enrich
-                </button>
-              </div>
-            ) : (
-              <p style={{
-                fontSize: '0.75rem',
-                color: 'rgba(255, 255, 255, 0.5)',
-                fontStyle: 'italic',
-                textAlign: 'center'
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                background: step2Complete ? '#dc2626' : 'rgba(220, 38, 38, 0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid rgba(220, 38, 38, 0.3)', transition: 'all 0.3s'
               }}>
-                Complete steps 1 & 2 →
-              </p>
-            )}
+                {step2Complete ? (
+                  <CheckCircle2 size={20} style={{ color: 'white' }} />
+                ) : (
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#dc2626' }}>1</span>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'white', marginBottom: '0.15rem', letterSpacing: '-0.01em' }}>
+                  RAW DATA
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                  The Noise
+                </p>
+                <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.5, marginBottom: '0.75rem' }}>
+                  Upload documents, connect data sources.
+                </p>
+
+                {sourceCount > 0 ? (
+                  <div style={{
+                    padding: '0.875rem',
+                    background: 'rgba(220, 38, 38, 0.1)',
+                    border: '1px solid rgba(220, 38, 38, 0.3)',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FolderOpen size={18} style={{ color: '#dc2626' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'white' }}>
+                          {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>
+                        {activeCount} active
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => onNavigate('sources')}
+                      style={{
+                        width: '100%', padding: '0.5rem',
+                        background: 'rgba(220, 38, 38, 0.15)',
+                        border: '1px solid rgba(220, 38, 38, 0.3)',
+                        borderRadius: '6px', color: '#dc2626',
+                        fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem'
+                      }}
+                    >
+                      <FolderOpen size={14} />
+                      Manage Sources
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onNavigate('sources')}
+                    className="action-btn red"
+                    style={{ justifyContent: 'center', padding: '0.75rem', fontSize: '0.9rem', width: '100%' }}
+                  >
+                    <Upload size={18} />
+                    Add Sources
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Intellagentic Growth Card */}
+          <div style={{
+            background: allStepsComplete ? '#1a1a2e' : '#2a2a3e',
+            borderRadius: '12px',
+            padding: '0.875rem',
+            border: allStepsComplete ? '2px solid transparent' : '2px solid rgba(100, 100, 100, 0.3)',
+            transition: 'all 0.3s',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                background: allStepsComplete ? 'rgba(220, 38, 38, 0.2)' : 'rgba(150, 150, 150, 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `2px solid ${allStepsComplete ? 'rgba(220, 38, 38, 0.3)' : 'rgba(150, 150, 150, 0.4)'}`,
+                transition: 'all 0.3s'
+              }}>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: allStepsComplete ? '#dc2626' : '#999' }}>2</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  fontSize: '1.125rem', fontWeight: 700,
+                  color: allStepsComplete ? 'white' : 'rgba(255, 255, 255, 0.7)',
+                  marginBottom: '0.15rem', letterSpacing: '-0.01em'
+                }}>
+                  INTELLAGENTIC GROWTH
+                </h3>
+                <p style={{
+                  fontSize: '0.75rem',
+                  color: allStepsComplete ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.55)',
+                  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem'
+                }}>
+                  The Output
+                </p>
+                <p style={{
+                  fontSize: '0.85rem',
+                  color: allStepsComplete ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.65)',
+                  lineHeight: 1.5, marginBottom: '0.75rem'
+                }}>
+                  MBA-level analysis. Problems identified. Schema proposed. Action plan delivered.
+                </p>
+
+                {allStepsComplete ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => onNavigate('skills')}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                        padding: '0.6rem', fontSize: '0.8rem', fontWeight: 600, width: '100%',
+                        background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px',
+                        cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)', transition: 'all 0.2s'
+                      }}
+                    >
+                      <Database size={16} />
+                      Skills
+                    </button>
+                    <button
+                      onClick={onComplete}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                        padding: '0.75rem', fontSize: '0.9rem', fontWeight: 600, width: '100%',
+                        background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px',
+                        cursor: 'pointer', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.25)', transition: 'all 0.2s'
+                      }}
+                    >
+                      <Sparkles size={18} />
+                      Enrich
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic', textAlign: 'center' }}>
+                    Complete steps 1 & 2 →
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
