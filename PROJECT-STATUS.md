@@ -2212,9 +2212,19 @@ cd backend
       - Webhook URL displayed read-only below toggle
       - Note: "Send to Streamline button on Results screen works regardless of this toggle"
       - Only shown when inside a client workspace (requires `clientId`)
-    - **Deployment needed**: SQL migration, xo-clients Lambda, xo-enrich Lambda
     - Deployed frontend to S3/CloudFront
     - Files: schema.sql, clients/lambda_function.py, enrich/lambda_function.py, App.jsx
+
+57. **Backend Deployment — Branding + Webhook** (Session 16 - March 3, 2026)
+    - **SQL Migration**: Ran 3 ALTER TABLE statements via Python/psycopg2 (logo_s3_key, icon_s3_key, streamline_webhook_enabled)
+    - **Lambda Deployments**:
+      - xo-clients: Updated with branding presigned URLs + webhook toggle fields
+      - xo-upload: Updated with `handle_branding_upload()` and `handle_branding_get()` endpoints
+      - xo-enrich: Updated with branding in webhook payload + webhook enabled check
+    - **API Gateway**: Created `/upload/branding` resource with POST, GET, OPTIONS methods → xo-upload Lambda
+    - Added Lambda invoke permission for API Gateway → xo-upload on branding route
+    - Deployed API Gateway to prod stage
+    - All v1.25–v1.27 backend changes now live
 
 ---
 
