@@ -947,14 +947,7 @@ export default function App() {
                 <span className="version-badge">Rapid Prototype</span>
               </h1>
               <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {currentScreen === 'dashboard' ? 'Client Dashboard' : (
-                  <>
-                    {companyData.logoUrl && (
-                      <img src={companyData.logoUrl} alt="" style={{ height: '20px', maxWidth: '100px', objectFit: 'contain', borderRadius: '3px' }} />
-                    )}
-                    {companyData.name || 'Domain Partner Onboarding'}
-                  </>
-                )}
+                {currentScreen === 'dashboard' ? 'Client Dashboard' : 'Domain Partner Onboarding'}
               </p>
             </div>
           </div>
@@ -963,6 +956,67 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* Client Context Bar — shown when inside a workspace */}
+      {currentScreen !== 'dashboard' && clientId && (
+        <div style={{
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-color)',
+          padding: '0.5rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <button
+            onClick={() => navigateTo('dashboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '6px',
+              fontSize: '0.8125rem',
+              fontWeight: 500
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+          >
+            <ChevronLeft size={16} />
+            Back to All Clients
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {companyData.iconUrl ? (
+              <img src={companyData.iconUrl} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
+            ) : (
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
+                background: 'var(--bg-tertiary, #374151)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.8125rem', fontWeight: 700, color: '#dc2626'
+              }}>
+                {(companyData.name || '?')[0].toUpperCase()}
+              </div>
+            )}
+            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{companyData.name}</span>
+            {companyData.industry && (
+              <span style={{
+                fontSize: '0.75rem',
+                padding: '0.125rem 0.5rem',
+                borderRadius: '999px',
+                background: 'var(--bg-tertiary, #374151)',
+                color: 'var(--text-secondary)',
+                fontWeight: 500
+              }}>
+                {companyData.industry}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sidebar */}
       {showSidebar && (

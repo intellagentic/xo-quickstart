@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.27)
+**Status:** Deployed & Operational (v1.28)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2225,6 +2225,16 @@ cd backend
     - Added Lambda invoke permission for API Gateway → xo-upload on branding route
     - Deployed API Gateway to prod stage
     - All v1.25–v1.27 backend changes now live
+
+58. **Client Context Bar** (Session 17 - March 3, 2026)
+    - Added secondary context bar below the main "XO Capture" header, visible only inside client workspaces
+    - **Left side**: "Back to All Clients" link with ChevronLeft icon → navigates to dashboard
+    - **Right side**: Client icon (28px with letter fallback), company name (bold), industry pill badge
+    - Conditionally rendered: hidden on dashboard, shown when `clientId` is set
+    - Simplified header subtitle: removed duplicate company name/logo from main header; shows "Domain Partner Onboarding" in workspace
+    - Reused existing patterns: icon fallback from dashboard cards, `navigateTo()`, `companyData` state
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
 
 ---
 
