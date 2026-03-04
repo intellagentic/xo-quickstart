@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.32)
+**Status:** Deployed & Operational (v1.33)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2275,6 +2275,15 @@ cd backend
     - Branding upload state refresh already working (both CompanyInfoModal and BrandingScreen call `setCompanyData` after upload)
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
+
+64. **Video/Audio File Support** (Session 17 - March 3, 2026)
+    - **Frontend**: Added `.mp4`, `.webm` to file picker accept list; helper text now reads "Video, Audio"
+    - **Enrich Lambda**: Added `mp4`, `webm` to `AUDIO_EXTENSIONS` set and `media_format_map` — routed through existing AWS Transcribe pipeline
+    - **Transcribe poll timeout**: 240s → 360s (large video files can take 2–5 min)
+    - **Lambda timeout**: 300s → 600s (10 min, accommodates transcription + Claude analysis)
+    - Existing pipeline already handles: Transcribe job start, poll, transcript extraction, filename labeling, inclusion in Claude prompt
+    - Files: `src/App.jsx`, `backend/lambdas/enrich/lambda_function.py`
+    - Deployed: frontend (S3/CloudFront), xo-enrich Lambda, Lambda timeout config
 
 ---
 

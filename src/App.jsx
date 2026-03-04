@@ -3132,13 +3132,13 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               Drop files here or click to browse
             </p>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              CSV, Excel, Word, PDF, Audio, JSON, and more
+              CSV, Excel, Word, PDF, Video, Audio, JSON, and more
             </p>
             <input
               id="sources-file-input"
               type="file"
               multiple
-              accept=".csv,.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.json,.xml,.zip,.mp3,.wav,.m4a,.aac"
+              accept=".csv,.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.json,.xml,.zip,.mp3,.wav,.m4a,.aac,.mp4,.webm"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
             />

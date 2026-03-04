@@ -28,7 +28,7 @@ BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 FUNCTION_NAME = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'xo-enrich')
 STREAMLINE_WEBHOOK_URL = os.environ.get('STREAMLINE_WEBHOOK_URL', '')
-AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma'}
+AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma', 'mp4', 'webm'}
 SYSTEM_SKILLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'system-skills')
 
 anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -552,7 +552,8 @@ def transcribe_single_file(client_id, s3_key, filename):
     ext = filename.lower().rsplit('.', 1)[-1]
     media_format_map = {
         'mp3': 'mp3', 'wav': 'wav', 'm4a': 'mp4', 'aac': 'mp4',
-        'ogg': 'ogg', 'flac': 'flac', 'wma': 'mp3'
+        'ogg': 'ogg', 'flac': 'flac', 'wma': 'mp3',
+        'mp4': 'mp4', 'webm': 'webm'
     }
     media_format = media_format_map.get(ext, 'mp3')
 
@@ -570,8 +571,8 @@ def transcribe_single_file(client_id, s3_key, filename):
         OutputKey=output_key
     )
 
-    # Poll for completion (max 240s)
-    max_wait = 240
+    # Poll for completion (max 360s — video files can take 2-5 min)
+    max_wait = 360
     elapsed = 0
     while elapsed < max_wait:
         time.sleep(5)
