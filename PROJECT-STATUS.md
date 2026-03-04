@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.29)
+**Status:** Deployed & Operational (v1.30)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2245,6 +2245,12 @@ cd backend
       - Company name (1.25rem, bold)
       - "Client Workspace" label below in subtle text
     - Navigation back to dashboard remains in sidebar ("All Clients")
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
+
+60. **Client Banner — Logo-only mode** (Session 17 - March 3, 2026)
+    - **With logo**: Shows only the logo image + "Client Workspace" subtitle (no company name text — logo speaks for itself)
+    - **Without logo**: Shows letter fallback icon + company name (bold) + "Client Workspace" subtitle
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
 

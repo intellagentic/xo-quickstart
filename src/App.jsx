@@ -1216,25 +1216,32 @@ export default function App() {
             padding: '1.25rem 0 0.75rem 0'
           }}>
             {companyData.logoUrl ? (
-              <img src={companyData.logoUrl} alt="" style={{ height: '44px', maxWidth: '140px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0 }} />
+              <div>
+                <img src={companyData.logoUrl} alt={companyData.name} style={{ height: '44px', maxWidth: '200px', objectFit: 'contain' }} />
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Client Workspace
+                </div>
+              </div>
             ) : (
-              <div style={{
-                width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
-                background: '#1a1a2e',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '1.25rem', fontWeight: 700, color: '#dc2626'
-              }}>
-                {(companyData.name || '?')[0].toUpperCase()}
-              </div>
+              <>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+                  background: '#1a1a2e',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.25rem', fontWeight: 700, color: '#dc2626'
+                }}>
+                  {(companyData.name || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    {companyData.name || 'New Client'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                    Client Workspace
+                  </div>
+                </div>
+              </>
             )}
-            <div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                {companyData.name || 'New Client'}
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
-                Client Workspace
-              </div>
-            </div>
           </div>
         )}
 
