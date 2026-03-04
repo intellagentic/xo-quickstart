@@ -1091,7 +1091,6 @@ export default function App() {
               justifyContent: 'space-between'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div className="logo-box" style={{ width: '32px', height: '32px', fontSize: '1rem' }}>XO</div>
                 <div>
                   <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem', display: 'block' }}>{user?.name || 'Menu'}</span>
                   {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.75rem' }}>{user.email}</span>}

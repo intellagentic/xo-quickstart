@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.34)
+**Status:** Deployed & Operational (v1.35)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2291,6 +2291,11 @@ cd backend
     - **API Gateway**: Added DELETE method on `/clients` resource → xo-clients Lambda proxy integration + invoke permission, deployed to prod
     - Files: `src/App.jsx`, `backend/lambdas/clients/lambda_function.py`
     - Deployed: frontend (S3/CloudFront), xo-clients Lambda, API Gateway
+
+66. **Remove "XO" from sidebar header** (Session 17 - March 3, 2026)
+    - Removed redundant XO logo-box from sidebar header — now shows user name + email only
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
 
 ---
 
