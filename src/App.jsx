@@ -212,7 +212,8 @@ function LoginScreen({ onLogin }) {
             <div className="logo-box">XO</div>
             <div className="header-title">
               <h1>
-                <span>Rapid Deployment</span>
+                <span>Capture</span>
+                <span className="version-badge">Rapid Prototype</span>
               </h1>
             </div>
           </div>

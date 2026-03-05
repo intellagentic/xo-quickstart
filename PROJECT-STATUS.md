@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.45)
+**Status:** Deployed & Operational (v1.46)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2384,6 +2384,11 @@ cd backend
     - Only shown when company name is populated; hidden otherwise
     - Applied to both UploadScreen left column and CompanyInfoModal
     - Also added expand/collapse to CompanyInfoModal contacts and addresses (matching UploadScreen pattern from v1.44)
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
+
+77. **Login Screen Header Fix** (Session 21 - March 5, 2026)
+    - Changed login screen header from "Rapid Deployment" to "Capture" + "Rapid Prototype" badge, matching the logged-in header exactly
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
 
