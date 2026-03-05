@@ -75,15 +75,19 @@ def handle_list_clients(event, user):
     cur = conn.cursor()
 
     try:
-        cur.execute("""
+        base_query = """
             SELECT c.id, c.company_name, c.industry, c.s3_folder, c.status,
                    c.created_at, c.updated_at,
                    (SELECT COUNT(*) FROM uploads u WHERE u.client_id = c.id AND u.status = 'active') as source_count,
                    (SELECT e.status FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_status,
                    (SELECT e.completed_at FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_date,
                    c.icon_s3_key
-            FROM clients c WHERE c.user_id = %s ORDER BY c.updated_at DESC
-        """, (user['user_id'],))
+            FROM clients c
+        """
+        if user.get('is_admin'):
+            cur.execute(base_query + " ORDER BY c.updated_at DESC")
+        else:
+            cur.execute(base_query + " WHERE c.user_id = %s ORDER BY c.updated_at DESC", (user['user_id'],))
 
         rows = cur.fetchall()
         cur.close()
@@ -144,16 +148,27 @@ def handle_get_client(event, user):
 
     try:
         if client_id:
-            # Fetch specific client by s3_folder
-            cur.execute("""
-                SELECT id, company_name, website_url, contact_name, contact_title,
-                       contact_linkedin, industry, description, pain_point,
-                       s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
-                       COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone, contacts_json, addresses_json,
-                       streamline_webhook_url
-                FROM clients WHERE s3_folder = %s AND user_id = %s
-            """, (client_id, user['user_id']))
+            # Fetch specific client by s3_folder (admins can see any client)
+            if user.get('is_admin'):
+                cur.execute("""
+                    SELECT id, company_name, website_url, contact_name, contact_title,
+                           contact_linkedin, industry, description, pain_point,
+                           s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
+                           COALESCE(streamline_webhook_enabled, FALSE),
+                           contact_email, contact_phone, contacts_json, addresses_json,
+                           streamline_webhook_url
+                    FROM clients WHERE s3_folder = %s
+                """, (client_id,))
+            else:
+                cur.execute("""
+                    SELECT id, company_name, website_url, contact_name, contact_title,
+                           contact_linkedin, industry, description, pain_point,
+                           s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
+                           COALESCE(streamline_webhook_enabled, FALSE),
+                           contact_email, contact_phone, contacts_json, addresses_json,
+                           streamline_webhook_url
+                    FROM clients WHERE s3_folder = %s AND user_id = %s
+                """, (client_id, user['user_id']))
         else:
             # Fetch most recent client for this user
             cur.execute("""
@@ -362,13 +377,20 @@ def handle_update_client(event, user):
             set_fields.append("streamline_webhook_url = %s")
             params.append(body['streamline_webhook_url'].strip())
 
-        params.extend([client_id, user['user_id']])
-
-        cur.execute(f"""
-            UPDATE clients SET {', '.join(set_fields)}
-            WHERE s3_folder = %s AND user_id = %s
-            RETURNING id
-        """, params)
+        if user.get('is_admin'):
+            params.append(client_id)
+            cur.execute(f"""
+                UPDATE clients SET {', '.join(set_fields)}
+                WHERE s3_folder = %s
+                RETURNING id
+            """, params)
+        else:
+            params.extend([client_id, user['user_id']])
+            cur.execute(f"""
+                UPDATE clients SET {', '.join(set_fields)}
+                WHERE s3_folder = %s AND user_id = %s
+                RETURNING id
+            """, params)
 
         row = cur.fetchone()
         conn.commit()
@@ -441,10 +463,11 @@ def handle_delete_client(event, user):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Verify ownership and get DB id
-        cur.execute("""
-            SELECT id FROM clients WHERE s3_folder = %s AND user_id = %s
-        """, (client_id, user['user_id']))
+        # Verify ownership and get DB id (admins can access any client)
+        if user.get('is_admin'):
+            cur.execute("SELECT id FROM clients WHERE s3_folder = %s", (client_id,))
+        else:
+            cur.execute("SELECT id FROM clients WHERE s3_folder = %s AND user_id = %s", (client_id, user['user_id']))
         row = cur.fetchone()
 
         if not row:

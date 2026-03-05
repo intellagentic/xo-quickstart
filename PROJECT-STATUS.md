@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.48)
+**Status:** Deployed & Operational (v1.49)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2407,6 +2407,17 @@ cd backend
     - Auto-migration runs on clients Lambda cold start
     - Files: `src/App.jsx`, `src/index.css`, `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`
     - Deployed frontend to S3/CloudFront + both Lambdas
+
+80. **Admin Cross-User Client Access** (Session 22 - March 5, 2026)
+    - Admin users (`is_admin` JWT flag) can now see and manage ALL clients, not just their own
+    - `/clients/list` (GET): admins get all clients across all users; non-admins still filtered by `user_id`
+    - `/clients?client_id=X` (GET): admins skip `user_id` filter, can load any client's full data
+    - `/clients` (PUT): admins can update any client regardless of owner
+    - `/clients` (DELETE): admins can delete any client regardless of owner
+    - Fixed bug where clicking a client card on the dashboard showed blank workspace for clients created by other users
+    - Non-admin users unchanged — still restricted to their own clients
+    - Files: `backend/lambdas/clients/lambda_function.py`
+    - Deployed xo-clients Lambda
 
 ---
 
