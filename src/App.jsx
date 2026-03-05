@@ -2182,6 +2182,8 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   )
   const [saving, setSaving] = useState(false)
   const [savedIndicator, setSavedIndicator] = useState(false)
+  const [contactsExpanded, setContactsExpanded] = useState(false)
+  const [addressesExpanded, setAddressesExpanded] = useState(false)
 
   // Sync form when companyData changes externally (e.g. client switch)
   useEffect(() => {
@@ -2423,7 +2425,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
               </div>
             )}
 
-            {formContacts.map((contact, idx) => (
+            {formContacts.map((contact, idx) => (idx > 0 && !contactsExpanded) ? null : (
               <div key={idx} style={{
                 border: '1px solid #e5e7eb', borderRadius: '8px',
                 padding: '0.625rem', marginBottom: '0.5rem',
@@ -2454,6 +2456,31 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.375rem 0.5rem', marginTop: '0.375rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
               </div>
             ))}
+
+            {formContacts.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setContactsExpanded(prev => !prev)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                  padding: '0.25rem 0', fontSize: '0.7rem', fontWeight: 600,
+                  color: '#dc2626'
+                }}
+              >
+                {contactsExpanded ? (
+                  <>
+                    <ChevronUp size={13} />
+                    Hide {formContacts.length - 1} more contact{formContacts.length - 1 > 1 ? 's' : ''}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={13} />
+                    View {formContacts.length - 1} more contact{formContacts.length - 1 > 1 ? 's' : ''}
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Divider */}
@@ -2489,7 +2516,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
               </div>
             )}
 
-            {formAddresses.map((addr, idx) => (
+            {formAddresses.map((addr, idx) => (idx > 0 && !addressesExpanded) ? null : (
               <div key={idx} style={{
                 border: '1px solid #e5e7eb', borderRadius: '8px',
                 padding: '0.625rem', marginBottom: '0.5rem',
@@ -2524,6 +2551,31 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                 </div>
               </div>
             ))}
+
+            {formAddresses.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setAddressesExpanded(prev => !prev)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                  padding: '0.25rem 0', fontSize: '0.7rem', fontWeight: 600,
+                  color: '#dc2626'
+                }}
+              >
+                {addressesExpanded ? (
+                  <>
+                    <ChevronUp size={13} />
+                    Hide {formAddresses.length - 1} more address{formAddresses.length - 1 > 1 ? 'es' : ''}
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={13} />
+                    View {formAddresses.length - 1} more address{formAddresses.length - 1 > 1 ? 'es' : ''}
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Autosave Indicator */}

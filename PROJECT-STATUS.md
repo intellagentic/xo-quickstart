@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.43)
+**Status:** Deployed & Operational (v1.44)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2367,6 +2367,15 @@ cd backend
     - First address labeled "Primary Address", subsequent "Address 2, 3..."
     - Files: `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`, `src/App.jsx`
     - Deployed: frontend (S3/CloudFront), xo-clients Lambda, xo-enrich Lambda, DB migration
+
+75. **Contacts & Addresses Expand/Collapse** (Session 21 - March 5, 2026)
+    - **Primary always visible**: Primary Contact and Primary Address cards always shown expanded in Organization Profile
+    - **Collapsible extras**: Additional contacts/addresses hidden by default behind clickable links: "View X more contacts" / "View X more addresses" (red text, ChevronDown icon)
+    - **Toggle**: Clicking expands to show all; clicking again collapses ("Hide X more contacts/addresses" with ChevronUp icon)
+    - **Add button always visible**: "+ Add" button stays accessible regardless of expanded/collapsed state
+    - Proper index preservation: uses ternary `null` pattern in `.map()` to maintain original array indices for update/remove handlers
+    - Single file change: `src/App.jsx`
+    - Deployed frontend to S3/CloudFront
 
 ---
 
