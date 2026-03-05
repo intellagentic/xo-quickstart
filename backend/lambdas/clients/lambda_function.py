@@ -15,6 +15,22 @@ s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
 
 
+# ── Auto-migration: add streamline_webhook_url column if missing ──
+def _run_migrations():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_url VARCHAR(1000);")
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Migration complete: streamline_webhook_url column ensured")
+    except Exception as e:
+        print(f"Migration check (non-fatal): {e}")
+
+_run_migrations()
+
+
 def lambda_handler(event, context):
     """
     Method router for /clients:
@@ -134,7 +150,8 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone, contacts_json, addresses_json
+                       contact_email, contact_phone, contacts_json, addresses_json,
+                       streamline_webhook_url
                 FROM clients WHERE s3_folder = %s AND user_id = %s
             """, (client_id, user['user_id']))
         else:
@@ -144,7 +161,8 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone, contacts_json, addresses_json
+                       contact_email, contact_phone, contacts_json, addresses_json,
+                       streamline_webhook_url
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -252,7 +270,8 @@ def handle_get_client(event, user):
                 'contactEmail': primary.get('email', ''),
                 'contactPhone': primary.get('phone', ''),
                 'contacts': contacts,
-                'addresses': addresses
+                'addresses': addresses,
+                'streamline_webhook_url': row[19] or ''
             })
         }
     except Exception as e:
@@ -338,6 +357,10 @@ def handle_update_client(event, user):
         if 'streamline_webhook_enabled' in body:
             set_fields.append("streamline_webhook_enabled = %s")
             params.append(bool(body['streamline_webhook_enabled']))
+
+        if 'streamline_webhook_url' in body:
+            set_fields.append("streamline_webhook_url = %s")
+            params.append(body['streamline_webhook_url'].strip())
 
         params.extend([client_id, user['user_id']])
 

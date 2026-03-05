@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.47)
+**Status:** Deployed & Operational (v1.48)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2399,6 +2399,14 @@ cd backend
     - Desktop unchanged: side-by-side 38%/62% split
     - Files: `src/App.jsx`, `src/index.css`
     - Deployed frontend to S3/CloudFront
+
+79. **Mobile Overflow Fix, System Skills Layout, Per-Client Webhook URL** (Session 22 - March 5, 2026)
+    - **Mobile overflow fix**: `.panel` gets `max-width: 100%; overflow: hidden; box-sizing: border-box` at ≤768px; skill card flex children get `minWidth: 0` and `wordBreak: 'break-word'`
+    - **System Skills full-width on mobile**: Added `system-skill-grid` className with CSS to force `flex-direction: column` and full-width children; description text wraps instead of `nowrap`
+    - **Per-client webhook URL**: New `streamline_webhook_url VARCHAR(1000)` column in clients table; clients Lambda GET returns it, PUT accepts it; enrich Lambda uses per-client URL with env var fallback; frontend replaces read-only display with editable `<input>` that saves onBlur with saving/saved indicator
+    - Auto-migration runs on clients Lambda cold start
+    - Files: `src/App.jsx`, `src/index.css`, `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`
+    - Deployed frontend to S3/CloudFront + both Lambdas
 
 ---
 

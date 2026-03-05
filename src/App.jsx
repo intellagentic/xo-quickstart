@@ -4389,8 +4389,8 @@ function SkillsScreen({ clientId }) {
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px'
               }}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem', wordBreak: 'break-word' }}>
                     {skill.name}
                   </h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
@@ -4820,13 +4820,19 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
   const [webhookEnabled, setWebhookEnabled] = useState(false)
   const [webhookLoaded, setWebhookLoaded] = useState(false)
   const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookUrlSaving, setWebhookUrlSaving] = useState(false)
+  const [webhookUrlSaved, setWebhookUrlSaved] = useState(false)
 
   useEffect(() => {
     if (clientId) {
       fetch(`${API_BASE}/clients?client_id=${clientId}`, { headers: getAuthHeaders() })
         .then(res => res.ok ? res.json() : null)
         .then(data => {
-          if (data) setWebhookEnabled(!!data.streamline_webhook_enabled)
+          if (data) {
+            setWebhookEnabled(!!data.streamline_webhook_enabled)
+            setWebhookUrl(data.streamline_webhook_url || '')
+          }
         })
         .catch(() => {})
         .finally(() => setWebhookLoaded(true))
@@ -4865,6 +4871,37 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
       setWebhookEnabled(!newValue) // revert on error
     }
     setWebhookSaving(false)
+  }
+
+  const saveWebhookUrl = async () => {
+    if (!clientId) return
+    setWebhookUrlSaving(true)
+    setWebhookUrlSaved(false)
+    try {
+      const getRes = await fetch(`${API_BASE}/clients?client_id=${clientId}`, { headers: getAuthHeaders() })
+      if (getRes.ok) {
+        const current = await getRes.json()
+        await fetch(`${API_BASE}/clients`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            client_id: clientId,
+            company_name: current.company_name,
+            website: current.website,
+            contacts: current.contacts || [],
+            industry: current.industry,
+            description: current.description,
+            painPoint: current.painPoint,
+            streamline_webhook_url: webhookUrl
+          })
+        })
+        setWebhookUrlSaved(true)
+        setTimeout(() => setWebhookUrlSaved(false), 2000)
+      }
+    } catch (err) {
+      console.error('Failed to save webhook URL:', err)
+    }
+    setWebhookUrlSaving(false)
   }
 
   // Theme-aware colors matching reference C object
@@ -5061,7 +5098,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
           <p style={{ fontSize: '0.75rem', color: C.muted, marginBottom: '0.875rem', lineHeight: 1.5 }}>
             System skills are injected into every enrichment call before client skills. They define how the AI analyzes, formats output, and handles authority boundaries.
           </p>
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
+          <div className="system-skill-grid" style={{ display: 'grid', gap: '0.5rem' }}>
             {[
               { name: 'Analysis Framework', desc: 'Revenue drivers, cost structure, bottlenecks, competitive position, risk factors' },
               { name: 'Output Format', desc: 'Numbered sections, table schemas, severity ratings, confidence scores, source citations' },
@@ -5080,7 +5117,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
                 <Lock size={14} style={{ color: C.muted, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 600, color: C.text }}>{skill.name}</div>
-                  <div style={{
+                  <div className="system-skill-desc" style={{
                     fontSize: '0.7rem', color: C.muted, marginTop: 1,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}>{skill.desc}</div>
@@ -5161,10 +5198,32 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
               borderRadius: 8,
               border: `1px solid ${C.border}`
             }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Webhook URL</span>
-              <p style={{ fontSize: '0.8rem', color: C.text, marginTop: 4, fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                {process.env.STREAMLINE_WEBHOOK_URL || 'Configured server-side (STREAMLINE_WEBHOOK_URL env var)'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Webhook URL</span>
+                {webhookUrlSaving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
+                {webhookUrlSaved && <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>Saved</span>}
+              </div>
+              <input
+                type="url"
+                value={webhookUrl}
+                onChange={e => setWebhookUrl(e.target.value)}
+                onBlur={saveWebhookUrl}
+                placeholder="https://hooks.example.com/webhook"
+                style={{
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem 0.625rem',
+                  fontSize: '0.8rem',
+                  fontFamily: 'monospace',
+                  color: C.text,
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  wordBreak: 'break-all'
+                }}
+              />
             </div>
             <p style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.625rem', lineHeight: 1.4 }}>
               The "Send to Streamline" button on the Results screen works regardless of this toggle — it's a manual override.

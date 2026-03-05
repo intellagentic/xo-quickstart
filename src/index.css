@@ -461,6 +461,14 @@ body {
   .action-btn {
     min-height: 44px;
   }
+
+  /* Prevent panel overflow on mobile */
+  .panel { max-width: 100%; overflow: hidden; box-sizing: border-box; }
+
+  /* System Skills full-width stacking */
+  .system-skill-grid { flex-direction: column !important; }
+  .system-skill-grid > div { width: 100% !important; min-width: 0 !important; }
+  .system-skill-grid .system-skill-desc { white-space: normal !important; }
 }
 
 @media (max-width: 480px) {

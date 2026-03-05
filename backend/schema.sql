@@ -170,3 +170,9 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS contacts_json TEXT;
 -- Each: {label, address1, address2, city, state, postalCode, country}
 -- ============================================================
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS addresses_json TEXT;
+
+-- ============================================================
+-- PER-CLIENT WEBHOOK URL (migration)
+-- Overrides STREAMLINE_WEBHOOK_URL env var when set
+-- ============================================================
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_url VARCHAR(1000);
