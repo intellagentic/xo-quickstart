@@ -921,7 +921,14 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
         import urllib.request
 
         primary = contacts[0] if contacts else {}
-        contact_name = primary.get('name', '')
+        contact_first = primary.get('firstName', '')
+        contact_last = primary.get('lastName', '')
+        # Fallback to legacy "name" field if firstName not present
+        if not contact_first and primary.get('name'):
+            parts = primary['name'].split(' ', 1)
+            contact_first = parts[0]
+            contact_last = parts[1] if len(parts) > 1 else ''
+        contact_name = f"{contact_first} {contact_last}".strip()
         contact_title = primary.get('title', '')
         contact_display = contact_name
         if contact_title:
@@ -930,11 +937,20 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
         # Build full contacts array for payload
         contacts_payload = []
         for idx, c in enumerate(contacts):
-            display = c.get('name', '')
+            c_first = c.get('firstName', '')
+            c_last = c.get('lastName', '')
+            if not c_first and c.get('name'):
+                parts = c['name'].split(' ', 1)
+                c_first = parts[0]
+                c_last = parts[1] if len(parts) > 1 else ''
+            c_full = f"{c_first} {c_last}".strip()
+            display = c_full
             if c.get('title'):
                 display += f" ({c['title']})"
             contacts_payload.append({
-                "name": c.get('name', ''),
+                "first_name": c_first,
+                "last_name": c_last,
+                "name": c_full,
                 "title": c.get('title', ''),
                 "email": c.get('email', ''),
                 "phone": c.get('phone', ''),
@@ -946,6 +962,8 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
             "client_name": company_name,
             # Legacy flat fields from primary contact
             "client_contact": contact_display,
+            "client_contact_first_name": contact_first,
+            "client_contact_last_name": contact_last,
             "client_email": primary.get('email', ''),
             "client_phone": primary.get('phone', ''),
             # Full contacts array

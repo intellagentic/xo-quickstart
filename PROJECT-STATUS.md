@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.40)
+**Status:** Deployed & Operational (v1.41)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2338,6 +2338,15 @@ cd backend
     - **Partner form autosave**: All form fields (Company Name, Website, Industry, Description, Pain Point, all contact inputs) trigger `autoSave` on blur; Save button replaced with subtle "Saving..." spinner / green "Saved" checkmark indicator that fades after 2 seconds; form state syncs on client switch
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
+
+72. **Organization Profile Rename + First/Last Name Split** (Session 20 - March 4, 2026)
+    - **Renamed**: "Partner Information" → "Organization Profile" in left column header
+    - **Contact name split**: Single `name` field replaced with `firstName`/`lastName` (side by side) across all forms (UploadScreen left column, CompanyInfoModal dashboard form)
+    - **Migration**: Frontend `migrateContact()` helper splits legacy `name` on first space; Clients Lambda migrates contacts on-the-fly in GET response; no DB ALTER needed (contacts stored as JSON in `contacts_json` TEXT column)
+    - **Clients Lambda**: Legacy `contact_name` column synced as combined `firstName + lastName`; `generate_client_config` renders combined name; legacy fallback splits `contact_name` into first/last
+    - **Enrich Lambda**: Streamline webhook payload now sends `first_name`/`last_name` per contact in array + `client_contact_first_name`/`client_contact_last_name` as top-level flat fields; backward-compatible `name` and `display` fields retained
+    - Files: `src/App.jsx`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`
+    - Deployed: frontend (S3/CloudFront), xo-clients Lambda, xo-enrich Lambda
 
 ---
 

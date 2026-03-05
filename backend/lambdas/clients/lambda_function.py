@@ -196,9 +196,12 @@ def handle_get_client(event, user):
             contacts = []
 
         if not contacts:
-            # Construct from legacy fields
+            # Construct from legacy fields — split name into firstName/lastName
+            full_name = row[3] or ''
+            space_idx = full_name.find(' ')
             legacy = {
-                'name': row[3] or '',
+                'firstName': full_name[:space_idx] if space_idx > 0 else full_name,
+                'lastName': full_name[space_idx + 1:] if space_idx > 0 else '',
                 'title': row[4] or '',
                 'linkedin': row[5] or '',
                 'email': row[15] or '',
@@ -206,6 +209,14 @@ def handle_get_client(event, user):
             }
             if any(legacy.values()):
                 contacts = [legacy]
+
+        # Migrate any contacts that still have "name" instead of firstName/lastName
+        for c in contacts:
+            if 'name' in c and 'firstName' not in c:
+                old_name = c.pop('name', '')
+                space_idx = old_name.find(' ')
+                c['firstName'] = old_name[:space_idx] if space_idx > 0 else old_name
+                c['lastName'] = old_name[space_idx + 1:] if space_idx > 0 else ''
 
         # Legacy flat fields from contacts[0] for backward compat
         primary = contacts[0] if contacts else {}
@@ -217,7 +228,7 @@ def handle_get_client(event, user):
                 'id': str(row[0]),
                 'company_name': row[1] or '',
                 'website': row[2] or '',
-                'contactName': primary.get('name', ''),
+                'contactName': f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip(),
                 'contactTitle': primary.get('title', ''),
                 'contactLinkedIn': primary.get('linkedin', ''),
                 'industry': row[6] or '',
@@ -271,7 +282,8 @@ def handle_update_client(event, user):
         if not contacts:
             # Fallback: construct from legacy flat fields if provided
             legacy = {
-                'name': body.get('contactName', '').strip(),
+                'firstName': body.get('contactName', '').strip(),
+                'lastName': '',
                 'title': body.get('contactTitle', '').strip(),
                 'linkedin': body.get('contactLinkedIn', '').strip(),
                 'email': body.get('contactEmail', '').strip(),
@@ -298,7 +310,7 @@ def handle_update_client(event, user):
         params = [
             company_name,
             body.get('website', '').strip(),
-            primary.get('name', ''),
+            f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip(),
             primary.get('title', ''),
             primary.get('linkedin', ''),
             primary.get('email', ''),
@@ -328,7 +340,7 @@ def handle_update_client(event, user):
         config_md = generate_client_config(
             company_name,
             body.get('website', '').strip(),
-            primary.get('name', ''),
+            f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip(),
             primary.get('title', ''),
             primary.get('linkedin', ''),
             body.get('industry', '').strip(),
@@ -457,7 +469,8 @@ def handle_create_client(event, user):
         contacts = body.get('contacts', [])
         if not contacts:
             legacy = {
-                'name': body.get('contactName', '').strip(),
+                'firstName': body.get('contactName', '').strip(),
+                'lastName': '',
                 'title': body.get('contactTitle', '').strip(),
                 'linkedin': body.get('contactLinkedIn', '').strip(),
                 'email': body.get('contactEmail', '').strip(),
@@ -467,7 +480,7 @@ def handle_create_client(event, user):
                 contacts = [legacy]
 
         primary = contacts[0] if contacts else {}
-        contact_name = primary.get('name', '')
+        contact_name = f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip()
         contact_title = primary.get('title', '')
         contact_linkedin = primary.get('linkedin', '')
         contact_email = primary.get('email', '')
@@ -683,8 +696,9 @@ def generate_client_config(company_name, website, contact_name, contact_title,
             sections.append("")
             sections.append(label)
             sections.append("")
-            if c.get('name'):
-                sections.append(f"- **Name:** {c['name']}")
+            contact_full_name = f"{c.get('firstName', '')} {c.get('lastName', '')}".strip() or c.get('name', '')
+            if contact_full_name:
+                sections.append(f"- **Name:** {contact_full_name}")
             if c.get('title'):
                 sections.append(f"- **Title:** {c['title']}")
             if c.get('linkedin'):

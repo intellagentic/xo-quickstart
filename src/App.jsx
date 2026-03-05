@@ -10,6 +10,18 @@ import logoDark from './assets/logo-dark.png'
 
 const API_BASE = 'https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod'
 
+// Migrate contact: split legacy "name" into firstName/lastName if needed
+function migrateContact(c) {
+  if (c.firstName !== undefined || c.lastName !== undefined) return c
+  const name = c.name || ''
+  const spaceIdx = name.indexOf(' ')
+  return {
+    ...c,
+    firstName: spaceIdx > 0 ? name.substring(0, spaceIdx) : name,
+    lastName: spaceIdx > 0 ? name.substring(spaceIdx + 1) : '',
+  }
+}
+
 // Auth helpers
 function getAuthHeaders() {
   const token = localStorage.getItem('xo-token')
@@ -864,9 +876,11 @@ export default function App() {
       if (response.ok) {
         const data = await response.json()
         // Build contacts array: prefer API contacts, fallback to legacy flat fields
-        let contacts = data.contacts || []
+        let contacts = (data.contacts || []).map(migrateContact)
         if (!contacts.length && (data.contactName || data.contactEmail)) {
-          contacts = [{ name: data.contactName || '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
+          const legacyName = data.contactName || ''
+          const spaceIdx = legacyName.indexOf(' ')
+          contacts = [{ firstName: spaceIdx > 0 ? legacyName.substring(0, spaceIdx) : legacyName, lastName: spaceIdx > 0 ? legacyName.substring(spaceIdx + 1) : '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
         }
         setCompanyData({
           name: data.company_name || '',
@@ -960,9 +974,11 @@ export default function App() {
       const res = await fetch(`${API_BASE}/clients?client_id=${client.client_id}`, { headers: getAuthHeaders() })
       if (res.ok) {
         const data = await res.json()
-        let contacts = data.contacts || []
+        let contacts = (data.contacts || []).map(migrateContact)
         if (!contacts.length && (data.contactName || data.contactEmail)) {
-          contacts = [{ name: data.contactName || '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
+          const legacyName = data.contactName || ''
+          const spaceIdx = legacyName.indexOf(' ')
+          contacts = [{ firstName: spaceIdx > 0 ? legacyName.substring(0, spaceIdx) : legacyName, lastName: spaceIdx > 0 ? legacyName.substring(spaceIdx + 1) : '', title: data.contactTitle || '', email: data.contactEmail || '', phone: data.contactPhone || '', linkedin: data.contactLinkedIn || '' }]
         }
         setCompanyData({
           name: data.company_name || '',
@@ -986,6 +1002,7 @@ export default function App() {
     setClientId(null)
     localStorage.removeItem('xo-client-id')
     setCompanyData({ name: '', website: '', contacts: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
+
     setShowCompanyModal(true)
   }
 
@@ -1397,7 +1414,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
   })
 
   const addContact = () => {
-    setLocalContacts(prev => [...prev, { name: '', title: '', email: '', phone: '', linkedin: '' }])
+    setLocalContacts(prev => [...prev, { firstName: '', lastName: '', title: '', email: '', phone: '', linkedin: '' }])
   }
   const updateContact = (index, field, value) => {
     setLocalContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
@@ -1614,10 +1631,12 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
                     </button>
                   </div>
 
-                  {/* 2-column grid: Name, Title, Email, Phone */}
+                  {/* 2-column grid: First Name, Last Name, Title, Email, Phone */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <input type="text" value={contact.name} onChange={(e) => updateContact(idx, 'name', e.target.value)}
-                      placeholder="Name" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={contact.firstName || ''} onChange={(e) => updateContact(idx, 'firstName', e.target.value)}
+                      placeholder="First Name" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={contact.lastName || ''} onChange={(e) => updateContact(idx, 'lastName', e.target.value)}
+                      placeholder="Last Name" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
                     <input type="text" value={contact.title} onChange={(e) => updateContact(idx, 'title', e.target.value)}
                       placeholder="Title / Role" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
                     <input type="email" value={contact.email} onChange={(e) => updateContact(idx, 'email', e.target.value)}
@@ -2086,7 +2105,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   }, [companyData.name, clientId])
 
   const addContact = () => {
-    setFormContacts(prev => [...prev, { name: '', title: '', email: '', phone: '', linkedin: '' }])
+    setFormContacts(prev => [...prev, { firstName: '', lastName: '', title: '', email: '', phone: '', linkedin: '' }])
   }
   const updateContact = (index, field, value) => {
     setFormContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
@@ -2160,7 +2179,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
             <Building2 size={18} style={{ color: '#dc2626' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a2e', margin: 0 }}>
-              PARTNER INFORMATION
+              ORGANIZATION PROFILE
             </h3>
           </div>
 
@@ -2318,8 +2337,10 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   </button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem' }}>
-                  <input type="text" value={contact.name} onChange={(e) => updateContact(idx, 'name', e.target.value)} onBlur={autoSave}
-                    placeholder="Name" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  <input type="text" value={contact.firstName || ''} onChange={(e) => updateContact(idx, 'firstName', e.target.value)} onBlur={autoSave}
+                    placeholder="First Name" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  <input type="text" value={contact.lastName || ''} onChange={(e) => updateContact(idx, 'lastName', e.target.value)} onBlur={autoSave}
+                    placeholder="Last Name" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
                   <input type="text" value={contact.title} onChange={(e) => updateContact(idx, 'title', e.target.value)} onBlur={autoSave}
                     placeholder="Title" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
                   <input type="email" value={contact.email} onChange={(e) => updateContact(idx, 'email', e.target.value)} onBlur={autoSave}
