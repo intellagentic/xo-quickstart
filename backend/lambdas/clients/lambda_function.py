@@ -134,7 +134,7 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone, contacts_json
+                       contact_email, contact_phone, contacts_json, addresses_json
                 FROM clients WHERE s3_folder = %s AND user_id = %s
             """, (client_id, user['user_id']))
         else:
@@ -144,7 +144,7 @@ def handle_get_client(event, user):
                        contact_linkedin, industry, description, pain_point,
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
-                       contact_email, contact_phone, contacts_json
+                       contact_email, contact_phone, contacts_json, addresses_json
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -218,6 +218,15 @@ def handle_get_client(event, user):
                 c['firstName'] = old_name[:space_idx] if space_idx > 0 else old_name
                 c['lastName'] = old_name[space_idx + 1:] if space_idx > 0 else ''
 
+        # Parse addresses_json
+        addresses_json_raw = row[18]
+        addresses = []
+        if addresses_json_raw:
+            try:
+                addresses = json.loads(addresses_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         # Legacy flat fields from contacts[0] for backward compat
         primary = contacts[0] if contacts else {}
 
@@ -242,7 +251,8 @@ def handle_get_client(event, user):
                 'streamline_webhook_enabled': bool(row[14]),
                 'contactEmail': primary.get('email', ''),
                 'contactPhone': primary.get('phone', ''),
-                'contacts': contacts
+                'contacts': contacts,
+                'addresses': addresses
             })
         }
     except Exception as e:
@@ -292,6 +302,9 @@ def handle_update_client(event, user):
             if any(legacy.values()):
                 contacts = [legacy]
 
+        # Build addresses array from request
+        addresses = body.get('addresses', [])
+
         # Sync primary contact to legacy columns
         primary = contacts[0] if contacts else {}
 
@@ -303,7 +316,7 @@ def handle_update_client(event, user):
             "company_name = %s", "website_url = %s", "contact_name = %s",
             "contact_title = %s", "contact_linkedin = %s",
             "contact_email = %s", "contact_phone = %s",
-            "contacts_json = %s",
+            "contacts_json = %s", "addresses_json = %s",
             "industry = %s",
             "description = %s", "pain_point = %s", "updated_at = NOW()"
         ]
@@ -316,6 +329,7 @@ def handle_update_client(event, user):
             primary.get('email', ''),
             primary.get('phone', ''),
             json.dumps(contacts) if contacts else None,
+            json.dumps(addresses) if addresses else None,
             body.get('industry', '').strip(),
             body.get('description', '').strip(),
             body.get('painPoint', '').strip(),
@@ -348,7 +362,8 @@ def handle_update_client(event, user):
             body.get('painPoint', '').strip(),
             contact_email=primary.get('email', ''),
             contact_phone=primary.get('phone', ''),
-            contacts=contacts
+            contacts=contacts,
+            addresses=addresses
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -479,6 +494,9 @@ def handle_create_client(event, user):
             if any(legacy.values()):
                 contacts = [legacy]
 
+        # Build addresses array
+        addresses = body.get('addresses', [])
+
         primary = contacts[0] if contacts else {}
         contact_name = f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip()
         contact_title = primary.get('title', '')
@@ -514,7 +532,7 @@ def handle_create_client(event, user):
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point,
             contact_email=contact_email, contact_phone=contact_phone,
-            contacts=contacts
+            contacts=contacts, addresses=addresses
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -534,13 +552,14 @@ def handle_create_client(event, user):
             INSERT INTO clients (
                 user_id, company_name, website_url, contact_name, contact_title,
                 contact_linkedin, contact_email, contact_phone,
-                contacts_json, industry, description, pain_point, s3_folder
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                contacts_json, addresses_json, industry, description, pain_point, s3_folder
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             user['user_id'], company_name, website, contact_name, contact_title,
             contact_linkedin, contact_email, contact_phone,
             json.dumps(contacts) if contacts else None,
+            json.dumps(addresses) if addresses else None,
             industry, description, pain_point, client_id
         ))
 
@@ -666,7 +685,7 @@ def copy_default_skill(client_id):
 
 def generate_client_config(company_name, website, contact_name, contact_title,
                            contact_linkedin, industry, description, pain_point,
-                           contact_email='', contact_phone='', contacts=None):
+                           contact_email='', contact_phone='', contacts=None, addresses=None):
     """Generate a client-config.md structured context document."""
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
@@ -722,6 +741,32 @@ def generate_client_config(company_name, website, contact_name, contact_title,
             sections.append(f"- **Email:** {contact_email}")
         if contact_phone:
             sections.append(f"- **Phone:** {contact_phone}")
+
+    # Multi-address rendering
+    if addresses and len(addresses) > 0:
+        sections.append("")
+        sections.append("## Addresses")
+        for idx, a in enumerate(addresses):
+            label = a.get('label', '')
+            heading = f"### {label}" if label else ("### Primary Address" if idx == 0 else f"### Address {idx + 1}")
+            sections.append("")
+            sections.append(heading)
+            sections.append("")
+            if a.get('address1'):
+                sections.append(f"- **Address:** {a['address1']}")
+            if a.get('address2'):
+                sections.append(f"- **Address 2:** {a['address2']}")
+            parts = []
+            if a.get('city'):
+                parts.append(a['city'])
+            if a.get('state'):
+                parts.append(a['state'])
+            if a.get('postalCode'):
+                parts.append(a['postalCode'])
+            if parts:
+                sections.append(f"- **City/State/Zip:** {', '.join(parts)}")
+            if a.get('country'):
+                sections.append(f"- **Country:** {a['country']}")
 
     if pain_point:
         sections.append("")

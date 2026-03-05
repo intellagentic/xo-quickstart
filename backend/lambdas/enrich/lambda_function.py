@@ -204,7 +204,7 @@ def _run_enrichment_pipeline(event):
                    contact_linkedin, industry, description, pain_point,
                    logo_s3_key, icon_s3_key,
                    COALESCE(streamline_webhook_enabled, FALSE),
-                   contact_email, contact_phone, contacts_json
+                   contact_email, contact_phone, contacts_json, addresses_json
             FROM clients WHERE id = %s
         """, (db_client_id,))
         row = cur.fetchone()
@@ -240,6 +240,15 @@ def _run_enrichment_pipeline(event):
                       'email': contact_email, 'phone': contact_phone}
             if any(legacy.values()):
                 contacts = [legacy]
+
+        # Parse addresses_json
+        addresses_json_raw = row[14]
+        addresses = []
+        if addresses_json_raw:
+            try:
+                addresses = json.loads(addresses_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
         # Load system skills (bundled with Lambda, always injected first)
         system_skills = load_system_skills()
@@ -325,7 +334,8 @@ def _run_enrichment_pipeline(event):
                 analysis=analysis,
                 source_files=list(extracted_text.keys()),
                 logo_s3_key=logo_s3_key,
-                icon_s3_key=icon_s3_key
+                icon_s3_key=icon_s3_key,
+                addresses=addresses
             )
         else:
             print("Streamline webhook disabled for client")
@@ -387,7 +397,7 @@ def _handle_send_to_streamline(event):
             SELECT c.company_name, c.contact_name, c.contact_title, c.id,
                    e.results_s3_key, c.logo_s3_key, c.icon_s3_key,
                    c.contact_email, c.contact_phone, c.contacts_json,
-                   c.contact_linkedin
+                   c.contact_linkedin, c.addresses_json
             FROM clients c
             LEFT JOIN enrichments e ON e.client_id = c.id AND e.status = 'complete'
             WHERE c.s3_folder = %s AND c.user_id = %s
@@ -430,6 +440,15 @@ def _handle_send_to_streamline(event):
             if any(legacy.values()):
                 contacts = [legacy]
 
+        # Parse addresses_json
+        addresses_json_raw = row[11]
+        addresses = []
+        if addresses_json_raw:
+            try:
+                addresses = json.loads(addresses_json_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         if not results_s3_key:
             return {
                 'statusCode': 404,
@@ -452,7 +471,8 @@ def _handle_send_to_streamline(event):
             analysis=analysis,
             source_files=source_files,
             logo_s3_key=logo_s3_key,
-            icon_s3_key=icon_s3_key
+            icon_s3_key=icon_s3_key,
+            addresses=addresses
         )
 
         return {
@@ -908,7 +928,7 @@ def extract_docx(file_content):
         return f"Word document with {len(file_content)} bytes"
 
 
-def _send_streamline_webhook(company_name, contacts, model, analysis, source_files, logo_s3_key='', icon_s3_key=''):
+def _send_streamline_webhook(company_name, contacts, model, analysis, source_files, logo_s3_key='', icon_s3_key='', addresses=None):
     """
     POST enrichment results to Streamline webhook URL.
     Non-blocking — logs result but never fails the enrichment.
@@ -968,6 +988,8 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
             "client_phone": primary.get('phone', ''),
             # Full contacts array
             "contacts": contacts_payload,
+            # Addresses array
+            "addresses": addresses or [],
             "enrichment_model": model,
             "enrichment_date": datetime.now(timezone.utc).isoformat(),
             "executive_summary": analysis.get("summary", ""),

@@ -810,6 +810,7 @@ export default function App() {
     name: '',
     website: '',
     contacts: [],
+    addresses: [],
     industry: '',
     description: '',
     painPoint: '',
@@ -886,6 +887,7 @@ export default function App() {
           name: data.company_name || '',
           website: data.website || '',
           contacts,
+          addresses: data.addresses || [],
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
@@ -932,6 +934,7 @@ export default function App() {
             company_name: data.name,
             website: data.website,
             contacts: data.contacts || [],
+            addresses: data.addresses || [],
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint
@@ -949,6 +952,7 @@ export default function App() {
             company_name: data.name,
             website: data.website,
             contacts: data.contacts || [],
+            addresses: data.addresses || [],
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint
@@ -984,6 +988,7 @@ export default function App() {
           name: data.company_name || '',
           website: data.website || '',
           contacts,
+          addresses: data.addresses || [],
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
@@ -1001,7 +1006,7 @@ export default function App() {
   const handleCreateNewClient = () => {
     setClientId(null)
     localStorage.removeItem('xo-client-id')
-    setCompanyData({ name: '', website: '', contacts: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
+    setCompanyData({ name: '', website: '', contacts: [], addresses: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
 
     setShowCompanyModal(true)
   }
@@ -1407,10 +1412,14 @@ export default function App() {
 // COMPANY INFORMATION MODAL
 // ============================================================
 function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate, clientId }) {
-  const [localData, setLocalData] = useState({ ...companyData, contacts: [...(companyData.contacts || [])] })
+  const [localData, setLocalData] = useState({ ...companyData, contacts: [...(companyData.contacts || [])], addresses: [...(companyData.addresses || [])] })
   const [localContacts, setLocalContacts] = useState(() => {
     const c = companyData.contacts || []
     return c.map(ct => ({ ...ct }))
+  })
+  const [localAddresses, setLocalAddresses] = useState(() => {
+    const a = companyData.addresses || []
+    return a.map(addr => ({ ...addr }))
   })
 
   const addContact = () => {
@@ -1421,6 +1430,16 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
   }
   const removeContact = (index) => {
     setLocalContacts(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const addLocalAddress = () => {
+    setLocalAddresses(prev => [...prev, { label: '', address1: '', address2: '', city: '', state: '', postalCode: '', country: '' }])
+  }
+  const updateLocalAddress = (index, field, value) => {
+    setLocalAddresses(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
+  }
+  const removeLocalAddress = (index) => {
+    setLocalAddresses(prev => prev.filter((_, i) => i !== index))
   }
   const [logoUrl, setLogoUrl] = useState(companyData.logoUrl || null)
   const [iconUrl, setIconUrl] = useState(companyData.iconUrl || null)
@@ -1504,7 +1523,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
       alert('Company name is required')
       return
     }
-    const saveData = { ...localData, contacts: localContacts }
+    const saveData = { ...localData, contacts: localContacts, addresses: localAddresses }
     setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
     if (onClientCreate) onClientCreate(saveData)
     onClose()
@@ -1648,6 +1667,75 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
                   {/* Full-width LinkedIn */}
                   <input type="url" value={contact.linkedin} onChange={(e) => updateContact(idx, 'linkedin', e.target.value)}
                     placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Addresses Section */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Addresses
+                </label>
+                <button
+                  type="button"
+                  onClick={addLocalAddress}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500,
+                    background: 'var(--accent-color, #3b82f6)', color: '#fff',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Add Address
+                </button>
+              </div>
+
+              {localAddresses.length === 0 && (
+                <div style={{
+                  border: '2px dashed var(--border-color)', borderRadius: '8px',
+                  padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)'
+                }}>
+                  <MapPin size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                  <div style={{ fontSize: '0.85rem' }}>No addresses added yet</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Click "Add Address" to add a location</div>
+                </div>
+              )}
+
+              {localAddresses.map((addr, idx) => (
+                <div key={idx} style={{
+                  border: '1px solid var(--border-color)', borderRadius: '8px',
+                  padding: '0.75rem', marginBottom: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: idx === 0 ? 'var(--accent-color, #3b82f6)' : 'var(--text-secondary)' }}>
+                      {idx === 0 ? 'Primary Address' : `Address ${idx + 1}`}
+                    </span>
+                    <button type="button" onClick={() => removeLocalAddress(idx)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}
+                      title="Remove address"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <input type="text" value={addr.label || ''} onChange={(e) => updateLocalAddress(idx, 'label', e.target.value)}
+                      placeholder="Label (e.g., Headquarters, Warehouse)" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={addr.address1 || ''} onChange={(e) => updateLocalAddress(idx, 'address1', e.target.value)}
+                      placeholder="Address Line 1" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <input type="text" value={addr.address2 || ''} onChange={(e) => updateLocalAddress(idx, 'address2', e.target.value)}
+                      placeholder="Address Line 2" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <input type="text" value={addr.city || ''} onChange={(e) => updateLocalAddress(idx, 'city', e.target.value)}
+                        placeholder="City" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                      <input type="text" value={addr.state || ''} onChange={(e) => updateLocalAddress(idx, 'state', e.target.value)}
+                        placeholder="State / Province" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                      <input type="text" value={addr.postalCode || ''} onChange={(e) => updateLocalAddress(idx, 'postalCode', e.target.value)}
+                        placeholder="Postal Code" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                      <input type="text" value={addr.country || ''} onChange={(e) => updateLocalAddress(idx, 'country', e.target.value)}
+                        placeholder="Country" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2089,6 +2177,9 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   const [formContacts, setFormContacts] = useState(() =>
     (companyData.contacts || []).map(c => ({ ...c }))
   )
+  const [formAddresses, setFormAddresses] = useState(() =>
+    (companyData.addresses || []).map(a => ({ ...a }))
+  )
   const [saving, setSaving] = useState(false)
   const [savedIndicator, setSavedIndicator] = useState(false)
 
@@ -2102,6 +2193,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
       painPoint: companyData.painPoint || ''
     })
     setFormContacts((companyData.contacts || []).map(c => ({ ...c })))
+    setFormAddresses((companyData.addresses || []).map(a => ({ ...a })))
   }, [companyData.name, clientId])
 
   const addContact = () => {
@@ -2114,11 +2206,21 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
     setFormContacts(prev => prev.filter((_, i) => i !== index))
   }
 
+  const addAddress = () => {
+    setFormAddresses(prev => [...prev, { label: '', address1: '', address2: '', city: '', state: '', postalCode: '', country: '' }])
+  }
+  const updateAddress = (index, field, value) => {
+    setFormAddresses(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
+  }
+  const removeAddress = (index) => {
+    setFormAddresses(prev => prev.filter((_, i) => i !== index))
+  }
+
   // Autosave: called on blur from any form field
   const autoSave = async () => {
     if (!formData.name.trim()) return
     setSaving(true)
-    const saveData = { ...formData, contacts: formContacts }
+    const saveData = { ...formData, contacts: formContacts, addresses: formAddresses }
     setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
     if (onClientCreate) await onClientCreate(saveData)
     setSaving(false)
@@ -2350,6 +2452,76 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                 </div>
                 <input type="url" value={contact.linkedin || ''} onChange={(e) => updateContact(idx, 'linkedin', e.target.value)} onBlur={autoSave}
                   placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.375rem 0.5rem', marginTop: '0.375rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: '1px', background: '#e5e7eb' }} />
+
+          {/* Addresses Section */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Addresses
+              </label>
+              <button
+                type="button"
+                onClick={addAddress}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                  padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                  background: 'rgba(220, 38, 38, 0.08)', color: '#dc2626',
+                  border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: '4px', cursor: 'pointer'
+                }}
+              >
+                <Plus size={12} /> Add
+              </button>
+            </div>
+
+            {formAddresses.length === 0 && (
+              <div style={{
+                border: '1px dashed #d1d5db', borderRadius: '6px',
+                padding: '0.75rem', textAlign: 'center', color: '#9ca3af',
+                fontSize: '0.75rem'
+              }}>
+                No addresses yet
+              </div>
+            )}
+
+            {formAddresses.map((addr, idx) => (
+              <div key={idx} style={{
+                border: '1px solid #e5e7eb', borderRadius: '8px',
+                padding: '0.625rem', marginBottom: '0.5rem',
+                background: '#f9fafb'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: idx === 0 ? '#dc2626' : '#6b7280' }}>
+                    {idx === 0 ? 'Primary Address' : `Address ${idx + 1}`}
+                  </span>
+                  <button type="button" onClick={() => removeAddress(idx)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px' }}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                  <input type="text" value={addr.label || ''} onChange={(e) => updateAddress(idx, 'label', e.target.value)} onBlur={autoSave}
+                    placeholder="Label (e.g., Headquarters, Warehouse)" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  <input type="text" value={addr.address1 || ''} onChange={(e) => updateAddress(idx, 'address1', e.target.value)} onBlur={autoSave}
+                    placeholder="Address Line 1" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  <input type="text" value={addr.address2 || ''} onChange={(e) => updateAddress(idx, 'address2', e.target.value)} onBlur={autoSave}
+                    placeholder="Address Line 2" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem' }}>
+                    <input type="text" value={addr.city || ''} onChange={(e) => updateAddress(idx, 'city', e.target.value)} onBlur={autoSave}
+                      placeholder="City" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                    <input type="text" value={addr.state || ''} onChange={(e) => updateAddress(idx, 'state', e.target.value)} onBlur={autoSave}
+                      placeholder="State / Province" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                    <input type="text" value={addr.postalCode || ''} onChange={(e) => updateAddress(idx, 'postalCode', e.target.value)} onBlur={autoSave}
+                      placeholder="Postal Code" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                    <input type="text" value={addr.country || ''} onChange={(e) => updateAddress(idx, 'country', e.target.value)} onBlur={autoSave}
+                      placeholder="Country" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                  </div>
+                </div>
               </div>
             ))}
           </div>

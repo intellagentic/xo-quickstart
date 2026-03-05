@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.42)
+**Status:** Deployed & Operational (v1.43)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2354,6 +2354,19 @@ cd backend
     - Keeps everything visible on laptop without scrolling past the left column form
     - Single file change: `src/App.jsx`
     - Deployed frontend to S3/CloudFront
+
+74. **Organization Address Support** (Session 21 - March 5, 2026)
+    - **Multi-address support** for Organization Profile — same JSON array pattern as contacts
+    - Each address: Label, Address Line 1, Address Line 2, City, State/Province, Postal Code, Country
+    - **Database**: `ALTER TABLE clients ADD COLUMN IF NOT EXISTS addresses_json TEXT` — stores JSON array, first element = primary address
+    - **Clients Lambda**: GET returns `addresses` array; PUT/POST accept and store `addresses`; `generate_client_config()` renders addresses section in client-config.md
+    - **Enrich Lambda**: Both enrichment paths read `addresses_json` from DB; Streamline webhook payload includes `addresses` array
+    - **Frontend (UploadScreen)**: `formAddresses` state with add/update/remove handlers; address cards with Label full-width, Address 1 & 2 full-width, City+State side-by-side, Postal Code+Country side-by-side; autosave on blur; syncs on client switch
+    - **Frontend (CompanyInfoModal)**: Matching address UI with Add Address button, same field layout, included in handleSave
+    - Layout: Address 1 and 2 full width; City and State side by side; Postal Code and Country side by side
+    - First address labeled "Primary Address", subsequent "Address 2, 3..."
+    - Files: `backend/schema.sql`, `backend/lambdas/clients/lambda_function.py`, `backend/lambdas/enrich/lambda_function.py`, `src/App.jsx`
+    - Deployed: frontend (S3/CloudFront), xo-clients Lambda, xo-enrich Lambda, DB migration
 
 ---
 

@@ -163,3 +163,10 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(100);
 -- Legacy contact_* columns synced from contacts[0] on every write
 -- ============================================================
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS contacts_json TEXT;
+
+-- ============================================================
+-- MULTI-ADDRESS SUPPORT (migration)
+-- JSON array of addresses; first element = primary address
+-- Each: {label, address1, address2, city, state, postalCode, country}
+-- ============================================================
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS addresses_json TEXT;
