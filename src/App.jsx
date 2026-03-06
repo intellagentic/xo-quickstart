@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Users, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download, Link, Share2 } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronUp, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Users, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download, Link, Share2 } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 
@@ -1115,6 +1115,8 @@ export default function App() {
     industry: '',
     description: '',
     painPoint: '',
+    futurePlans: '',
+    painPoints: [],
     logoUrl: null,
     iconUrl: null
   })
@@ -1246,6 +1248,8 @@ export default function App() {
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
+          futurePlans: data.futurePlans || '',
+          painPoints: data.painPoints || [],
           logoUrl: data.logo_url || null,
           iconUrl: data.icon_url || null,
           partner_id: data.partner_id || null,
@@ -1295,6 +1299,8 @@ export default function App() {
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint,
+            futurePlans: data.futurePlans || '',
+            painPoints: data.painPoints || [],
             partner_id: data.partner_id,
             intellagentic_lead: data.intellagentic_lead
           })
@@ -1315,6 +1321,8 @@ export default function App() {
             industry: data.industry,
             description: data.description,
             painPoint: data.painPoint,
+            futurePlans: data.futurePlans || '',
+            painPoints: data.painPoints || [],
             partner_id: data.partner_id,
             intellagentic_lead: data.intellagentic_lead
           })
@@ -1353,6 +1361,8 @@ export default function App() {
           industry: data.industry || '',
           description: data.description || '',
           painPoint: data.painPoint || '',
+          futurePlans: data.futurePlans || '',
+          painPoints: data.painPoints || [],
           logoUrl: data.logo_url || null,
           iconUrl: data.icon_url || null,
           partner_id: data.partner_id || null,
@@ -1369,7 +1379,7 @@ export default function App() {
   const handleCreateNewClient = () => {
     setClientId(null)
     localStorage.removeItem('xo-client-id')
-    setCompanyData({ name: '', website: '', contacts: [], addresses: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null, partner_id: null, intellagentic_lead: false })
+    setCompanyData({ name: '', website: '', contacts: [], addresses: [], industry: '', description: '', painPoint: '', futurePlans: '', painPoints: [], logoUrl: null, iconUrl: null, partner_id: null, intellagentic_lead: false })
 
     setShowCompanyModal(true)
   }
@@ -1829,7 +1839,8 @@ function PartnersScreen({ partners, setPartners }) {
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editPartner, setEditPartner] = useState(null)
-  const [form, setForm] = useState({ name: '', website: '', industry: '', notes: '' })
+  const [form, setForm] = useState({ name: '', website: '', industry: '', notes: '', description: '', futurePlans: '' })
+  const [formPainPoints, setFormPainPoints] = useState([''])
   const [formContacts, setFormContacts] = useState([])
   const [formAddresses, setFormAddresses] = useState([])
   const [contactsExpanded, setContactsExpanded] = useState(false)
@@ -1854,7 +1865,8 @@ function PartnersScreen({ partners, setPartners }) {
 
   const openAdd = () => {
     setEditPartner(null)
-    setForm({ name: '', website: '', industry: '', notes: '' })
+    setForm({ name: '', website: '', industry: '', notes: '', description: '', futurePlans: '' })
+    setFormPainPoints([''])
     setFormContacts([{ firstName: '', lastName: '', title: '', email: '', phone: '', linkedin: '' }])
     setFormAddresses([])
     setContactsExpanded(false)
@@ -1864,7 +1876,9 @@ function PartnersScreen({ partners, setPartners }) {
 
   const openEdit = (p) => {
     setEditPartner(p)
-    setForm({ name: p.name || '', website: p.website || '', industry: p.industry || '', notes: p.notes || '' })
+    setForm({ name: p.name || '', website: p.website || '', industry: p.industry || '', notes: p.notes || '', description: p.description || '', futurePlans: p.futurePlans || '' })
+    const pts = p.painPoints || []
+    setFormPainPoints(pts.length > 0 ? [...pts] : [''])
     setFormContacts((p.contacts && p.contacts.length > 0) ? p.contacts.map(c => ({ ...c })) : [{ firstName: '', lastName: '', title: '', email: p.email || '', phone: p.phone || '', linkedin: '' }])
     setFormAddresses((p.addresses && p.addresses.length > 0) ? p.addresses.map(a => ({ ...a })) : [])
     setContactsExpanded(false)
@@ -1882,13 +1896,15 @@ function PartnersScreen({ partners, setPartners }) {
   const handleSave = async () => {
     if (!form.name.trim()) { alert('Organization name is required'); return }
     const primaryContact = formContacts[0] || {}
+    const filteredPainPoints = formPainPoints.filter(p => p.trim())
     const payload = {
       ...form,
       company: form.name,
       email: primaryContact.email || '',
       phone: primaryContact.phone || '',
       contacts: formContacts,
-      addresses: formAddresses
+      addresses: formAddresses,
+      painPoints: filteredPainPoints
     }
     try {
       const res = editPartner
@@ -2016,8 +2032,17 @@ function PartnersScreen({ partners, setPartners }) {
                 {/* Website */}
                 <div>
                   <label style={fieldLabelStyle}>Website URL</label>
-                  <input type="url" value={form.website} onChange={e => setForm({ ...form, website: e.target.value })}
-                    placeholder="https://example.com" style={fieldStyle} />
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input type="url" value={form.website} onChange={e => setForm({ ...form, website: e.target.value })}
+                      placeholder="https://example.com" style={{ ...fieldStyle, flex: 1 }} />
+                    {form.website && (
+                      <a href={form.website.startsWith('http') ? form.website : `https://${form.website}`} target="_blank" rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-color, #3b82f6)', padding: '0.375rem', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Open website">
+                        <ExternalLink size={16} />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {/* Industry */}
@@ -2025,6 +2050,43 @@ function PartnersScreen({ partners, setPartners }) {
                   <label style={fieldLabelStyle}>Industry/Vertical</label>
                   <input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })}
                     placeholder="e.g., Waste Management, Healthcare, Hospitality" style={fieldStyle} />
+                </div>
+
+                {/* Current Business Description */}
+                <div>
+                  <label style={fieldLabelStyle}>Current Business Description</label>
+                  <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+                    placeholder="Brief description of the business" rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
+                </div>
+
+                {/* Future Plans */}
+                <div>
+                  <label style={fieldLabelStyle}>Future Plans</label>
+                  <textarea value={form.futurePlans} onChange={e => setForm({ ...form, futurePlans: e.target.value })}
+                    placeholder="Where is the business heading? Growth plans, strategic goals..." rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
+                </div>
+
+                {/* Pain Points */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <label style={sectionLabelStyle}>Pain Points</label>
+                    <button type="button" onClick={() => setFormPainPoints(prev => [...prev, ''])}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500, background: 'var(--accent-color, #3b82f6)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                      <Plus size={14} /> Add
+                    </button>
+                  </div>
+                  {formPainPoints.map((point, idx) => (
+                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                      <textarea value={point} onChange={e => setFormPainPoints(prev => prev.map((p, i) => i === idx ? e.target.value : p))}
+                        placeholder={`Pain point ${idx + 1}...`} rows={2} style={{ ...fieldStyle, flex: 1, resize: 'vertical' }} />
+                      {formPainPoints.length > 1 && (
+                        <button type="button" onClick={() => setFormPainPoints(prev => prev.filter((_, i) => i !== idx))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.5rem' }} title="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Contacts Section */}
@@ -2210,6 +2272,10 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
   const removeLocalAddress = (index) => {
     setLocalAddresses(prev => prev.filter((_, i) => i !== index))
   }
+  const [localPainPoints, setLocalPainPoints] = useState(() => {
+    const pts = companyData.painPoints || []
+    return pts.length > 0 ? [...pts] : ['']
+  })
   const [modalContactsExpanded, setModalContactsExpanded] = useState(false)
   const [modalAddressesExpanded, setModalAddressesExpanded] = useState(false)
   const [logoUrl, setLogoUrl] = useState(companyData.logoUrl || null)
@@ -2294,7 +2360,8 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
       alert('Company name is required')
       return
     }
-    const saveData = { ...localData, contacts: localContacts, addresses: localAddresses, partner_id: localPartnerId ? parseInt(localPartnerId) : null, intellagentic_lead: localIntellagentic }
+    const filteredPainPoints = localPainPoints.filter(p => p.trim())
+    const saveData = { ...localData, contacts: localContacts, addresses: localAddresses, partner_id: localPartnerId ? parseInt(localPartnerId) : null, intellagentic_lead: localIntellagentic, painPoints: filteredPainPoints }
     setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
     if (onClientCreate) onClientCreate(saveData)
     onClose()
@@ -2356,20 +2423,29 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
                 Website URL
               </label>
-              <input
-                type="url"
-                value={localData.website}
-                onChange={(e) => setLocalData({ ...localData, website: e.target.value })}
-                placeholder="https://example.com"
-                style={{
-                  width: '100%',
-                  padding: '0.625rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit'
-                }}
-              />
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input
+                  type="url"
+                  value={localData.website}
+                  onChange={(e) => setLocalData({ ...localData, website: e.target.value })}
+                  placeholder="https://example.com"
+                  style={{
+                    flex: 1,
+                    padding: '0.625rem',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontFamily: 'inherit'
+                  }}
+                />
+                {localData.website && (
+                  <a href={localData.website.startsWith('http') ? localData.website : `https://${localData.website}`} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'var(--accent-color, #3b82f6)', padding: '0.375rem', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Open website">
+                    <ExternalLink size={16} />
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Contacts Section */}
@@ -2620,10 +2696,10 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
               </div>
             )}
 
-            {/* Description */}
+            {/* Current Business Description */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Description
+                Current Business Description
               </label>
               <textarea
                 value={localData.description}
@@ -2642,15 +2718,15 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
               />
             </div>
 
-            {/* Immediate Pain Point */}
+            {/* Future Plans */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
-                Immediate Pain Point
+                Future Plans
               </label>
               <textarea
-                value={localData.painPoint}
-                onChange={(e) => setLocalData({ ...localData, painPoint: e.target.value })}
-                placeholder="What's the one problem you need solved right now?"
+                value={localData.futurePlans || ''}
+                onChange={(e) => setLocalData({ ...localData, futurePlans: e.target.value })}
+                placeholder="Where is the business heading? Growth plans, strategic goals..."
                 rows={3}
                 style={{
                   width: '100%',
@@ -2662,6 +2738,52 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
                   resize: 'vertical'
                 }}
               />
+            </div>
+
+            {/* Pain Points */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                  Pain Points
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setLocalPainPoints(prev => [...prev, ''])}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500,
+                    background: 'var(--accent-color, #3b82f6)', color: '#fff',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={14} /> Add
+                </button>
+              </div>
+              {localPainPoints.map((point, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <textarea
+                    value={point}
+                    onChange={(e) => setLocalPainPoints(prev => prev.map((p, i) => i === idx ? e.target.value : p))}
+                    placeholder={`Pain point ${idx + 1}...`}
+                    rows={2}
+                    style={{
+                      flex: 1,
+                      padding: '0.625rem',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit',
+                      resize: 'vertical'
+                    }}
+                  />
+                  {localPainPoints.length > 1 && (
+                    <button type="button" onClick={() => setLocalPainPoints(prev => prev.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.5rem' }} title="Remove">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Client Branding Section */}
@@ -3031,7 +3153,12 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
     website: companyData.website || '',
     industry: companyData.industry || '',
     description: companyData.description || '',
-    painPoint: companyData.painPoint || ''
+    painPoint: companyData.painPoint || '',
+    futurePlans: companyData.futurePlans || ''
+  })
+  const [formPainPoints, setFormPainPoints] = useState(() => {
+    const pts = companyData.painPoints || []
+    return pts.length > 0 ? [...pts] : ['']
   })
   const [formContacts, setFormContacts] = useState(() =>
     (companyData.contacts || []).map(c => ({ ...c }))
@@ -3051,8 +3178,11 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
       website: companyData.website || '',
       industry: companyData.industry || '',
       description: companyData.description || '',
-      painPoint: companyData.painPoint || ''
+      painPoint: companyData.painPoint || '',
+      futurePlans: companyData.futurePlans || ''
     })
+    const pts = companyData.painPoints || []
+    setFormPainPoints(pts.length > 0 ? [...pts] : [''])
     setFormContacts((companyData.contacts || []).map(c => ({ ...c })))
     setFormAddresses((companyData.addresses || []).map(a => ({ ...a })))
   }, [companyData.name, clientId])
@@ -3081,7 +3211,8 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   const autoSave = async () => {
     if (!formData.name.trim()) return
     setSaving(true)
-    const saveData = { ...formData, contacts: formContacts, addresses: formAddresses }
+    const filteredPainPoints = formPainPoints.filter(p => p.trim())
+    const saveData = { ...formData, contacts: formContacts, addresses: formAddresses, painPoints: filteredPainPoints }
     setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
     if (onClientCreate) await onClientCreate(saveData)
     setSaving(false)
@@ -3171,20 +3302,29 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
               Website URL
             </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              onBlur={autoSave}
-              placeholder="https://example.com"
-              style={{
-                width: '100%', padding: '0.5rem 0.625rem',
-                background: '#f9fafb',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
-                fontFamily: 'inherit', outline: 'none'
-              }}
-            />
+            <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+              <input
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                onBlur={autoSave}
+                placeholder="https://example.com"
+                style={{
+                  flex: 1, padding: '0.5rem 0.625rem',
+                  background: '#f9fafb',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
+                  fontFamily: 'inherit', outline: 'none'
+                }}
+              />
+              {formData.website && (
+                <a href={formData.website.startsWith('http') ? formData.website : `https://${formData.website}`} target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#dc2626', padding: '0.25rem', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Open website">
+                  <ExternalLink size={14} />
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Industry */}
@@ -3208,10 +3348,10 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             />
           </div>
 
-          {/* Description */}
+          {/* Current Business Description */}
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              Description
+              Current Business Description
             </label>
             <textarea
               value={formData.description}
@@ -3229,16 +3369,16 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             />
           </div>
 
-          {/* Pain Point */}
+          {/* Future Plans */}
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              Immediate Pain Point
+              Future Plans
             </label>
             <textarea
-              value={formData.painPoint}
-              onChange={(e) => setFormData({ ...formData, painPoint: e.target.value })}
+              value={formData.futurePlans}
+              onChange={(e) => setFormData({ ...formData, futurePlans: e.target.value })}
               onBlur={autoSave}
-              placeholder="What's the one problem you need solved?"
+              placeholder="Where is the business heading? Growth plans, strategic goals..."
               rows={2}
               style={{
                 width: '100%', padding: '0.5rem 0.625rem',
@@ -3248,6 +3388,51 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                 fontFamily: 'inherit', outline: 'none', resize: 'vertical'
               }}
             />
+          </div>
+
+          {/* Pain Points */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Pain Points
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormPainPoints(prev => [...prev, ''])}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                  padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: 600,
+                  background: 'rgba(220, 38, 38, 0.08)', color: '#dc2626',
+                  border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: '4px', cursor: 'pointer'
+                }}
+              >
+                <Plus size={12} /> Add
+              </button>
+            </div>
+            {formPainPoints.map((point, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: '0.375rem', alignItems: 'flex-start', marginBottom: '0.375rem' }}>
+                <textarea
+                  value={point}
+                  onChange={(e) => setFormPainPoints(prev => prev.map((p, i) => i === idx ? e.target.value : p))}
+                  onBlur={autoSave}
+                  placeholder={`Pain point ${idx + 1}...`}
+                  rows={1}
+                  style={{
+                    flex: 1, padding: '0.5rem 0.625rem',
+                    background: '#f9fafb',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
+                    fontFamily: 'inherit', outline: 'none', resize: 'vertical'
+                  }}
+                />
+                {formPainPoints.length > 1 && (
+                  <button type="button" onClick={() => { setFormPainPoints(prev => prev.filter((_, i) => i !== idx)); setTimeout(autoSave, 0) }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '0.375rem' }} title="Remove">
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Divider */}

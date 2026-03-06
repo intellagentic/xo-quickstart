@@ -91,6 +91,12 @@ def _run_partner_migrations():
         cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS website VARCHAR(500);")
         cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS contacts_json TEXT;")
         cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS addresses_json TEXT;")
+        # Future plans + pain points (both clients and partners)
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS future_plans TEXT;")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS pain_points_json TEXT;")
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS description TEXT;")
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS future_plans TEXT;")
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS pain_points_json TEXT;")
         conn.commit()
         cur.close()
         conn.close()
@@ -448,7 +454,7 @@ def handle_list_partners(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, name, company, email, phone, industry, notes, created_at, updated_at, website, contacts_json, addresses_json FROM partners ORDER BY name")
+        cur.execute("SELECT id, name, company, email, phone, industry, notes, created_at, updated_at, website, contacts_json, addresses_json, description, future_plans, pain_points_json FROM partners ORDER BY name")
         partners = []
         for row in cur.fetchall():
             contacts = []
@@ -463,6 +469,12 @@ def handle_list_partners(event, user):
                     addresses = json.loads(row[11])
             except Exception:
                 pass
+            pain_points = []
+            try:
+                if row[14]:
+                    pain_points = json.loads(row[14])
+            except Exception:
+                pass
             partners.append({
                 'id': row[0], 'name': row[1] or '', 'company': row[2] or '',
                 'email': row[3] or '', 'phone': row[4] or '', 'industry': row[5] or '',
@@ -471,7 +483,10 @@ def handle_list_partners(event, user):
                 'updated_at': row[8].isoformat() if row[8] else None,
                 'website': row[9] or '',
                 'contacts': contacts,
-                'addresses': addresses
+                'addresses': addresses,
+                'description': row[12] or '',
+                'futurePlans': row[13] or '',
+                'painPoints': pain_points
             })
         cur.close()
         conn.close()
@@ -495,15 +510,18 @@ def handle_create_partner(event, user):
     cur = conn.cursor()
     contacts = body.get('contacts')
     addresses = body.get('addresses')
+    p_pain_points = body.get('painPoints', [])
     contacts_json = json.dumps(contacts) if contacts else None
     addresses_json = json.dumps(addresses) if addresses else None
     try:
         cur.execute("""
-            INSERT INTO partners (name, company, email, phone, industry, notes, website, contacts_json, addresses_json)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            INSERT INTO partners (name, company, email, phone, industry, notes, website, contacts_json, addresses_json, description, future_plans, pain_points_json)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
         """, (name, body.get('company', '').strip(), body.get('email', '').strip(),
               body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
-              body.get('website', '').strip(), contacts_json, addresses_json))
+              body.get('website', '').strip(), contacts_json, addresses_json,
+              body.get('description', '').strip(), body.get('futurePlans', '').strip(),
+              json.dumps(p_pain_points) if p_pain_points else None))
         partner_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
@@ -528,16 +546,20 @@ def handle_update_partner(event, user):
     cur = conn.cursor()
     contacts = body.get('contacts')
     addresses = body.get('addresses')
+    u_pain_points = body.get('painPoints', [])
     contacts_json = json.dumps(contacts) if contacts else None
     addresses_json = json.dumps(addresses) if addresses else None
     try:
         cur.execute("""
             UPDATE partners SET name=%s, company=%s, email=%s, phone=%s, industry=%s, notes=%s,
-                   website=%s, contacts_json=%s, addresses_json=%s, updated_at=NOW()
+                   website=%s, contacts_json=%s, addresses_json=%s,
+                   description=%s, future_plans=%s, pain_points_json=%s, updated_at=NOW()
             WHERE id=%s RETURNING id
         """, (body.get('name', '').strip(), body.get('company', '').strip(), body.get('email', '').strip(),
               body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
-              body.get('website', '').strip(), contacts_json, addresses_json, partner_id))
+              body.get('website', '').strip(), contacts_json, addresses_json,
+              body.get('description', '').strip(), body.get('futurePlans', '').strip(),
+              json.dumps(u_pain_points) if u_pain_points else None, partner_id))
         row = cur.fetchone()
         conn.commit()
         cur.close()
@@ -683,7 +705,8 @@ def handle_get_client(event, user):
                            s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
-                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE)
+                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
+                           future_plans, pain_points_json
                     FROM clients WHERE s3_folder = %s
                 """, (client_id,))
             elif user.get('is_partner') and user.get('partner_id'):
@@ -693,7 +716,8 @@ def handle_get_client(event, user):
                            s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
-                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE)
+                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
+                           future_plans, pain_points_json
                     FROM clients WHERE s3_folder = %s AND partner_id = %s
                 """, (client_id, user['partner_id']))
             else:
@@ -703,7 +727,8 @@ def handle_get_client(event, user):
                            s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
-                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE)
+                           streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
+                           future_plans, pain_points_json
                     FROM clients WHERE s3_folder = %s AND user_id = %s
                 """, (client_id, user['user_id']))
         else:
@@ -714,7 +739,8 @@ def handle_get_client(event, user):
                        s3_folder, created_at, updated_at, logo_s3_key, icon_s3_key,
                        COALESCE(streamline_webhook_enabled, FALSE),
                        contact_email, contact_phone, contacts_json, addresses_json,
-                       streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE)
+                       streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
+                       future_plans, pain_points_json
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -813,6 +839,8 @@ def handle_get_client(event, user):
                 'industry': row[6] or '',
                 'description': row[7] or '',
                 'painPoint': row[8] or '',
+                'futurePlans': row[22] or '',
+                'painPoints': json.loads(row[23]) if row[23] else [],
                 'client_id': row[9] or '',
                 'created_at': row[10].isoformat() if row[10] else None,
                 'updated_at': row[11].isoformat() if row[11] else None,
@@ -891,8 +919,11 @@ def handle_update_client(event, user):
             "contact_email = %s", "contact_phone = %s",
             "contacts_json = %s", "addresses_json = %s",
             "industry = %s",
-            "description = %s", "pain_point = %s", "updated_at = NOW()"
+            "description = %s", "pain_point = %s",
+            "future_plans = %s", "pain_points_json = %s",
+            "updated_at = NOW()"
         ]
+        pain_points = body.get('painPoints', [])
         params = [
             company_name,
             body.get('website', '').strip(),
@@ -906,6 +937,8 @@ def handle_update_client(event, user):
             body.get('industry', '').strip(),
             body.get('description', '').strip(),
             body.get('painPoint', '').strip(),
+            body.get('futurePlans', '').strip(),
+            json.dumps(pain_points) if pain_points else None,
         ]
 
         if 'streamline_webhook_enabled' in body:
@@ -962,7 +995,9 @@ def handle_update_client(event, user):
             contact_email=primary.get('email', ''),
             contact_phone=primary.get('phone', ''),
             contacts=contacts,
-            addresses=addresses
+            addresses=addresses,
+            future_plans=body.get('futurePlans', '').strip(),
+            pain_points=pain_points
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -1079,6 +1114,8 @@ def handle_create_client(event, user):
         industry = body.get('industry', '').strip()
         description = body.get('description', '').strip()
         pain_point = body.get('painPoint', '').strip()
+        future_plans = body.get('futurePlans', '').strip()
+        pain_points = body.get('painPoints', [])
 
         # Build contacts array
         contacts = body.get('contacts', [])
@@ -1132,7 +1169,8 @@ def handle_create_client(event, user):
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point,
             contact_email=contact_email, contact_phone=contact_phone,
-            contacts=contacts, addresses=addresses
+            contacts=contacts, addresses=addresses,
+            future_plans=future_plans, pain_points=pain_points
         )
         s3_client.put_object(
             Bucket=BUCKET_NAME,
@@ -1159,8 +1197,8 @@ def handle_create_client(event, user):
                 user_id, company_name, website_url, contact_name, contact_title,
                 contact_linkedin, contact_email, contact_phone,
                 contacts_json, addresses_json, industry, description, pain_point, s3_folder,
-                partner_id, intellagentic_lead
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                partner_id, intellagentic_lead, future_plans, pain_points_json
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             user['user_id'], company_name, website, contact_name, contact_title,
@@ -1168,7 +1206,9 @@ def handle_create_client(event, user):
             json.dumps(contacts) if contacts else None,
             json.dumps(addresses) if addresses else None,
             industry, description, pain_point, client_id,
-            partner_id_val, intellagentic_lead_val
+            partner_id_val, intellagentic_lead_val,
+            future_plans,
+            json.dumps(pain_points) if pain_points else None
         ))
 
         db_id = str(cur.fetchone()[0])
@@ -1293,7 +1333,8 @@ def copy_default_skill(client_id):
 
 def generate_client_config(company_name, website, contact_name, contact_title,
                            contact_linkedin, industry, description, pain_point,
-                           contact_email='', contact_phone='', contacts=None, addresses=None):
+                           contact_email='', contact_phone='', contacts=None, addresses=None,
+                           future_plans='', pain_points=None):
     """Generate a client-config.md structured context document."""
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
@@ -1376,13 +1417,23 @@ def generate_client_config(company_name, website, contact_name, contact_title,
             if a.get('country'):
                 sections.append(f"- **Country:** {a['country']}")
 
-    if pain_point:
+    if future_plans:
         sections.append("")
-        sections.append("## Immediate Pain Point")
+        sections.append("## Future Plans")
         sections.append("")
-        sections.append(f"{pain_point}")
+        sections.append(f"{future_plans}")
+
+    # Pain points: prefer structured array, fall back to legacy single field
+    all_pain_points = pain_points if pain_points else ([pain_point] if pain_point else [])
+    all_pain_points = [p for p in all_pain_points if p and p.strip()]
+    if all_pain_points:
         sections.append("")
-        sections.append("This is the client's #1 priority. Every analysis should lead with this.")
+        sections.append("## Pain Points")
+        sections.append("")
+        for i, pp in enumerate(all_pain_points, 1):
+            sections.append(f"{i}. {pp}")
+        sections.append("")
+        sections.append("These are the client's priorities. Every analysis should address these pain points.")
 
     sections.append("")
     sections.append("---")
