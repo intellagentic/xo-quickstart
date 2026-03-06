@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.62)
+**Status:** Deployed & Operational (v1.63)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -125,13 +125,15 @@ App (root)
 |
 +-- CompanyInfoModal
 |     +-- Company Name *
-|     +-- Website URL
-|     +-- Contact Name
-|     +-- Contact Title
-|     +-- LinkedIn URL
-|     +-- Industry
-|     +-- Description
-|     +-- Immediate Pain Point    <-- NEW (textarea)
+|     +-- Website URL (with external link icon)
+|     +-- Contacts (expandable multi-entry cards)
+|     +-- Addresses (expandable multi-entry cards)
+|     +-- Industry/Vertical
+|     +-- Channel Partner (admin only, dropdown)
+|     +-- Intellagentic Lead (admin only, checkbox)
+|     +-- Current Business Description (textarea)
+|     +-- Future Plans (textarea)
+|     +-- Pain Points (multi-entry, add/remove)
 |     +-- ---divider---
 |     +-- Client Branding (logo + icon upload, thumbnail previews)
 |
@@ -192,8 +194,9 @@ App (root)
       |     +-- Preview section (header logo mockup, dashboard card icon mockup)
       |
       +-- PartnersScreen (admin only)
-      |     +-- Partner list (name, company, email, phone, industry)
+      |     +-- Partner list (name, primary contact, industry)
       |     +-- Add/Edit/Delete partner CRUD
+      |     +-- Partner form: Name, Website (with link icon), Industry, Description, Future Plans, Pain Points (multi-entry), Contacts, Addresses, Notes
       |
       +-- ShareLinkModal (admin + partner, from dashboard row or workspace header)
             +-- Magic link URL display (or "No link generated")
@@ -500,7 +503,7 @@ src/
 
 1. **Welcome / Upload Screen** (3-step journey layout with founder testimonials)
    - Header: Hamburger menu (left), XO logo, title, Intellagentic logo (right)
-   - Step 1: Domain Expertise -- "New Partner" modal (8 fields: name, website, contact, title, LinkedIn, industry, description, pain point)
+   - Step 1: Domain Expertise -- inline Organization Profile form (name, website w/ link icon, industry, current business description, future plans, multi-entry pain points, contacts, addresses)
    - Step 2: Raw Data -- Compact source count summary with "Manage Sources" link (or "Add Sources" if empty)
      - Sources managed on dedicated Sources screen (see below)
    - Step 3: Intelligent Growth -- Preview of analysis output (grayed until steps 1&2 complete)
@@ -2638,6 +2641,16 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.63 — Enhanced organization forms: future plans, multi-entry pain points, website links**
+- Renamed "Description" to "Current Business Description" across all forms (CompanyInfoModal, UploadScreen, PartnersScreen)
+- Added "Future Plans" textarea field — captures strategic direction and growth plans
+- Replaced single "Immediate Pain Point" with multi-entry Pain Points section — add/remove individual entries, stored as JSON array
+- Website URL field now has clickable external link icon (ExternalLink) that opens URL in new tab
+- DB migration: `future_plans` + `pain_points_json` columns on clients table; `description` + `future_plans` + `pain_points_json` on partners table
+- Backend `generate_client_config()` updated to include Future Plans section and numbered Pain Points list in Claude analysis context
+- All three forms consistent: CompanyInfoModal (modal), UploadScreen (inline autosave), PartnersScreen (modal)
+- handleClientCreate PUT/POST bodies now send `futurePlans` and `painPoints` to backend
 
 **v1.62 — Partner form aligned with Organization Profile + role fix**
 - Partner Add/Edit form now matches client Organization Profile modal exactly
