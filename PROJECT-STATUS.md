@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.51)
+**Status:** Deployed & Operational (v1.52)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -162,7 +162,7 @@ App (root)
       |     +-- Executive Summary
       |     +-- Problems (expandable, severity badges)
       |     +-- Data Schema (expandable tables)
-      |     +-- 30/60/90 Action Plan
+      |     +-- 7/14/21 Action Plan
       |     +-- Sources
       |
       +-- SkillsScreen
@@ -307,7 +307,7 @@ STEP 3: ENRICH + RESULTS
                              | - exec summary   |
                              | - problems (3-5) |
                              | - data schema    |
-                             | - 30/60/90 plan  |
+                             | - 7/14/21 plan  |
                              | - sources        |
                              +--------+---------+
                                       |
@@ -508,7 +508,7 @@ src/
    - Executive Summary
    - Problems Identified (expandable cards with severity badges)
    - Proposed Data Schema (expandable tables with column details)
-   - 30/60/90 Day Action Plan
+   - 7/14/21 Day Action Plan
    - Data Sources (client data, web enrichment, AI analysis)
 
 4. **Skills Screen** (new)
@@ -1439,10 +1439,10 @@ Analyze this business like an MBA analyst presenting on Monday morning. Provide:
    - For each table: name, purpose, key columns (name, type, description)
    - Relationships between tables
 
-4. 30/60/90 DAY ACTION PLAN:
-   - 30-day: Immediate actions to stabilize and assess
-   - 60-day: Quick wins and process improvements
-   - 90-day: Strategic initiatives and measurement
+4. 7/14/21 DAY ACTION PLAN:
+   - 7-day: Build and demo -- prototype the solution to the primary pain point, get it on screen, show it live
+   - 14-day: Validate and connect -- incorporate feedback, validate data connections, prepare for real deployment
+   - 21-day: Deploy or decide -- go live with the solution or make the build/buy decision
 
 OUTPUT FORMAT:
 Return ONLY valid JSON in this exact structure:
@@ -1937,7 +1937,7 @@ cd backend
       - ASCII architecture diagrams (box-drawing characters) for proposed systems
       - Table-format database schemas (Column | Type | Description)
       - Schema relationships as explicit `table.column -> table.column` declarations
-      - Numbered, measurable actions in 30/60/90 day plan
+      - Numbered, measurable actions in 7/14/21 day plan
       - Bottom Line section: direct CEO-level summary (what to do, what it costs, what to expect)
       - New JSON fields: `architecture_diagram`, `schema.relationships`, `bottom_line`
     - **Client config** (`{client_id}/client-config.md`): generated on client creation
@@ -2497,7 +2497,7 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
    - 3-5 critical problems identified with evidence and recommendations
    - ASCII architecture diagram for proposed system
    - Proposed database schema (tables with columns, types, relationships)
-   - 30/60/90 day action plan with numbered, measurable actions
+   - 7/14/21 day action plan (Build & Demo → Validate & Connect → Deploy or Decide)
    - Bottom line summary (CEO-level: what to do first, cost, expected outcome)
    - Source attribution
 
@@ -2537,6 +2537,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Filters are AND-combined; header count updates to show filtered total
 - Empty filter state shows "No clients match" message with a Clear Filters button
 - Backend `/clients/list` now returns `owner_name` via LEFT JOIN on users table
+
+**v1.52 — 7/14/21 Day Action Plan (replaces 30/60/90)**
+- Enrichment prompt now produces a 7/14/21 day action plan instead of 30/60/90
+- Phases: 7-day (Build & Demo), 14-day (Validate & Connect), 21-day (Deploy or Decide)
+- Frontend results heading updated to "7/14/21 Day Action Plan"
+- Pain point priority now front-loads the 7-day phase
+- Existing results still render correctly (frontend displays phase labels dynamically)
 
 **Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode), Skills API endpoints (currently TODO stubs in frontend). System skills, audio transcription, async processing, structured output, and client config are all live.
 

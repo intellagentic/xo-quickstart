@@ -1099,7 +1099,7 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
 
     pain_point_section = ""
     if pain_point:
-        pain_point_section = f"\n\nPRIORITY: The client has identified this as their immediate pain point: '{pain_point}'. Make this the #1 problem in your analysis. Lead the executive summary with it, ensure it appears first in the problems list with specific evidence and a concrete recommendation, and front-load the 30-day action plan with steps that directly address it."
+        pain_point_section = f"\n\nPRIORITY: The client has identified this as their immediate pain point: '{pain_point}'. Make this the #1 problem in your analysis. Lead the executive summary with it, ensure it appears first in the problems list with specific evidence and a concrete recommendation, and front-load the 7-day action plan with steps that directly address it."
 
     prompt = f"""You are an MBA-level business analyst conducting a First Party Trick analysis. You have been given access to internal documents from a company. Analyze this business and provide strategic insights.
 {system_skills_section}
@@ -1143,7 +1143,10 @@ Provide your analysis in structured, technical format. Follow these formatting r
      | id | UUID | Primary key |
    - Show relationships between tables after the table definitions
 
-5. 30/60/90 DAY ACTION PLAN
+5. 7/14/21 DAY ACTION PLAN
+   - 7-day: Build and demo -- prototype the solution to the primary pain point, get it on screen, show it live
+   - 14-day: Validate and connect -- incorporate feedback, validate data connections, prepare for real deployment
+   - 21-day: Deploy or decide -- go live with the solution or make the build/buy decision
    - Numbered items within each phase
    - Each action should be specific and measurable
    - Include expected cost or effort level where possible
@@ -1182,15 +1185,15 @@ Return ONLY valid JSON in this exact structure. The "summary", "architecture_dia
   }},
   "plan": [
     {{
-      "phase": "30-day",
+      "phase": "7-day: Build & Demo",
       "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }},
     {{
-      "phase": "60-day",
+      "phase": "14-day: Validate & Connect",
       "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }},
     {{
-      "phase": "90-day",
+      "phase": "21-day: Deploy or Decide",
       "actions": ["1. Specific action with measurable outcome", "2. Another action"]
     }}
   ],

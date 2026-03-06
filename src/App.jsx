@@ -4179,7 +4179,7 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
                     { num: '3', label: 'Skills', desc: 'System + domain + client skills shape how AI thinks', icon: Database },
                     { num: '4', label: 'Web Research', desc: 'Company, competitors, and market research', icon: Globe },
                     { num: '5', label: 'AI Analysis', desc: `${MODEL_LABELS[preferredModel] || 'Claude'} produces MBA-level analysis`, icon: Sparkles },
-                    { num: '6', label: 'Output', desc: 'Problems, architecture, schema, 30/60/90 day plan', icon: CheckCircle }
+                    { num: '6', label: 'Output', desc: 'Problems, architecture, schema, 7/14/21 day plan', icon: CheckCircle }
                   ].map(step => (
                     <div key={step.num} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', marginBottom: '0.75rem' }}>
                       <div style={{
@@ -4796,7 +4796,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                   <textarea
                     value={successCriteria}
                     onChange={(e) => setSuccessCriteria(e.target.value)}
-                    placeholder="Identify the top 3 revenue leaks&#10;Propose a database schema for tracking routes&#10;Give a 90-day action plan with specific milestones"
+                    placeholder="Identify the top 3 revenue leaks&#10;Propose a database schema for tracking routes&#10;Give a 21-day action plan with specific milestones"
                     rows={3}
                     style={fieldStyle}
                   />
@@ -6217,12 +6217,12 @@ function ResultsScreen({ setShowModal, clientId }) {
         </div>
       </div>
 
-      {/* 30/60/90 Day Plan */}
+      {/* 7/14/21 Day Plan */}
       <div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <Calendar size={20} className="icon-red" />
-            <h2>30/60/90 Day Action Plan</h2>
+            <h2>7/14/21 Day Action Plan</h2>
           </div>
         </div>
         <div style={{ padding: '1.25rem', display: 'grid', gap: '1rem' }}>
