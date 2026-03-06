@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.64)
+**Status:** Deployed & Operational (v1.66)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -74,6 +74,8 @@
 ```
 App (root)
 |
++-- ErrorBoundary (class component, catches render crashes, shows reload button)
+|
 +-- LoginScreen (if !isLoggedIn)
 |     +-- Header bar (same as main app: XO logo box, "Rapid Deployment", Intellagentic logo)
 |     +-- "Welcome" heading (uppercase, letter-spaced, subtle gray)
@@ -112,11 +114,15 @@ App (root)
 +-- DashboardScreen (admin + partner, currentScreen === 'dashboard')
 |     +-- Header: "All Clients (N)" (admin) / "My Clients (N)" (partner) + "+ New Client" button
 |     +-- Partner filter dropdown (admin only) + Industry filter + Search
-|     +-- Grid of client cards (auto-fill, min 300px)
-|     |     +-- Client icon (32px, or letter fallback) + Company name (bold) + chevron right
-|     |     +-- Industry badge (pill)
-|     |     +-- Source count (FolderOpen icon) + enrichment status badge
-|     |     +-- Last enriched date (if available)
+|     +-- Grouped by Channel Partner:
+|     |     +-- Partner section header (letter badge + partner name + client count)
+|     |     +-- Client cards under each partner (auto-fill grid, min 300px)
+|     |     +-- "Direct (Unassigned)" section at bottom for clients without a partner
+|     |     +-- Each client card:
+|     |           +-- Client icon (32px, or letter fallback) + Company name (bold) + chevron right
+|     |           +-- Industry badge (pill)
+|     |           +-- Source count (FolderOpen icon) + enrichment status badge
+|     |           +-- Last enriched date (if available)
 |     +-- Click card → enters workspace scoped to that client
 |     +-- "+ New Client" → opens CompanyInfoModal → creates client → enters workspace
 |     +-- Empty state: "No clients yet" + "Create First Client" button
@@ -2644,6 +2650,20 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.66 — Fix blank screen crash: ErrorBoundary + defensive guards**
+- Fixed React error #310 (blank screen on load) caused by broken named export/import across files
+- Added ErrorBoundary class component inside App.jsx — catches render crashes, shows error message + reload button
+- Wraps both LoginScreen and authenticated app render paths
+- Added defensive try/catch to groupedByPartner useMemo to prevent dashboard render crashes
+- Reverted main.jsx to clean state (no cross-file component imports)
+
+**v1.65 — Dashboard grouped by Channel Partner**
+- Dashboard now groups clients by Channel Partner with section headers
+- Each partner section shows letter badge, partner name, and client count
+- Clients without a partner appear under "Direct (Unassigned)" at bottom
+- Removed redundant "via partner_name" from individual client rows
+- Segment filter pills and partner filter dropdown still work as before
 
 **v1.64 — Client-facing summary: new system skill + XO Summary for Client on Results screen**
 - New system skill: `client-facing-summary.md` — instructs AI enrichment to produce a concise, client-ready summary
