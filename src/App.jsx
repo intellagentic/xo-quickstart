@@ -501,7 +501,9 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, partners }) 
         (c.industry || '').toLowerCase().includes(q)
       )
     }
-    if (filterPartner) {
+    if (filterPartner === 'direct') {
+      result = result.filter(c => !c.partner_id)
+    } else if (filterPartner) {
       result = result.filter(c => String(c.partner_id) === filterPartner)
     }
     if (filterIndustry) {
@@ -691,21 +693,20 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, partners }) 
             }}
           />
         </div>
-        {isAdmin && partners && partners.length > 0 && (
-          <select
-            value={filterPartner}
-            onChange={e => setFilterPartner(e.target.value)}
-            style={{
-              padding: '0.3rem 0.5rem', fontSize: '0.75rem',
-              border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
-              background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
-              outline: 'none', flex: '0 0 auto'
-            }}
-          >
-            <option value="">All Partners</option>
-            {partners.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
-          </select>
-        )}
+        <select
+          value={filterPartner}
+          onChange={e => setFilterPartner(e.target.value)}
+          style={{
+            padding: '0.3rem 0.5rem', fontSize: '0.75rem',
+            border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
+            background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
+            outline: 'none', flex: '0 0 auto'
+          }}
+        >
+          <option value="">All Partners</option>
+          <option value="direct">Direct (Intellagentic)</option>
+          {partners.map(p => <option key={p.id} value={String(p.id)}>{p.company || p.name}</option>)}
+        </select>
         {industries.length > 0 && (
           <select
             value={filterIndustry}
@@ -1504,6 +1505,11 @@ export default function App() {
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
         {currentScreen === 'partners' && isAdmin && <PartnersScreen partners={partners} setPartners={setPartners} />}
+
+        {/* Footer */}
+        <div style={{ textAlign: 'center', padding: '1.5rem 0 0.75rem', fontSize: '11px', color: '#808080' }}>
+          &copy; 2026 Intellagentic Limited. All rights reserved.
+        </div>
       </main>
 
       {/* Company Information Modal */}
