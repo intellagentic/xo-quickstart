@@ -2551,6 +2551,7 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Founder quotes hidden for client users on Welcome screen
 - Download Prototype Spec (.md) and Send to Streamline buttons hidden for clients on Results screen
 - Renamed "Download Prototype Spec" button to "Download Prototype Spec (.md)" for clarity
+- Download Prototype Spec (.md) button styled black background with white text
 - Clients skip the All Clients dashboard, go straight to their workspace
 
 **v1.55 — Narrower sidebar layout**
