@@ -1863,19 +1863,22 @@ function PartnersScreen({ partners, setPartners }) {
   const handleSave = async () => {
     if (!form.name.trim()) { alert('Name is required'); return }
     try {
-      if (editPartner) {
-        await fetch(`${API_BASE}/partners`, {
-          method: 'PUT', headers: getAuthHeaders(),
-          body: JSON.stringify({ id: editPartner.id, ...form })
-        })
-      } else {
-        await fetch(`${API_BASE}/partners`, {
-          method: 'POST', headers: getAuthHeaders(),
-          body: JSON.stringify(form)
-        })
+      const res = editPartner
+        ? await fetch(`${API_BASE}/partners`, {
+            method: 'PUT', headers: getAuthHeaders(),
+            body: JSON.stringify({ id: editPartner.id, ...form })
+          })
+        : await fetch(`${API_BASE}/partners`, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify(form)
+          })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        alert(errData.error || 'Failed to save partner')
+        return
       }
       setShowForm(false)
-      fetchPartners()
+      await fetchPartners()
     } catch (err) {
       alert('Failed to save partner')
     }
