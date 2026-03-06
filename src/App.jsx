@@ -4497,13 +4497,13 @@ function SkillsScreen({ clientId, isAdmin }) {
                       onClick={() => { setEditingSkill(skill); setShowAddModal(true) }}
                       style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.5rem' }}
                     >
-                      <Edit3 size={16} />
+                      <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(skill)}
                       style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.5rem' }}
                     >
-                      <Trash size={16} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 )}
@@ -4555,13 +4555,13 @@ function SkillsScreen({ clientId, isAdmin }) {
                     onClick={() => { setEditingSkill(skill); setShowAddModal(true) }}
                     style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.5rem' }}
                   >
-                    <Edit3 size={16} />
+                    <Edit2 size={16} />
                   </button>
                   <button
                     onClick={() => handleDelete(skill)}
                     style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.5rem' }}
                   >
-                    <Trash size={16} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
