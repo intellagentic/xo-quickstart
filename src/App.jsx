@@ -1151,7 +1151,7 @@ export default function App() {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.5)',
+              background: 'rgba(0, 0, 0, 0.25)',
               zIndex: 200
             }}
           />
@@ -1162,7 +1162,7 @@ export default function App() {
               top: 0,
               left: 0,
               bottom: 0,
-              width: '280px',
+              width: '220px',
               background: '#1a1a2e',
               zIndex: 201,
               boxShadow: '2px 0 8px rgba(0, 0, 0, 0.2)',
@@ -1172,16 +1172,16 @@ export default function App() {
           >
             {/* Sidebar Header */}
             <div style={{
-              padding: '1rem',
+              padding: '0.75rem 0.875rem',
               borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div>
-                  <span style={{ color: 'white', fontWeight: 600, fontSize: '0.95rem', display: 'block' }}>{user?.name || 'Menu'}</span>
-                  {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.75rem' }}>{user.email}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ color: 'white', fontWeight: 600, fontSize: '0.8rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Menu'}</span>
+                  {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{user.email}</span>}
                 </div>
               </div>
               <button
@@ -1191,15 +1191,16 @@ export default function App() {
                   border: 'none',
                   color: 'rgba(255, 255, 255, 0.7)',
                   cursor: 'pointer',
-                  padding: '0.25rem'
+                  padding: '0.25rem',
+                  flexShrink: 0
                 }}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Menu Items */}
-            <nav style={{ flex: 1, padding: '1rem 0' }}>
+            <nav style={{ flex: 1, padding: '0.5rem 0' }}>
               {isAdmin && (
                 <>
                   <button
@@ -1210,23 +1211,23 @@ export default function App() {
                       border: 'none',
                       borderLeft: currentScreen === 'dashboard' ? '3px solid #dc2626' : '3px solid transparent',
                       color: currentScreen === 'dashboard' ? '#dc2626' : '#ffffff',
-                      padding: '0.875rem 1.25rem',
+                      padding: '0.6rem 0.875rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.75rem',
+                      gap: '0.6rem',
                       cursor: 'pointer',
-                      fontSize: '0.9rem',
+                      fontSize: '0.8rem',
                       fontWeight: 500,
                       transition: 'all 0.2s'
                     }}
                   >
-                    <Building2 size={20} />
+                    <Building2 size={17} style={{ flexShrink: 0 }} />
                     All Clients
                   </button>
                   <div style={{
                     height: '1px',
                     background: 'rgba(255, 255, 255, 0.1)',
-                    margin: '0.5rem 1rem'
+                    margin: '0.35rem 0.875rem'
                   }} />
                 </>
               )}
@@ -1246,24 +1247,24 @@ export default function App() {
                     border: 'none',
                     borderLeft: currentScreen === screen ? '3px solid #dc2626' : '3px solid transparent',
                     color: currentScreen === screen ? '#dc2626' : '#ffffff',
-                    padding: '0.875rem 1.25rem',
+                    padding: '0.6rem 0.875rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.75rem',
+                    gap: '0.6rem',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: '0.8rem',
                     fontWeight: 500,
                     transition: 'all 0.2s'
                   }}
                 >
-                  <Icon size={20} />
+                  <Icon size={17} style={{ flexShrink: 0 }} />
                   {label}
                 </button>
               ))}
               <div style={{
                 height: '1px',
                 background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.75rem 1rem'
+                margin: '0.5rem 0.875rem'
               }} />
               <button
                 onClick={() => navigateTo('configuration')}
@@ -1273,17 +1274,17 @@ export default function App() {
                   border: 'none',
                   borderLeft: currentScreen === 'configuration' ? '3px solid #dc2626' : '3px solid transparent',
                   color: currentScreen === 'configuration' ? '#dc2626' : '#ffffff',
-                  padding: '0.875rem 1.25rem',
+                  padding: '0.6rem 0.875rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.75rem',
+                  gap: '0.6rem',
                   cursor: 'pointer',
-                  fontSize: '0.9rem',
+                  fontSize: '0.8rem',
                   fontWeight: 500,
                   transition: 'all 0.2s'
                 }}
               >
-                <Settings size={20} />
+                <Settings size={17} style={{ flexShrink: 0 }} />
                 Configuration
               </button>
               {currentScreen !== 'dashboard' && clientId && (
@@ -1295,17 +1296,17 @@ export default function App() {
                     border: 'none',
                     borderLeft: currentScreen === 'branding' ? '3px solid #dc2626' : '3px solid transparent',
                     color: currentScreen === 'branding' ? '#dc2626' : '#ffffff',
-                    padding: '0.875rem 1.25rem',
+                    padding: '0.6rem 0.875rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.75rem',
+                    gap: '0.6rem',
                     cursor: 'pointer',
-                    fontSize: '0.9rem',
+                    fontSize: '0.8rem',
                     fontWeight: 500,
                     transition: 'all 0.2s'
                   }}
                 >
-                  <Image size={20} />
+                  <Image size={17} style={{ flexShrink: 0 }} />
                   Branding
                 </button>
               )}
@@ -1314,41 +1315,42 @@ export default function App() {
               <div style={{
                 height: '1px',
                 background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.75rem 1rem'
+                margin: '0.5rem 0.875rem'
               }} />
               <div
                 style={{
-                  padding: '0.875rem 1.25rem',
+                  padding: '0.6rem 0.875rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem', fontWeight: 500 }}>
-                  {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem', fontWeight: 500 }}>
+                  {theme === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
                   {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                 </div>
                 <button
                   onClick={toggleTheme}
                   style={{
-                    width: '44px',
-                    height: '24px',
-                    borderRadius: '12px',
+                    width: '38px',
+                    height: '20px',
+                    borderRadius: '10px',
                     border: 'none',
                     background: theme === 'dark' ? '#3b82f6' : 'rgba(255, 255, 255, 0.3)',
                     position: 'relative',
                     cursor: 'pointer',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    flexShrink: 0
                   }}
                 >
                   <div style={{
-                    width: '18px',
-                    height: '18px',
+                    width: '14px',
+                    height: '14px',
                     borderRadius: '50%',
                     background: 'white',
                     position: 'absolute',
                     top: '3px',
-                    left: theme === 'dark' ? '23px' : '3px',
+                    left: theme === 'dark' ? '21px' : '3px',
                     transition: 'all 0.2s',
                     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
                   }} />
@@ -1359,7 +1361,7 @@ export default function App() {
               <div style={{
                 height: '1px',
                 background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.75rem 1rem'
+                margin: '0.5rem 0.875rem'
               }} />
               <button
                 onClick={() => { setShowSidebar(false); handleLogout() }}
@@ -1369,17 +1371,17 @@ export default function App() {
                   border: 'none',
                   borderLeft: '3px solid transparent',
                   color: '#ef4444',
-                  padding: '0.875rem 1.25rem',
+                  padding: '0.6rem 0.875rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.75rem',
+                  gap: '0.6rem',
                   cursor: 'pointer',
-                  fontSize: '0.9rem',
+                  fontSize: '0.8rem',
                   fontWeight: 500,
                   transition: 'all 0.2s'
                 }}
               >
-                <LogOut size={20} />
+                <LogOut size={17} style={{ flexShrink: 0 }} />
                 Sign Out
               </button>
             </nav>

@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.54)
+**Status:** Deployed & Operational (v1.55)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2544,6 +2544,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Frontend results heading updated to "7/14/21 Day Action Plan"
 - Pain point priority now front-loads the 7-day phase
 - Existing results still render correctly (frontend displays phase labels dynamically)
+
+**v1.55 — Narrower sidebar layout**
+- Sidebar width reduced from 280px to 220px so main content stays visible
+- Overlay opacity lightened (50% to 25%) to keep workspace context
+- Tightened padding, font sizes (0.9rem to 0.8rem), icon sizes (20px to 17px), and gaps across all sidebar items
+- Theme toggle switch scaled down, text-overflow ellipsis on header name/email
+- All icons use flexShrink: 0 to prevent compression at narrow width
 
 **v1.54 — Rapid Prototype Spec Generator**
 - New `xo-rapid-prototype` Lambda generates a Claude Code-ready markdown build spec from enrichment results + client metadata
