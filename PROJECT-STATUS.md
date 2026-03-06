@@ -2545,15 +2545,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Pain point priority now front-loads the 7-day phase
 - Existing results still render correctly (frontend displays phase labels dynamically)
 
-**v1.56 — Partner View vs Client View (role separation)**
-- Frontend-only conditional rendering based on existing `isAdmin` flag
-- **Admin (Google OAuth):** All screens, all buttons, "Partner Workspace" subtitle, founder quotes, Download Prototype Spec + Send to Streamline
-- **Client (email/password):** Welcome + Sources + Results only in sidebar. No Enrich, Skills, Configuration, or Branding screens
-- Header subtitle shows "Partner Workspace" for admins, company name or "My Workspace" for clients
-- Welcome Step 3 for clients: results status indicator (Awaiting Analysis / Analysis in Progress / Results Ready) replaces Skills + Enrich buttons
-- Founder quotes hidden for client users
-- ResultsScreen: Download Prototype Spec and Send to Streamline buttons hidden for clients
-- Screen access guards prevent non-admin navigation to admin-only screens with auto-redirect fallback
+**v1.56 — Partner vs Client view + button label update**
+- All screens (Enrich, Skills, Configuration, Branding) available to both admin and client roles
+- Header subtitle: admins see "Partner Workspace", clients see their company name (or "My Workspace")
+- Founder quotes hidden for client users on Welcome screen
+- Download Prototype Spec (.md) and Send to Streamline buttons hidden for clients on Results screen
+- Renamed "Download Prototype Spec" button to "Download Prototype Spec (.md)" for clarity
+- Clients skip the All Clients dashboard, go straight to their workspace
 
 **v1.55 — Narrower sidebar layout**
 - Sidebar width reduced from 280px to 220px so main content stays visible
