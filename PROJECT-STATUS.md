@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.63)
+**Status:** Deployed & Operational (v1.64)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -163,8 +163,11 @@ App (root)
       |     +-- Progress Tracker (5 stages)
       |
       +-- ResultsScreen
+      |     +-- XO Summary for Client (red gradient header, bullet points — client-facing, no tech jargon)
       |     +-- Executive Summary
+      |     +-- Bottom Line (red accent callout)
       |     +-- Problems (expandable, severity badges)
+      |     +-- Proposed Architecture (ASCII diagram)
       |     +-- Data Schema (expandable tables)
       |     +-- 7/14/21 Action Plan
       |     +-- Sources
@@ -2641,6 +2644,17 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.64 — Client-facing summary: new system skill + XO Summary for Client on Results screen**
+- New system skill: `client-facing-summary.md` — instructs AI enrichment to produce a concise, client-ready summary
+- Summary opens with "Based on the information provided, XO has identified the following opportunities for [Company Name]:"
+- 3-5 bullet points framed as business outcomes — no tech jargon, no pricing, no internal tools
+- Closes with forward-looking next steps statement
+- Enrich Lambda prompt updated with section 7 (CLIENT SUMMARY) and `client_summary` field in JSON output schema
+- Results screen: new "XO Summary for Client" panel at top with red gradient header (Star icon), above Executive Summary
+- Bullet lines parsed and rendered with red dot markers; non-bullet lines as paragraphs
+- Skill auto-seeded to DB via `SYSTEM_SKILLS` list in clients Lambda + uploaded to S3 `_system/skills/`
+- 5 system skills total: analysis-framework, output-format, authority-boundaries, enrichment-process, client-facing-summary
 
 **v1.63 — Enhanced organization forms: future plans, multi-entry pain points, website links**
 - Renamed "Description" to "Current Business Description" across all forms (CompanyInfoModal, UploadScreen, PartnersScreen)
