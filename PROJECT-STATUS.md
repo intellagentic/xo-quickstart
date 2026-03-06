@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.50)
+**Status:** Deployed & Operational (v1.51)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2530,6 +2530,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - **Total: $35-75/month** for prototype usage
 
 **Repository:** All code is version-controlled at https://github.com/intellagentic/xo-quickstart with proper .gitignore to exclude secrets.
+
+**v1.51 — Dashboard Filters: Industry Pills + Domain Partner Dropdown**
+- Dashboard now has industry pill filters (horizontal row, red when active) with client counts per industry
+- Admin users see a partner dropdown to filter by which user created the client (only shown when 2+ distinct partners exist)
+- Filters are AND-combined; header count updates to show filtered total
+- Empty filter state shows "No clients match" message with a Clear Filters button
+- Backend `/clients/list` now returns `owner_name` via LEFT JOIN on users table
 
 **Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode), Skills API endpoints (currently TODO stubs in frontend). System skills, audio transcription, async processing, structured output, and client config are all live.
 

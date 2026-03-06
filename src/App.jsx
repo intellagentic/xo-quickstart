@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
@@ -481,11 +481,31 @@ function LoginScreen({ onLogin }) {
 // ============================================================
 // DASHBOARD SCREEN — Admin multi-client view
 // ============================================================
-function DashboardScreen({ onSelectClient, onCreateClient }) {
+function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [deleteConfirmClient, setDeleteConfirmClient] = useState(null)
+  const [activeIndustry, setActiveIndustry] = useState('All')
+  const [activePartner, setActivePartner] = useState('All')
+
+  const industries = useMemo(() => {
+    const unique = [...new Set(clients.map(c => c.industry).filter(Boolean))].sort()
+    return ['All', ...unique]
+  }, [clients])
+
+  const partners = useMemo(() => {
+    const unique = [...new Set(clients.map(c => c.owner_name).filter(Boolean))].sort()
+    return ['All', ...unique]
+  }, [clients])
+
+  const filteredClients = useMemo(() => {
+    return clients.filter(c => {
+      if (activeIndustry !== 'All' && c.industry !== activeIndustry) return false
+      if (activePartner !== 'All' && c.owner_name !== activePartner) return false
+      return true
+    })
+  }, [clients, activeIndustry, activePartner])
 
   useEffect(() => {
     fetchClients()
@@ -579,21 +599,64 @@ function DashboardScreen({ onSelectClient, onCreateClient }) {
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-          All Clients <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.9rem' }}>({clients.length})</span>
+          All Clients <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.9rem' }}>({filteredClients.length})</span>
         </h2>
         <button onClick={onCreateClient} className="action-btn red">
           <Plus size={16} /> New Client
         </button>
       </div>
 
+      {/* Filter bar: industry pills + partner dropdown */}
+      {industries.length > 2 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          {industries.map(ind => {
+            const count = ind === 'All' ? clients.length : clients.filter(c => c.industry === ind).length
+            const isActive = activeIndustry === ind
+            return (
+              <button
+                key={ind}
+                onClick={() => setActiveIndustry(ind)}
+                style={{
+                  padding: '0.3rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem',
+                  fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+                  background: isActive ? '#dc2626' : 'var(--bg-secondary, #f3f4f6)',
+                  color: isActive ? '#ffffff' : 'var(--text-muted, #6b7280)'
+                }}
+              >
+                {ind} ({count})
+              </button>
+            )
+          })}
+
+          {isAdmin && partners.length > 2 && (
+            <select
+              value={activePartner}
+              onChange={e => setActivePartner(e.target.value)}
+              style={{
+                marginLeft: 'auto', padding: '0.3rem 0.6rem', borderRadius: '8px',
+                fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                border: activePartner !== 'All' ? '2px solid #dc2626' : '1px solid var(--border-color, #d1d5db)',
+                background: activePartner !== 'All' ? '#dc2626' : 'var(--bg-secondary, #f3f4f6)',
+                color: activePartner !== 'All' ? '#ffffff' : 'var(--text-muted, #6b7280)',
+                outline: 'none'
+              }}
+            >
+              {partners.map(p => (
+                <option key={p} value={p}>{p === 'All' ? 'All Partners' : p}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
         gap: '1rem'
       }}>
-        {clients.map(client => (
+        {filteredClients.map(client => (
           <div
             key={client.id}
             onClick={() => onSelectClient(client)}
@@ -677,6 +740,19 @@ function DashboardScreen({ onSelectClient, onCreateClient }) {
           </div>
         ))}
       </div>
+
+      {filteredClients.length === 0 && clients.length > 0 && (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted, #6b7280)', marginBottom: '0.75rem' }}>No clients match the current filters.</p>
+          <button
+            onClick={() => { setActiveIndustry('All'); setActivePartner('All') }}
+            className="action-btn"
+            style={{ margin: '0 auto' }}
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
 
       {/* Delete Client Confirmation Modal */}
       {deleteConfirmClient && (
@@ -1360,6 +1436,7 @@ export default function App() {
           <DashboardScreen
             onSelectClient={handleSelectClient}
             onCreateClient={handleCreateNewClient}
+            isAdmin={isAdmin}
           />
         )}
         {currentScreen === 'upload' && (

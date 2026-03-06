@@ -81,8 +81,10 @@ def handle_list_clients(event, user):
                    (SELECT COUNT(*) FROM uploads u WHERE u.client_id = c.id AND u.status = 'active') as source_count,
                    (SELECT e.status FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_status,
                    (SELECT e.completed_at FROM enrichments e WHERE e.client_id = c.id ORDER BY e.started_at DESC LIMIT 1) as last_enrichment_date,
-                   c.icon_s3_key
+                   c.icon_s3_key,
+                   u.name as owner_name
             FROM clients c
+            LEFT JOIN users u ON c.user_id = u.id
         """
         if user.get('is_admin'):
             cur.execute(base_query + " ORDER BY c.updated_at DESC")
@@ -118,7 +120,8 @@ def handle_list_clients(event, user):
                 'source_count': row[7] or 0,
                 'enrichment_status': row[8] or 'none',
                 'enrichment_date': row[9].isoformat() if row[9] else None,
-                'icon_url': icon_url
+                'icon_url': icon_url,
+                'owner_name': row[11] or ''
             })
 
         return {
