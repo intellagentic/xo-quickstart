@@ -486,26 +486,16 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [deleteConfirmClient, setDeleteConfirmClient] = useState(null)
-  const [activeIndustry, setActiveIndustry] = useState('All')
-  const [activePartner, setActivePartner] = useState('All')
-
-  const industries = useMemo(() => {
-    const unique = [...new Set(clients.map(c => c.industry).filter(Boolean))].sort()
-    return ['All', ...unique]
-  }, [clients])
-
-  const partners = useMemo(() => {
-    const unique = [...new Set(clients.map(c => c.owner_name).filter(Boolean))].sort()
-    return ['All', ...unique]
-  }, [clients])
+  const [searchQuery, setSearchQuery] = useState('')
 
   const filteredClients = useMemo(() => {
-    return clients.filter(c => {
-      if (activeIndustry !== 'All' && c.industry !== activeIndustry) return false
-      if (activePartner !== 'All' && c.owner_name !== activePartner) return false
-      return true
-    })
-  }, [clients, activeIndustry, activePartner])
+    if (!searchQuery.trim()) return clients
+    const q = searchQuery.toLowerCase()
+    return clients.filter(c =>
+      (c.company_name || '').toLowerCase().includes(q) ||
+      (c.industry || '').toLowerCase().includes(q)
+    )
+  }, [clients, searchQuery])
 
   useEffect(() => {
     fetchClients()
@@ -543,26 +533,6 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
     }
   }
 
-  const enrichmentBadge = (status) => {
-    const map = {
-      none: { bg: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-muted, #6b7280)', label: 'Not enriched' },
-      processing: { bg: '#fef9c3', color: '#a16207', label: 'Processing' },
-      completed: { bg: '#dcfce7', color: '#16a34a', label: 'Complete' },
-      complete: { bg: '#dcfce7', color: '#16a34a', label: 'Complete' },
-      error: { bg: '#fef2f2', color: '#dc2626', label: 'Error' },
-      failed: { bg: '#fef2f2', color: '#dc2626', label: 'Error' },
-    }
-    const s = map[status] || map.none
-    return (
-      <span style={{
-        display: 'inline-block', padding: '2px 10px', borderRadius: '9999px',
-        fontSize: '0.75rem', fontWeight: 600, background: s.bg, color: s.color
-      }}>
-        {s.label}
-      </span>
-    )
-  }
-
   if (loading) {
     return (
       <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
@@ -597,142 +567,144 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
     )
   }
 
+  const borderColor = (status) => {
+    if (status === 'complete' || status === 'completed') return '#22c55e'
+    if (status === 'error' || status === 'failed') return '#dc2626'
+    if (status === 'processing') return '#eab308'
+    return '#d1d5db'
+  }
+
+  const enrichedClients = filteredClients.filter(c => ['complete', 'completed', 'processing'].includes(c.enrichment_status))
+  const needsEnrichment = filteredClients.filter(c => !['complete', 'completed', 'processing'].includes(c.enrichment_status))
+
+  const renderRow = (client) => (
+    <div
+      key={client.id}
+      onClick={() => onSelectClient(client)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '0.55rem 0.875rem',
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        borderLeft: `3px solid ${borderColor(client.enrichment_status)}`,
+        borderBottom: '1px solid var(--border-color, #e5e7eb)',
+        position: 'relative'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--bg-card-alt, #fafafa)'
+        const del = e.currentTarget.querySelector('[data-del]')
+        if (del) del.style.opacity = '1'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+        const del = e.currentTarget.querySelector('[data-del]')
+        if (del) del.style.opacity = '0'
+      }}
+    >
+      {client.icon_url ? (
+        <img src={client.icon_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
+      ) : (
+        <div style={{
+          width: '24px', height: '24px', borderRadius: '6px', flexShrink: 0,
+          background: 'var(--bg-secondary, #f3f4f6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '0.7rem', fontWeight: 700, color: '#dc2626'
+        }}>
+          {(client.company_name || '?')[0].toUpperCase()}
+        </div>
+      )}
+      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', flex: '1 1 0', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {client.company_name}
+      </span>
+      {client.industry && (
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {client.industry}
+        </span>
+      )}
+      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #6b7280)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+        <FolderOpen size={12} /> {client.source_count}
+      </span>
+      {client.enrichment_date && (
+        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {new Date(client.enrichment_date).toLocaleDateString()}
+        </span>
+      )}
+      <button
+        data-del
+        onClick={(e) => { e.stopPropagation(); setDeleteConfirmClient(client) }}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem',
+          color: 'var(--text-muted, #9ca3af)', borderRadius: '4px', display: 'flex', flexShrink: 0,
+          opacity: 0, transition: 'opacity 0.15s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted, #9ca3af)'}
+        title="Delete client"
+      >
+        <Trash2 size={13} />
+      </button>
+      <ChevronRight size={14} style={{ color: 'var(--text-muted, #9ca3af)', flexShrink: 0 }} />
+    </div>
+  )
+
   return (
     <div style={{ padding: '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-          All Clients <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.9rem' }}>({filteredClients.length})</span>
+      {/* Header row: title + search + new client */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+        <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+          All Clients <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.8125rem' }}>({filteredClients.length})</span>
         </h2>
+        <div style={{ position: 'relative', flex: '0 1 220px' }}>
+          <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #9ca3af)' }} />
+          <input
+            type="text"
+            placeholder="Filter clients..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', padding: '0.3rem 0.5rem 0.3rem 1.75rem', fontSize: '0.75rem',
+              border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
+              background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
+              outline: 'none'
+            }}
+          />
+        </div>
+        <div style={{ flex: 1 }} />
         <button onClick={onCreateClient} className="action-btn red">
-          <Plus size={16} /> New Client
+          <Plus size={14} /> New Client
         </button>
       </div>
 
-      {/* Filter bar: industry pills + partner dropdown */}
-      {industries.length > 2 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-          {industries.map(ind => {
-            const count = ind === 'All' ? clients.length : clients.filter(c => c.industry === ind).length
-            const isActive = activeIndustry === ind
-            return (
-              <button
-                key={ind}
-                onClick={() => setActiveIndustry(ind)}
-                style={{
-                  padding: '0.3rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem',
-                  fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'all 0.15s',
-                  background: isActive ? '#dc2626' : 'var(--bg-secondary, #f3f4f6)',
-                  color: isActive ? '#ffffff' : 'var(--text-muted, #6b7280)'
-                }}
-              >
-                {ind} ({count})
-              </button>
-            )
-          })}
-
-          {isAdmin && partners.length > 2 && (
-            <select
-              value={activePartner}
-              onChange={e => setActivePartner(e.target.value)}
-              style={{
-                marginLeft: 'auto', padding: '0.3rem 0.6rem', borderRadius: '8px',
-                fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                border: activePartner !== 'All' ? '2px solid #dc2626' : '1px solid var(--border-color, #d1d5db)',
-                background: activePartner !== 'All' ? '#dc2626' : 'var(--bg-secondary, #f3f4f6)',
-                color: activePartner !== 'All' ? '#ffffff' : 'var(--text-muted, #6b7280)',
-                outline: 'none'
-              }}
-            >
-              {partners.map(p => (
-                <option key={p} value={p}>{p === 'All' ? 'All Partners' : p}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
-
+      {/* Client list */}
       <div style={{
         background: 'var(--bg-card, #ffffff)',
         border: '1px solid var(--border-color, #e5e7eb)',
         borderRadius: '10px',
         overflow: 'hidden'
       }}>
-        {filteredClients.map((client, idx) => (
-          <div
-            key={client.id}
-            onClick={() => onSelectClient(client)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.6rem 1rem',
-              cursor: 'pointer',
-              transition: 'background 0.15s',
-              borderTop: idx > 0 ? '1px solid var(--border-color, #e5e7eb)' : 'none'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-alt, #fafafa)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            {client.icon_url ? (
-              <img src={client.icon_url} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px', flexShrink: 0 }} />
-            ) : (
-              <div style={{
-                width: '24px', height: '24px', borderRadius: '6px', flexShrink: 0,
-                background: 'var(--bg-secondary, #f3f4f6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.7rem', fontWeight: 700, color: '#dc2626'
-              }}>
-                {(client.company_name || '?')[0].toUpperCase()}
-              </div>
-            )}
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', flex: '1 1 0', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {client.company_name}
-            </span>
-            {client.industry && (
-              <span style={{
-                padding: '1px 8px', borderRadius: '9999px', fontSize: '0.6875rem', fontWeight: 500,
-                background: 'var(--bg-secondary, #f3f4f6)', color: 'var(--text-muted, #6b7280)',
-                whiteSpace: 'nowrap', flexShrink: 0
-              }}>
-                {client.industry}
-              </span>
-            )}
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #6b7280)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <FolderOpen size={12} /> {client.source_count}
-            </span>
-            {enrichmentBadge(client.enrichment_status)}
-            {client.enrichment_date && (
-              <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                {new Date(client.enrichment_date).toLocaleDateString()}
-              </span>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); setDeleteConfirmClient(client) }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem',
-                color: 'var(--text-muted, #9ca3af)', borderRadius: '4px', display: 'flex', flexShrink: 0
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted, #9ca3af)'}
-              title="Delete client"
-            >
-              <Trash2 size={13} />
-            </button>
-            <ChevronRight size={14} style={{ color: 'var(--text-muted, #9ca3af)', flexShrink: 0 }} />
+        {enrichedClients.map(renderRow)}
+        {enrichedClients.length > 0 && needsEnrichment.length > 0 && (
+          <div style={{
+            padding: '0.3rem 0.875rem',
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+            color: 'var(--text-muted, #9ca3af)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            background: 'var(--bg-card-alt, #fafafa)',
+            borderBottom: '1px solid var(--border-color, #e5e7eb)'
+          }}>
+            Needs Enrichment
           </div>
-        ))}
+        )}
+        {needsEnrichment.map(renderRow)}
       </div>
 
       {filteredClients.length === 0 && clients.length > 0 && (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted, #6b7280)', marginBottom: '0.75rem' }}>No clients match the current filters.</p>
-          <button
-            onClick={() => { setActiveIndustry('All'); setActivePartner('All') }}
-            className="action-btn"
-            style={{ margin: '0 auto' }}
-          >
-            Clear Filters
-          </button>
+          <p style={{ color: 'var(--text-muted, #6b7280)', fontSize: '0.8125rem' }}>No clients match "{searchQuery}"</p>
         </div>
       )}
 

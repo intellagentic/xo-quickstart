@@ -3,7 +3,7 @@
 **Date:** March 5, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.57)
+**Status:** Deployed & Operational (v1.58)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2544,6 +2544,15 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Frontend results heading updated to "7/14/21 Day Action Plan"
 - Pain point priority now front-loads the 7-day phase
 - Existing results still render correctly (frontend displays phase labels dynamically)
+
+**v1.58 — Dashboard redesign: work queue layout**
+- Replaced industry filter pills and partner dropdown with compact inline search/filter input
+- Client rows now have left border color coding: green (complete), yellow (processing), red (error), gray (not enriched)
+- Row layout: 24px icon + bold company name left, industry in gray text + source count + date + chevron right
+- Delete button hidden by default, appears on row hover
+- Clients grouped: enriched/processing at top, "Needs Enrichment" divider, unenriched below
+- Header reduced to 18px, inline with search field and + New Client button
+- Removed enrichmentBadge function (status now conveyed by left border color)
 
 **v1.57 — Compact dashboard, tighter UI, Results breathing room**
 - Dashboard: replaced card grid with compact single-row list layout (24px icons, inline industry pill, source count, status badge, date) — scales to 20+ clients
