@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.61)
+**Status:** Deployed & Operational (v1.62)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2638,6 +2638,18 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.62 — Partner form aligned with Organization Profile + role fix**
+- Partner Add/Edit form now matches client Organization Profile modal exactly
+- Organization fields: Company/Organization Name, Website URL, Industry/Vertical
+- Contacts section: expandable cards with First Name, Last Name, Title, Email, Phone, LinkedIn (same as client contacts)
+- Addresses section: expandable cards with Label, Address 1/2, City, State/Province, Postal Code, Country
+- Same field styling, expand/collapse behavior, empty states, and "Add Contact"/"Add Address" buttons
+- DB migration adds `website`, `contacts_json`, `addresses_json` columns to partners table
+- Backend CRUD updated to store/return structured contacts and addresses arrays
+- Partner list rows now show primary contact name + title instead of just email
+- Fixed: partner save now checks API response and shows error if save fails (was silently swallowing errors)
+- Fixed: old JWTs missing `role` field caused 403 "Access denied" on partner routes — now derives role from `is_admin`/`is_partner` flags as fallback
 
 **v1.61 — Three-tier role system: Admin, Partner, Client**
 - Database-driven role system: `role` column on users table ('admin', 'partner', 'client') + `partner_id` FK to partners table
