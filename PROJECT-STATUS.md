@@ -2545,7 +2545,7 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Pain point priority now front-loads the 7-day phase
 - Existing results still render correctly (frontend displays phase labels dynamically)
 
-**v1.56 — Partner vs Client view + button label update**
+**v1.56 — Partner vs Client view + branding rename**
 - All screens (Enrich, Skills, Configuration, Branding) available to both admin and client roles
 - Header subtitle: admins see "Partner Workspace", clients see their company name (or "My Workspace")
 - Founder quotes hidden for client users on Welcome screen
@@ -2553,6 +2553,7 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Renamed "Download Prototype Spec" button to "Download Prototype Spec (.md)" for clarity
 - Download Prototype Spec (.md) button styled black background with white text
 - Clients skip the All Clients dashboard, go straight to their workspace
+- Replaced all "First Party Trick" references with "XO Capture Analysis" across system skill (analysis-framework.md), enrich Lambda prompt, S3, and database
 
 **v1.55 — Narrower sidebar layout**
 - Sidebar width reduced from 280px to 220px so main content stays visible

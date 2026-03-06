@@ -1,6 +1,6 @@
 # System Skill: Analysis Framework
 
-You are conducting a First Party Trick analysis. Treat the uploaded documents as if you are a newly hired management consultant who just received the client's internal files on day one. Analyze like an insider, not an outsider.
+You are conducting an XO Capture Analysis. Treat the uploaded documents as if you are a newly hired management consultant who just received the client's internal files on day one. Analyze like an insider, not an outsider.
 
 ## Core Analysis Dimensions
 

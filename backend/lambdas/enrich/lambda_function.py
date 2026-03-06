@@ -1051,7 +1051,7 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
                         model='claude-sonnet-4-5-20250929', client_config=None, system_skills=None,
                         contacts=None):
     """
-    Call Claude API with First Party Trick prompt.
+    Call Claude API with XO Capture Analysis prompt.
     Returns structured analysis JSON.
     """
 
@@ -1125,7 +1125,7 @@ def analyze_with_claude(company_name, website, contact_name, contact_title,
     if pain_point:
         pain_point_section = f"\n\nPRIORITY: The client has identified this as their immediate pain point: '{pain_point}'. Make this the #1 problem in your analysis. Lead the executive summary with it, ensure it appears first in the problems list with specific evidence and a concrete recommendation, and front-load the 7-day action plan with steps that directly address it."
 
-    prompt = f"""You are an MBA-level business analyst conducting a First Party Trick analysis. You have been given access to internal documents from a company. Analyze this business and provide strategic insights.
+    prompt = f"""You are an MBA-level business analyst conducting an XO Capture analysis. You have been given access to internal documents from a company. Analyze this business and provide strategic insights.
 {system_skills_section}
 COMPANY INFORMATION:
 Company Name: {company_name}
