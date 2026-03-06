@@ -31,6 +31,42 @@ def _run_migrations():
 _run_migrations()
 
 
+# ── Auto-migration: make skills.client_id nullable + seed system skills ──
+SYSTEM_SKILLS = [
+    ('analysis-framework', '_system/skills/analysis-framework.md'),
+    ('output-format', '_system/skills/output-format.md'),
+    ('authority-boundaries', '_system/skills/authority-boundaries.md'),
+    ('enrichment-process', '_system/skills/enrichment-process.md'),
+]
+
+def _run_skill_migrations():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Make client_id nullable
+        cur.execute("ALTER TABLE skills ALTER COLUMN client_id DROP NOT NULL;")
+        # Seed system skills (client_id IS NULL) if they don't exist
+        for name, s3_key in SYSTEM_SKILLS:
+            cur.execute(
+                "SELECT id FROM skills WHERE client_id IS NULL AND name = %s",
+                (name,)
+            )
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO skills (client_id, name, s3_key) VALUES (NULL, %s, %s)",
+                    (name, s3_key)
+                )
+                print(f"Seeded system skill: {name}")
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Skill migration complete: client_id nullable + system skills seeded")
+    except Exception as e:
+        print(f"Skill migration check (non-fatal): {e}")
+
+_run_skill_migrations()
+
+
 def lambda_handler(event, context):
     """
     Method router for /clients:
@@ -51,6 +87,17 @@ def lambda_handler(event, context):
     method = event.get('httpMethod', '')
     path = event.get('path', '')
 
+    # Skills routes
+    if '/skills' in path:
+        if method == 'GET':
+            return handle_get_skills(event, user)
+        elif method == 'POST':
+            return handle_create_skill(event, user)
+        elif method == 'PUT':
+            return handle_update_skill(event, user)
+        elif method == 'DELETE':
+            return handle_delete_skill(event, user)
+
     if path.endswith('/clients/list') and method == 'GET':
         return handle_list_clients(event, user)
     elif method == 'GET':
@@ -67,6 +114,268 @@ def lambda_handler(event, context):
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': f'Method not allowed: {method}'})
         }
+
+
+def handle_get_skills(event, user):
+    """GET /skills — List skills. ?client_id=X returns system+client combined. ?scope=system returns system only."""
+    params = event.get('queryStringParameters') or {}
+    client_id = params.get('client_id', '').strip()
+    scope = params.get('scope', '').strip()
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        skills = []
+
+        if scope == 'system':
+            cur.execute("""
+                SELECT id, name, content, s3_key, created_at
+                FROM skills WHERE client_id IS NULL ORDER BY name
+            """)
+            for row in cur.fetchall():
+                skills.append({
+                    'id': str(row[0]), 'name': row[1], 'content': row[2] or '',
+                    's3_key': row[3] or '', 'created_at': row[4].isoformat() if row[4] else None,
+                    'scope': 'system'
+                })
+        else:
+            # System skills first
+            cur.execute("""
+                SELECT id, name, content, s3_key, created_at
+                FROM skills WHERE client_id IS NULL ORDER BY name
+            """)
+            for row in cur.fetchall():
+                skills.append({
+                    'id': str(row[0]), 'name': row[1], 'content': row[2] or '',
+                    's3_key': row[3] or '', 'created_at': row[4].isoformat() if row[4] else None,
+                    'scope': 'system'
+                })
+
+            # Then client skills
+            if client_id:
+                cur.execute("""
+                    SELECT s.id, s.name, s.content, s.s3_key, s.created_at
+                    FROM skills s
+                    JOIN clients c ON s.client_id = c.id
+                    WHERE c.s3_folder = %s
+                    ORDER BY s.name
+                """, (client_id,))
+                for row in cur.fetchall():
+                    skills.append({
+                        'id': str(row[0]), 'name': row[1], 'content': row[2] or '',
+                        's3_key': row[3] or '', 'created_at': row[4].isoformat() if row[4] else None,
+                        'scope': 'client'
+                    })
+
+        # Load content from S3 for skills that only have s3_key
+        for skill in skills:
+            if not skill['content'] and skill['s3_key']:
+                try:
+                    obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=skill['s3_key'])
+                    skill['content'] = obj['Body'].read().decode('utf-8')
+                except Exception as e:
+                    print(f"Failed to load skill content from S3 ({skill['s3_key']}): {e}")
+
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'skills': skills})
+        }
+    except Exception as e:
+        print(f"Error listing skills: {e}")
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Internal server error', 'message': str(e)})
+        }
+
+
+def handle_create_skill(event, user):
+    """POST /skills — Create a skill. scope=system requires is_admin."""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        name = body.get('name', '').strip()
+        content = body.get('content', '').strip()
+        scope = body.get('scope', 'client').strip()
+        client_id = body.get('client_id', '').strip()
+
+        if not name:
+            return {'statusCode': 400, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'name is required'})}
+
+        if scope == 'system':
+            if not user.get('is_admin'):
+                return {'statusCode': 403, 'headers': CORS_HEADERS,
+                        'body': json.dumps({'error': 'Admin required for system skills'})}
+            s3_key = f"_system/skills/{name}.md"
+            # Write content to S3
+            if content:
+                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO skills (client_id, name, content, s3_key) VALUES (NULL, %s, %s, %s) RETURNING id",
+                (name, content, s3_key)
+            )
+            skill_id = str(cur.fetchone()[0])
+            conn.commit()
+            cur.close()
+            conn.close()
+        else:
+            if not client_id:
+                return {'statusCode': 400, 'headers': CORS_HEADERS,
+                        'body': json.dumps({'error': 'client_id is required for client skills'})}
+            conn = get_db_connection()
+            cur = conn.cursor()
+            # Resolve s3_folder to DB id
+            cur.execute("SELECT id FROM clients WHERE s3_folder = %s", (client_id,))
+            row = cur.fetchone()
+            if not row:
+                cur.close()
+                conn.close()
+                return {'statusCode': 404, 'headers': CORS_HEADERS,
+                        'body': json.dumps({'error': 'Client not found'})}
+            db_client_id = str(row[0])
+            s3_key = f"{client_id}/skills/{name}.md"
+            if content:
+                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+            cur.execute(
+                "INSERT INTO skills (client_id, name, content, s3_key) VALUES (%s, %s, %s, %s) RETURNING id",
+                (db_client_id, name, content, s3_key)
+            )
+            skill_id = str(cur.fetchone()[0])
+            conn.commit()
+            cur.close()
+            conn.close()
+
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'skill_id': skill_id, 'status': 'created', 'scope': scope})
+        }
+    except Exception as e:
+        print(f"Error creating skill: {e}")
+        return {'statusCode': 500, 'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Internal server error', 'message': str(e)})}
+
+
+def handle_update_skill(event, user):
+    """PUT /skills — Update a skill. System skills require is_admin."""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        skill_id = body.get('skill_id', '').strip()
+        name = body.get('name', '').strip()
+        content = body.get('content', '').strip()
+
+        if not skill_id:
+            return {'statusCode': 400, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'skill_id is required'})}
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, client_id, s3_key FROM skills WHERE id = %s", (skill_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Skill not found'})}
+
+        is_system = row[1] is None
+        if is_system and not user.get('is_admin'):
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Admin required for system skills'})}
+
+        # Update DB
+        updates = []
+        params = []
+        if name:
+            updates.append("name = %s")
+            params.append(name)
+        if content is not None:
+            updates.append("content = %s")
+            params.append(content)
+
+        if updates:
+            params.append(skill_id)
+            cur.execute(f"UPDATE skills SET {', '.join(updates)} WHERE id = %s", params)
+
+        # Update S3 file
+        s3_key = row[2]
+        if content and s3_key:
+            s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+        elif content and is_system and name:
+            s3_key = f"_system/skills/{name}.md"
+            s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'skill_id': skill_id, 'status': 'updated'})
+        }
+    except Exception as e:
+        print(f"Error updating skill: {e}")
+        return {'statusCode': 500, 'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Internal server error', 'message': str(e)})}
+
+
+def handle_delete_skill(event, user):
+    """DELETE /skills?skill_id=X — Delete a skill + S3 file. System skills require is_admin."""
+    try:
+        params = event.get('queryStringParameters') or {}
+        skill_id = params.get('skill_id', '').strip()
+
+        if not skill_id:
+            return {'statusCode': 400, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'skill_id is required'})}
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, client_id, s3_key FROM skills WHERE id = %s", (skill_id,))
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Skill not found'})}
+
+        is_system = row[1] is None
+        if is_system and not user.get('is_admin'):
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Admin required for system skills'})}
+
+        # Delete S3 file
+        s3_key = row[2]
+        if s3_key:
+            try:
+                s3_client.delete_object(Bucket=BUCKET_NAME, Key=s3_key)
+            except Exception as e:
+                print(f"Warning: failed to delete S3 skill ({s3_key}): {e}")
+
+        cur.execute("DELETE FROM skills WHERE id = %s", (skill_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'deleted': True, 'skill_id': skill_id})
+        }
+    except Exception as e:
+        print(f"Error deleting skill: {e}")
+        return {'statusCode': 500, 'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Internal server error', 'message': str(e)})}
 
 
 def handle_list_clients(event, user):

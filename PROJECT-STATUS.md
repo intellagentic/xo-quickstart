@@ -3,7 +3,7 @@
 **Date:** March 3, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.52)
+**Status:** Deployed & Operational (v1.53)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2545,7 +2545,18 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Pain point priority now front-loads the 7-day phase
 - Existing results still render correctly (frontend displays phase labels dynamically)
 
-**Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode), Skills API endpoints (currently TODO stubs in frontend). System skills, audio transcription, async processing, structured output, and client config are all live.
+**v1.53 — Global System Skills (DB-managed, admin-editable)**
+- System skills (analysis-framework, output-format, authority-boundaries, enrichment-process) are now first-class DB entities
+- `skills.client_id` is now nullable: NULL = system skill (global), set = client skill
+- Auto-migration seeds 4 system skills into DB on Lambda cold start + copies .md files to S3 `_system/skills/`
+- New `/skills` API endpoints: GET (combined or system-only), POST, PUT, DELETE with admin gating for system scope
+- Skills screen shows system skills (blue "System" badge) at top, then client skills (gray "Client" badge) with divider
+- Admins can create/edit/delete system skills; non-admins see them read-only
+- Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
+- Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
+- Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode).
 
 ---
 

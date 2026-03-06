@@ -1467,7 +1467,7 @@ export default function App() {
           />
         )}
         {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} />}
-        {currentScreen === 'skills' && <SkillsScreen clientId={clientId} />}
+        {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} />}
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
       </main>
@@ -4377,26 +4377,25 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
 // ============================================================
 // SKILLS SCREEN
 // ============================================================
-function SkillsScreen({ clientId }) {
+function SkillsScreen({ clientId, isAdmin }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingSkill, setEditingSkill] = useState(null)
 
   useEffect(() => {
-    if (clientId) {
-      fetchSkills()
-    } else {
-      setLoading(false)
-    }
+    fetchSkills()
   }, [clientId])
 
   const fetchSkills = async () => {
     try {
       setLoading(true)
-      // TODO: Call API endpoint to list skills from S3
-      // For now, mock data
-      setSkills([])
+      const url = clientId
+        ? `${API_BASE}/skills?client_id=${clientId}`
+        : `${API_BASE}/skills?scope=system`
+      const res = await fetch(url, { headers: getAuthHeaders() })
+      const data = await res.json()
+      setSkills(data.skills || [])
     } catch (err) {
       console.error('Failed to fetch skills:', err)
     } finally {
@@ -4404,16 +4403,26 @@ function SkillsScreen({ clientId }) {
     }
   }
 
-  const handleDelete = async (skillName) => {
-    if (!confirm(`Delete skill "${skillName}"?`)) return
+  const handleDelete = async (skill) => {
+    if (!confirm(`Delete skill "${skill.name}"?`)) return
 
     try {
-      // TODO: Call API endpoint to delete skill from S3
-      setSkills(prev => prev.filter(s => s.name !== skillName))
+      const res = await fetch(`${API_BASE}/skills?skill_id=${skill.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Delete failed')
+      }
+      setSkills(prev => prev.filter(s => s.id !== skill.id))
     } catch (err) {
       alert('Failed to delete skill: ' + err.message)
     }
   }
+
+  const systemSkills = skills.filter(s => s.scope === 'system')
+  const clientSkills = skills.filter(s => s.scope === 'client')
 
   return (
     <div className="panel">
@@ -4457,8 +4466,9 @@ function SkillsScreen({ clientId }) {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {skills.map((skill, index) => (
-              <div key={index} style={{
+            {/* System Skills */}
+            {systemSkills.length > 0 && systemSkills.map((skill) => (
+              <div key={skill.id} style={{
                 padding: '1rem 1.25rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -4467,42 +4477,89 @@ function SkillsScreen({ clientId }) {
                 borderRadius: '8px'
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem', wordBreak: 'break-word' }}>
-                    {skill.name}
-                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
+                      {skill.name}
+                    </h3>
+                    <span style={{
+                      fontSize: '0.6rem', fontWeight: 700, color: '#3b82f6',
+                      background: 'rgba(59,130,246,0.1)', padding: '2px 8px', borderRadius: 999,
+                      flexShrink: 0
+                    }}>System</span>
+                  </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                    {skill.preview || 'Markdown skill content'}
+                    {skill.content ? skill.content.substring(0, 80).replace(/[#\n]/g, ' ').trim() + '...' : 'System skill'}
+                  </p>
+                </div>
+                {isAdmin && (
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => { setEditingSkill(skill); setShowAddModal(true) }}
+                      style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.5rem' }}
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(skill)}
+                      style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.5rem' }}
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Divider between system and client skills */}
+            {systemSkills.length > 0 && clientSkills.length > 0 && (
+              <div style={{
+                borderTop: '1px solid var(--border-color)',
+                margin: '0.25rem 0',
+                position: 'relative'
+              }}>
+                <span style={{
+                  position: 'absolute', top: '-0.5rem', left: '1rem',
+                  background: 'var(--bg-primary)', padding: '0 0.5rem',
+                  fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500
+                }}>Client Skills</span>
+              </div>
+            )}
+
+            {/* Client Skills */}
+            {clientSkills.map((skill) => (
+              <div key={skill.id} style={{
+                padding: '1rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px'
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
+                      {skill.name}
+                    </h3>
+                    <span style={{
+                      fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)',
+                      background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 999,
+                      flexShrink: 0
+                    }}>Client</span>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                    {skill.content ? skill.content.substring(0, 80).replace(/[#\n]/g, ' ').trim() + '...' : 'Client skill'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
-                    onClick={() => {
-                      setEditingSkill(skill)
-                      setShowAddModal(true)
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#3b82f6',
-                      cursor: 'pointer',
-                      padding: '0.5rem',
-                      fontSize: '0.85rem',
-                      fontWeight: 500
-                    }}
+                    onClick={() => { setEditingSkill(skill); setShowAddModal(true) }}
+                    style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.5rem' }}
                   >
                     <Edit3 size={16} />
                   </button>
                   <button
-                    onClick={() => handleDelete(skill.name)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#dc2626',
-                      cursor: 'pointer',
-                      padding: '0.5rem',
-                      fontSize: '0.85rem',
-                      fontWeight: 500
-                    }}
+                    onClick={() => handleDelete(skill)}
+                    style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0.5rem' }}
                   >
                     <Trash size={16} />
                   </button>
@@ -4517,6 +4574,7 @@ function SkillsScreen({ clientId }) {
       {showAddModal && (
         <AddSkillModal
           clientId={clientId}
+          isAdmin={isAdmin}
           skill={editingSkill}
           onClose={() => {
             setShowAddModal(false)
@@ -4536,7 +4594,7 @@ function SkillsScreen({ clientId }) {
 // ============================================================
 // ADD SKILL MODAL
 // ============================================================
-function AddSkillModal({ clientId, skill, onClose, onSave }) {
+function AddSkillModal({ clientId, isAdmin, skill, onClose, onSave }) {
   const [skillName, setSkillName] = useState(skill?.name || '')
   const [focusOn, setFocusOn] = useState('')
   const [ignoreAvoid, setIgnoreAvoid] = useState('')
@@ -4545,6 +4603,7 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
   const [saving, setSaving] = useState(false)
   const [uploadMode, setUploadMode] = useState(false)
   const [uploadedContent, setUploadedContent] = useState('')
+  const [scope, setScope] = useState(skill?.scope || (clientId ? 'client' : 'system'))
 
   // Parse existing skill content back into structured fields when editing
   useEffect(() => {
@@ -4560,6 +4619,12 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
       setIgnoreAvoid(extractSection('Ignore List'))
       setSuccessCriteria(extractSection('Success Criteria'))
       setIndustryTerms(extractSection('Industry Terms'))
+      // If content doesn't parse into sections, switch to upload mode
+      if (!extractSection('Focus Areas') && !extractSection('Ignore List') &&
+          !extractSection('Success Criteria') && !extractSection('Industry Terms') && content.trim()) {
+        setUploadMode(true)
+        setUploadedContent(content)
+      }
     }
   }, [skill])
 
@@ -4636,9 +4701,25 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
 
     setSaving(true)
     try {
-      // TODO: Call API endpoint to save skill to S3
-      // For now, just simulate success
-      await new Promise(resolve => setTimeout(resolve, 500))
+      if (skill?.id) {
+        // Update existing skill
+        const res = await fetch(`${API_BASE}/skills`, {
+          method: 'PUT',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skill_id: skill.id, name: skillName.trim(), content })
+        })
+        if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Update failed') }
+      } else {
+        // Create new skill
+        const body = { name: skillName.trim(), content, scope }
+        if (scope === 'client') body.client_id = clientId
+        const res = await fetch(`${API_BASE}/skills`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+        if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Create failed') }
+      }
       onSave()
     } catch (err) {
       alert('Failed to save skill: ' + err.message)
@@ -4707,6 +4788,35 @@ function AddSkillModal({ clientId, skill, onClose, onSave }) {
                 }}
               />
             </div>
+
+            {/* Scope Selector (admin only, new skills only) */}
+            {isAdmin && !skill && (
+              <div>
+                <label style={labelStyle}>Scope</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setScope('client')}
+                    style={{
+                      padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 500,
+                      border: scope === 'client' ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+                      background: scope === 'client' ? 'rgba(59,130,246,0.08)' : 'transparent',
+                      color: scope === 'client' ? '#3b82f6' : 'var(--text-secondary)',
+                      cursor: 'pointer'
+                    }}
+                  >This client only</button>
+                  <button
+                    onClick={() => setScope('system')}
+                    style={{
+                      padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 500,
+                      border: scope === 'system' ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+                      background: scope === 'system' ? 'rgba(59,130,246,0.08)' : 'transparent',
+                      color: scope === 'system' ? '#3b82f6' : 'var(--text-secondary)',
+                      cursor: 'pointer'
+                    }}
+                  >System (all clients)</button>
+                </div>
+              </div>
+            )}
 
             {/* Mode Toggle */}
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -4888,6 +4998,69 @@ const ROUTE_MAP = {
   '/results': 'results',
   '/skills': 'skills',
   '/configuration': 'configuration'
+}
+
+function SystemSkillsPanel({ C }) {
+  const [systemSkills, setSystemSkills] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/skills?scope=system`, { headers: getAuthHeaders() })
+        const data = await res.json()
+        setSystemSkills(data.skills || [])
+      } catch (e) {
+        console.error('Failed to load system skills:', e)
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
+
+  return (
+    <div className="panel" style={{ marginTop: '1rem' }}>
+      <div className="panel-header">
+        <div className="panel-header-left">
+          <Lock size={20} className="icon-red" />
+          <h2>System Skills</h2>
+          <span className="badge-count">{loading ? '...' : systemSkills.length}</span>
+        </div>
+      </div>
+      <div style={{ padding: '1.25rem' }}>
+        <p style={{ fontSize: '0.75rem', color: C.muted, marginBottom: '0.875rem', lineHeight: 1.5 }}>
+          System skills are injected into every enrichment call before client skills. Manage them on the Skills screen.
+        </p>
+        <div className="system-skill-grid" style={{ display: 'grid', gap: '0.5rem' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '1rem' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />
+            </div>
+          ) : systemSkills.map((skill) => (
+            <div key={skill.id} style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.625rem 0.875rem', background: C.surface, borderRadius: '8px',
+              border: `1px solid ${C.border}`
+            }}>
+              <Lock size={14} style={{ color: C.muted, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: C.text }}>{skill.name}</div>
+                <div className="system-skill-desc" style={{
+                  fontSize: '0.7rem', color: C.muted, marginTop: 1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}>{skill.content ? skill.content.substring(0, 100).replace(/[#\n]/g, ' ').trim() : ''}</div>
+              </div>
+              <span style={{
+                fontSize: '0.6rem', fontWeight: 600, color: '#3b82f6',
+                background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: 999,
+                flexShrink: 0
+              }}>System</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferredModel, setPreferredModel, clientId }) {
@@ -5162,53 +5335,8 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
         </div>
       </div>
 
-      {/* System Skills (Admin View) */}
-      <div className="panel" style={{ marginTop: '1rem' }}>
-        <div className="panel-header">
-          <div className="panel-header-left">
-            <Lock size={20} className="icon-red" />
-            <h2>System Skills</h2>
-            <span className="badge-count">4</span>
-          </div>
-        </div>
-        <div style={{ padding: '1.25rem' }}>
-          <p style={{ fontSize: '0.75rem', color: C.muted, marginBottom: '0.875rem', lineHeight: 1.5 }}>
-            System skills are injected into every enrichment call before client skills. They define how the AI analyzes, formats output, and handles authority boundaries.
-          </p>
-          <div className="system-skill-grid" style={{ display: 'grid', gap: '0.5rem' }}>
-            {[
-              { name: 'Analysis Framework', desc: 'Revenue drivers, cost structure, bottlenecks, competitive position, risk factors' },
-              { name: 'Output Format', desc: 'Numbered sections, table schemas, severity ratings, confidence scores, source citations' },
-              { name: 'Authority Boundaries', desc: 'What to recommend directly vs. flag for human review' },
-              { name: 'Enrichment Process', desc: 'Data source hierarchy: client data > context > audio > web > inferred' }
-            ].map((skill, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.625rem 0.875rem',
-                background: C.surface,
-                borderRadius: '8px',
-                border: `1px solid ${C.border}`
-              }}>
-                <Lock size={14} style={{ color: C.muted, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: C.text }}>{skill.name}</div>
-                  <div className="system-skill-desc" style={{
-                    fontSize: '0.7rem', color: C.muted, marginTop: 1,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>{skill.desc}</div>
-                </div>
-                <span style={{
-                  fontSize: '0.6rem', fontWeight: 600, color: C.muted,
-                  background: `${C.muted}15`, padding: '2px 6px', borderRadius: 999,
-                  flexShrink: 0
-                }}>System</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* System Skills — dynamic from API */}
+      <SystemSkillsPanel C={C} />
 
       {/* Streamline Webhook Toggle */}
       {clientId && (

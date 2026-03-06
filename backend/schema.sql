@@ -86,7 +86,7 @@ CREATE INDEX IF NOT EXISTS idx_enrichments_client_id ON enrichments(client_id);
 -- ============================================================
 CREATE TABLE IF NOT EXISTS skills (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     content TEXT,
     s3_key VARCHAR(1000),
@@ -176,3 +176,9 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS addresses_json TEXT;
 -- Overrides STREAMLINE_WEBHOOK_URL env var when set
 -- ============================================================
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_url VARCHAR(1000);
+
+-- ============================================================
+-- SYSTEM SKILLS (migration)
+-- Make client_id nullable so system skills (client_id IS NULL) are global
+-- ============================================================
+ALTER TABLE skills ALTER COLUMN client_id DROP NOT NULL;

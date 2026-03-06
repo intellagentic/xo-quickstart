@@ -253,8 +253,11 @@ def _run_enrichment_pipeline(event):
 
         streamline_webhook_url = row[15] or ''
 
-        # Load system skills (bundled with Lambda, always injected first)
-        system_skills = load_system_skills()
+        # Load system skills from DB first, fall back to bundled files
+        system_skills = load_system_skills_from_db(cur)
+        if not system_skills:
+            print("No system skills in DB, falling back to bundled files")
+            system_skills = load_system_skills()
         print(f"Loaded {len(system_skills)} system skills")
 
         # Read domain/client skills
@@ -656,8 +659,29 @@ def read_transcribe_output(output_key):
         return None
 
 
+def load_system_skills_from_db(cur):
+    """Load system skills from DB (client_id IS NULL), with S3 fallback for content."""
+    skills = []
+    try:
+        cur.execute("SELECT name, content, s3_key FROM skills WHERE client_id IS NULL ORDER BY name")
+        for row in cur.fetchall():
+            name, content, s3_key = row[0], row[1], row[2]
+            if not content and s3_key:
+                try:
+                    obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+                    content = obj['Body'].read().decode('utf-8')
+                except Exception as e:
+                    print(f"Failed to load system skill from S3 ({s3_key}): {e}")
+                    continue
+            if content:
+                skills.append({'name': name, 'content': content})
+    except Exception as e:
+        print(f"Error loading system skills from DB: {e}")
+    return skills
+
+
 def load_system_skills():
-    """Load system skills from the bundled system-skills/ directory."""
+    """Load system skills from the bundled system-skills/ directory (fallback)."""
     skills = []
     try:
         if not os.path.isdir(SYSTEM_SKILLS_DIR):
