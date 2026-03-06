@@ -6099,7 +6099,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '6px 14px',
-                  background: protoDownloading ? '#94a3b8' : '#dc2626',
+                  background: protoDownloading ? '#94a3b8' : '#000000',
                   color: 'white', border: 'none', borderRadius: 8,
                   cursor: protoDownloading ? 'not-allowed' : 'pointer',
                   fontSize: '0.75rem', fontWeight: 600,
