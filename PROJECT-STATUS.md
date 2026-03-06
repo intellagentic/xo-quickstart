@@ -1,9 +1,9 @@
 # XO CAPTURE - PROJECT STATUS
 
-**Date:** March 5, 2026
+**Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.59)
+**Status:** Deployed & Operational (v1.61)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -65,7 +65,7 @@
   |  db.t3.micro | xo-quickstart-db.xxxxx.rds.amazonaws.com |
   |                                                          |
   |  Tables: users, clients, uploads, enrichments,           |
-  |          skills, buttons                                 |
+  |          skills, buttons, partners, client_tokens        |
   +----------------------------------------------------------+
 ```
 
@@ -83,7 +83,8 @@ App (root)
 |     +-- [Email form] Email field (Mail icon) + Password field (Lock icon) + "Continue" button
 |     +-- Forgot Password? link + Reset Password expandable form
 |     +-- Error banner (AlertTriangle, red)
-|     +-- Google OAuth admin login → dashboard; email/password login → single-client workspace
+|     +-- Google OAuth admin/partner login → dashboard; client login → single-client workspace
+|     +-- Magic link token URL (?token=X) → auto-validates → client workspace
 |
 +-- [Authenticated App] (if isLoggedIn)
 |
@@ -94,9 +95,9 @@ App (root)
 |     +-- Subtitle: "Client Dashboard" (on dashboard) or company name (in workspace)
 |     +-- Intellagentic Logo (right)
 |
-+-- Sidebar (slide-out, 280px)
-|     +-- All Clients   (Building2 icon) -- admin only, navigates to dashboard
-|     +-- ---divider---  -- admin only
++-- Sidebar (slide-out, 220px)
+|     +-- All Clients / My Clients  (Building2 icon) -- admin + partner, navigates to dashboard
+|     +-- ---divider---  -- admin + partner
 |     +-- Welcome        (Home icon)
 |     +-- Sources        (FolderOpen icon)
 |     +-- Enrich         (Sparkles icon)
@@ -108,8 +109,9 @@ App (root)
 |     +-- Theme Toggle   (Sun/Moon)
 |     +-- Sign Out       (LogOut icon, red)
 |
-+-- DashboardScreen (admin only, currentScreen === 'dashboard')
-|     +-- Header: "All Clients (N)" + "+ New Client" button
++-- DashboardScreen (admin + partner, currentScreen === 'dashboard')
+|     +-- Header: "All Clients (N)" (admin) / "My Clients (N)" (partner) + "+ New Client" button
+|     +-- Partner filter dropdown (admin only) + Industry filter + Search
 |     +-- Grid of client cards (auto-fill, min 300px)
 |     |     +-- Client icon (32px, or letter fallback) + Company name (bold) + chevron right
 |     |     +-- Industry badge (pill)
@@ -185,9 +187,20 @@ App (root)
       |     +-- Live Preview Panel
       |
       +-- BrandingScreen (workspace only)
-            +-- Company Logo card (drop zone, preview, replace)
-            +-- Company Icon card (drop zone, preview, replace)
-            +-- Preview section (header logo mockup, dashboard card icon mockup)
+      |     +-- Company Logo card (drop zone, preview, replace)
+      |     +-- Company Icon card (drop zone, preview, replace)
+      |     +-- Preview section (header logo mockup, dashboard card icon mockup)
+      |
+      +-- PartnersScreen (admin only)
+      |     +-- Partner list (name, company, email, phone, industry)
+      |     +-- Add/Edit/Delete partner CRUD
+      |
+      +-- ShareLinkModal (admin + partner, from dashboard row or workspace header)
+            +-- Magic link URL display (or "No link generated")
+            +-- Copy to clipboard button
+            +-- Generate / Regenerate button
+            +-- Revoke button
+            +-- Expiry date display
 ```
 
 ### 3. S3 Folder Structure (per client)
@@ -378,12 +391,27 @@ STEP 3: ENRICH + RESULTS
 |                                                               |
 |  POST     /auth/google     xo-auth       Google OAuth login    |
 |                                          - verify ID token     |
-|                                          - check allowed emails|
+|                                          - DB role check       |
+|                                          - admin seed fallback |
+|                                          - client contact match|
 |                                          - upsert user         |
-|                                          - return JWT+is_admin |
+|                                          - return JWT w/ role  |
 |                                                               |
 |  PUT      /auth/preferences xo-auth      Update user prefs     |
 |                                          (model selection)     |
+|                                                               |
+|  POST     /auth/token      xo-auth      Validate magic link   |
+|                                          - check client_tokens |
+|                                          - issue client JWT    |
+|                                                               |
+|  POST     /auth/magic-link xo-auth      Generate magic link   |
+|                                          (admin/partner only)  |
+|                                                               |
+|  GET      /auth/magic-link xo-auth      Get existing link     |
+|                                          (admin/partner only)  |
+|                                                               |
+|  DELETE   /auth/magic-link xo-auth      Revoke magic link     |
+|                                          (admin/partner only)  |
 |                                                               |
 |  GET      /clients/list   xo-clients    List all clients      |
 |                                          - source count        |
@@ -2610,6 +2638,28 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.61 — Three-tier role system: Admin, Partner, Client**
+- Database-driven role system: `role` column on users table ('admin', 'partner', 'client') + `partner_id` FK to partners table
+- Admin seed emails auto-provisioned on cold start (replaces hardcoded ALLOWED_EMAILS for login)
+- Auth Lambda login flow: DB role check → admin seed fallback → client contacts_json match → denied
+- JWT claims now include: `role`, `is_admin`, `is_partner`, `is_client`, `partner_id`, `client_id`
+- Partner-scoped access across all lambdas: partners see/manage only clients with matching partner_id
+- Partners can: view dashboard (filtered), create clients (auto-assigned), upload/enrich, share magic links for their clients
+- Partners cannot: delete clients, access Partners management screen, see other partners' clients
+- Frontend: `isPartner` state, partner login → "Partner Dashboard" with "My Clients" sidebar, no partner filter/delete buttons
+- Workspace banner shows "Partner Workspace" for both admin and partner roles
+- All 4 auth_helper.py files updated to propagate role/is_partner/partner_id from JWT
+
+**v1.60 — Client Access: Magic Links + Google OAuth for Clients**
+- New `client_tokens` table for magic link tokens (64-char hex, 30-day expiry, per-client)
+- `POST /auth/token` validates magic link tokens, issues client-scoped JWT
+- `POST/GET/DELETE /auth/magic-link` for admin/partner management of shareable URLs
+- Google OAuth now checks `contacts_json` on clients table — matching contact emails get client-scoped access
+- Client-scoped access in upload + clients lambdas (users see only their own workspace)
+- Frontend: `?token=` URL parameter auto-validates and enters workspace, `ShareLinkModal` component
+- Share buttons on dashboard rows (ExternalLink icon) and workspace header for admins
+- API Gateway: `/auth/token` (POST) and `/auth/magic-link` (GET/POST/DELETE) resources added
 
 **Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode).
 
