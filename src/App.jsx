@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Users, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 
@@ -481,21 +481,34 @@ function LoginScreen({ onLogin }) {
 // ============================================================
 // DASHBOARD SCREEN — Admin multi-client view
 // ============================================================
-function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
+function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, partners }) {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [deleteConfirmClient, setDeleteConfirmClient] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterPartner, setFilterPartner] = useState('')
+  const [filterIndustry, setFilterIndustry] = useState('')
+
+  const industries = useMemo(() => [...new Set(clients.map(c => c.industry).filter(Boolean))].sort(), [clients])
 
   const filteredClients = useMemo(() => {
-    if (!searchQuery.trim()) return clients
-    const q = searchQuery.toLowerCase()
-    return clients.filter(c =>
-      (c.company_name || '').toLowerCase().includes(q) ||
-      (c.industry || '').toLowerCase().includes(q)
-    )
-  }, [clients, searchQuery])
+    let result = clients
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(c =>
+        (c.company_name || '').toLowerCase().includes(q) ||
+        (c.industry || '').toLowerCase().includes(q)
+      )
+    }
+    if (filterPartner) {
+      result = result.filter(c => String(c.partner_id) === filterPartner)
+    }
+    if (filterIndustry) {
+      result = result.filter(c => c.industry === filterIndustry)
+    }
+    return result
+  }, [clients, searchQuery, filterPartner, filterIndustry])
 
   useEffect(() => {
     fetchClients()
@@ -615,9 +628,16 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
           {(client.company_name || '?')[0].toUpperCase()}
         </div>
       )}
-      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', flex: '1 1 0', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {client.company_name}
-      </span>
+      <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {client.company_name}
+        </span>
+        {client.partner_name && (
+          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            via {client.partner_name}
+          </span>
+        )}
+      </div>
       {client.industry && (
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {client.industry}
@@ -671,6 +691,36 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin }) {
             }}
           />
         </div>
+        {isAdmin && partners && partners.length > 0 && (
+          <select
+            value={filterPartner}
+            onChange={e => setFilterPartner(e.target.value)}
+            style={{
+              padding: '0.3rem 0.5rem', fontSize: '0.75rem',
+              border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
+              background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
+              outline: 'none', flex: '0 0 auto'
+            }}
+          >
+            <option value="">All Partners</option>
+            {partners.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+          </select>
+        )}
+        {industries.length > 0 && (
+          <select
+            value={filterIndustry}
+            onChange={e => setFilterIndustry(e.target.value)}
+            style={{
+              padding: '0.3rem 0.5rem', fontSize: '0.75rem',
+              border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
+              background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
+              outline: 'none', flex: '0 0 auto'
+            }}
+          >
+            <option value="">All Industries</option>
+            {industries.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+          </select>
+        )}
         <div style={{ flex: 1 }} />
         <button onClick={onCreateClient} className="action-btn red">
           <Plus size={14} /> New Client
@@ -849,6 +899,9 @@ export default function App() {
     iconUrl: null
   })
 
+  // Partners state (for admin partner management & dropdowns)
+  const [partners, setPartners] = useState([])
+
   // Theme state - persisted to localStorage
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('xo-theme') || 'light'
@@ -872,15 +925,28 @@ export default function App() {
   const [configButtons, setConfigButtons] = useState(DEFAULT_BUTTONS)
   const [buttonsLoaded, setButtonsLoaded] = useState(false)
 
-  // Fetch buttons and client data from API after login
+  // Fetch buttons, client data, and partners from API after login
   useEffect(() => {
     if (isLoggedIn && !buttonsLoaded) {
       fetchButtons()
     }
     if (isLoggedIn) {
       fetchExistingClient()
+      fetchPartners()
     }
   }, [isLoggedIn])
+
+  const fetchPartners = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/partners`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setPartners(data.partners || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch partners:', err)
+    }
+  }
 
   const fetchButtons = async () => {
     try {
@@ -923,7 +989,9 @@ export default function App() {
           description: data.description || '',
           painPoint: data.painPoint || '',
           logoUrl: data.logo_url || null,
-          iconUrl: data.icon_url || null
+          iconUrl: data.icon_url || null,
+          partner_id: data.partner_id || null,
+          intellagentic_lead: data.intellagentic_lead || false
         })
         if (data.client_id && !clientId) {
           setClientId(data.client_id)
@@ -968,7 +1036,9 @@ export default function App() {
             addresses: data.addresses || [],
             industry: data.industry,
             description: data.description,
-            painPoint: data.painPoint
+            painPoint: data.painPoint,
+            partner_id: data.partner_id,
+            intellagentic_lead: data.intellagentic_lead
           })
         })
         if (response.ok) {
@@ -986,7 +1056,9 @@ export default function App() {
             addresses: data.addresses || [],
             industry: data.industry,
             description: data.description,
-            painPoint: data.painPoint
+            painPoint: data.painPoint,
+            partner_id: data.partner_id,
+            intellagentic_lead: data.intellagentic_lead
           })
         })
         if (response.ok) {
@@ -1024,7 +1096,9 @@ export default function App() {
           description: data.description || '',
           painPoint: data.painPoint || '',
           logoUrl: data.logo_url || null,
-          iconUrl: data.icon_url || null
+          iconUrl: data.icon_url || null,
+          partner_id: data.partner_id || null,
+          intellagentic_lead: data.intellagentic_lead || false
         })
       }
     } catch (err) {
@@ -1037,7 +1111,7 @@ export default function App() {
   const handleCreateNewClient = () => {
     setClientId(null)
     localStorage.removeItem('xo-client-id')
-    setCompanyData({ name: '', website: '', contacts: [], addresses: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null })
+    setCompanyData({ name: '', website: '', contacts: [], addresses: [], industry: '', description: '', painPoint: '', logoUrl: null, iconUrl: null, partner_id: null, intellagentic_lead: false })
 
     setShowCompanyModal(true)
   }
@@ -1191,6 +1265,7 @@ export default function App() {
                 { screen: 'enrich', icon: Sparkles, label: 'Enrich' },
                 { screen: 'results', icon: FileText, label: 'Results' },
                 { screen: 'skills', icon: Database, label: 'Skills' },
+                ...(isAdmin ? [{ screen: 'partners', icon: Users, label: 'Partners' }] : []),
               ].map(({ screen, icon: Icon, label }) => (
                 <button
                   key={screen}
@@ -1393,6 +1468,7 @@ export default function App() {
             onSelectClient={handleSelectClient}
             onCreateClient={handleCreateNewClient}
             isAdmin={isAdmin}
+            partners={partners}
           />
         )}
         {currentScreen === 'upload' && (
@@ -1427,6 +1503,7 @@ export default function App() {
         {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} />}
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
+        {currentScreen === 'partners' && isAdmin && <PartnersScreen partners={partners} setPartners={setPartners} />}
       </main>
 
       {/* Company Information Modal */}
@@ -1437,7 +1514,208 @@ export default function App() {
           onClose={() => setShowCompanyModal(false)}
           onClientCreate={handleClientCreateFromDashboard}
           clientId={clientId}
+          partners={partners}
+          isAdmin={isAdmin}
         />
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// PARTNERS SCREEN — CRUD management for channel partners (admin only)
+// ============================================================
+function PartnersScreen({ partners, setPartners }) {
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editPartner, setEditPartner] = useState(null)
+  const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', industry: '', notes: '' })
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  const fetchPartners = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/partners`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setPartners(data.partners || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch partners:', err)
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchPartners() }, [])
+
+  const openAdd = () => {
+    setEditPartner(null)
+    setForm({ name: '', company: '', email: '', phone: '', industry: '', notes: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (p) => {
+    setEditPartner(p)
+    setForm({ name: p.name, company: p.company, email: p.email, phone: p.phone, industry: p.industry, notes: p.notes })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { alert('Name is required'); return }
+    try {
+      if (editPartner) {
+        await fetch(`${API_BASE}/partners`, {
+          method: 'PUT', headers: getAuthHeaders(),
+          body: JSON.stringify({ id: editPartner.id, ...form })
+        })
+      } else {
+        await fetch(`${API_BASE}/partners`, {
+          method: 'POST', headers: getAuthHeaders(),
+          body: JSON.stringify(form)
+        })
+      }
+      setShowForm(false)
+      fetchPartners()
+    } catch (err) {
+      alert('Failed to save partner')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await fetch(`${API_BASE}/partners?id=${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+      setDeleteConfirm(null)
+      fetchPartners()
+    } catch (err) {
+      alert('Failed to delete partner')
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '0.5rem 0.625rem', fontSize: '0.8125rem',
+    border: '1px solid var(--border-color)', borderRadius: '6px',
+    fontFamily: 'inherit', background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)'
+  }
+
+  return (
+    <div style={{ padding: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          Channel Partners <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.8125rem' }}>({partners.length})</span>
+        </h2>
+        <button onClick={openAdd} className="action-btn red"><Plus size={14} /> Add Partner</button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: '#dc2626' }} />
+        </div>
+      ) : partners.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+          <Users size={40} style={{ margin: '0 auto 0.75rem', color: 'var(--text-muted, #9ca3af)' }} />
+          <p>No partners yet. Add your first channel partner.</p>
+        </div>
+      ) : (
+        <div style={{ background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+          {partners.map((p) => (
+            <div key={p.id} style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.875rem',
+              borderBottom: '1px solid var(--border-color, #e5e7eb)',
+              transition: 'background 0.15s'
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-alt, #fafafa)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px', flexShrink: 0,
+                background: 'var(--bg-secondary, #f3f4f6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.7rem', fontWeight: 700, color: '#dc2626'
+              }}>
+                {(p.name || '?')[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</div>
+                {p.company && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{p.company}</div>}
+              </div>
+              {p.industry && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.industry}</span>}
+              {p.email && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.email}</span>}
+              <button onClick={() => openEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem' }} title="Edit">
+                <Edit2 size={14} />
+              </button>
+              <button onClick={() => setDeleteConfirm(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem' }} title="Delete">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Form Modal */}
+      {showForm && (
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Users size={20} className="icon-red" />
+                <h2>{editPartner ? 'Edit Partner' : 'Add Partner'}</h2>
+              </div>
+              <button className="modal-close" onClick={() => setShowForm(false)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Name *</label>
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Partner name" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Company</label>
+                  <input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Company name" style={inputStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Email</label>
+                    <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Phone</label>
+                    <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="(555) 123-4567" style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Industry</label>
+                  <input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} placeholder="e.g., Waste Management" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Notes</label>
+                  <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button onClick={() => setShowForm(false)} className="action-btn" style={{ background: 'var(--bg-secondary)' }}>Cancel</button>
+              <button onClick={handleSave} className="action-btn red"><Save size={14} /> {editPartner ? 'Update' : 'Create'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h2>Delete Partner</h2>
+              <button className="modal-close" onClick={() => setDeleteConfirm(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? Clients linked to this partner will be unlinked.</p>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button onClick={() => setDeleteConfirm(null)} className="action-btn">Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm.id)} className="action-btn" style={{ background: '#dc2626', color: '#fff' }}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -1446,8 +1724,10 @@ export default function App() {
 // ============================================================
 // COMPANY INFORMATION MODAL
 // ============================================================
-function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate, clientId }) {
+function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate, clientId, partners, isAdmin }) {
   const [localData, setLocalData] = useState({ ...companyData, contacts: [...(companyData.contacts || [])], addresses: [...(companyData.addresses || [])] })
+  const [localPartnerId, setLocalPartnerId] = useState(companyData.partner_id || '')
+  const [localIntellagentic, setLocalIntellagentic] = useState(companyData.intellagentic_lead || false)
   const [localContacts, setLocalContacts] = useState(() => {
     const c = companyData.contacts || []
     return c.map(ct => ({ ...ct }))
@@ -1560,7 +1840,7 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
       alert('Company name is required')
       return
     }
-    const saveData = { ...localData, contacts: localContacts, addresses: localAddresses }
+    const saveData = { ...localData, contacts: localContacts, addresses: localAddresses, partner_id: localPartnerId ? parseInt(localPartnerId) : null, intellagentic_lead: localIntellagentic }
     setCompanyData(prev => ({ ...saveData, logoUrl: prev.logoUrl, iconUrl: prev.iconUrl }))
     if (onClientCreate) onClientCreate(saveData)
     onClose()
@@ -1841,6 +2121,50 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
                 }}
               />
             </div>
+
+            {/* Channel Partner (admin only) */}
+            {isAdmin && partners && partners.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+                  Channel Partner
+                </label>
+                <select
+                  value={localPartnerId}
+                  onChange={(e) => setLocalPartnerId(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    fontFamily: 'inherit',
+                    background: 'var(--bg-input, #ffffff)',
+                    color: 'var(--text-primary)'
+                  }}
+                >
+                  <option value="">None</option>
+                  {partners.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}{p.company ? ` — ${p.company}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Intellagentic Lead (admin only) */}
+            {isAdmin && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="intellagentic-lead"
+                  checked={localIntellagentic}
+                  onChange={(e) => setLocalIntellagentic(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#dc2626' }}
+                />
+                <label htmlFor="intellagentic-lead" style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', cursor: 'pointer' }}>
+                  Intellagentic Lead
+                </label>
+              </div>
+            )}
 
             {/* Description */}
             <div>

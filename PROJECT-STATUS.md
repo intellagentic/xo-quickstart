@@ -3,7 +3,7 @@
 **Date:** March 5, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.58)
+**Status:** Deployed & Operational (v1.59)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2427,6 +2427,21 @@ cd backend
     - Verified cold start succeeds with OPTIONS invoke returning 200
     - Files: `backend/lambdas/enrich/package/sniffio/` (new module)
     - Deployed xo-enrich Lambda
+
+82. **Partners Dimension — Channel Partner Model** (Session 23 - March 5, 2026)
+    - **New `partners` table**: id, name, company, email, phone, industry, notes, timestamps
+    - **New client columns**: `partner_id` (FK to partners, ON DELETE SET NULL), `intellagentic_lead` (boolean)
+    - **Partner CRUD endpoints**: GET/POST/PUT/DELETE `/partners` — admin-only, full CRUD
+    - **Client endpoints updated**: list/get/create/update now include `partner_id`, `intellagentic_lead`, `partner_name` (via LEFT JOIN)
+    - **Partners screen**: Admin-only CRUD management UI with add/edit modal, delete confirmation, list view
+    - **Sidebar nav**: "Partners" item with Users icon, visible only to admins
+    - **Dashboard filters**: Partner and Industry dropdown filters in header row; partner name shown under client name in list rows
+    - **CompanyInfoModal**: Channel Partner dropdown and Intellagentic Lead checkbox (admin-only fields)
+    - **Data flow**: Partners fetched on login, threaded through App state to Dashboard, CompanyInfoModal, PartnersScreen
+    - **API Gateway**: Added `/partners` resource with GET/POST/PUT/DELETE/OPTIONS methods, Lambda proxy integration, CORS
+    - Auto-migration runs on Lambda cold start
+    - Files: `backend/lambdas/clients/lambda_function.py`, `src/App.jsx`
+    - Deployed xo-clients Lambda + frontend to S3/CloudFront
 
 ---
 
