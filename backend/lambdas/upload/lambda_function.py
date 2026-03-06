@@ -84,27 +84,39 @@ def lambda_handler(event, context):
         }
 
 
-def _verify_client(cur, client_id, user_id):
-    """Verify client exists and belongs to user. Returns (db_client_id, s3_folder) or None."""
-    cur.execute(
-        "SELECT id, s3_folder FROM clients WHERE s3_folder = %s AND user_id = %s",
-        (client_id, user_id)
-    )
+def _verify_client(cur, client_id, user_id, is_admin=False):
+    """Verify client exists and belongs to user (admins can access any client). Returns (db_client_id, s3_folder) or None."""
+    if is_admin:
+        cur.execute("SELECT id, s3_folder FROM clients WHERE s3_folder = %s", (client_id,))
+    else:
+        cur.execute(
+            "SELECT id, s3_folder FROM clients WHERE s3_folder = %s AND user_id = %s",
+            (client_id, user_id)
+        )
     row = cur.fetchone()
     if row:
         return str(row[0]), row[1]
     return None, None
 
 
-def _verify_upload_ownership(cur, upload_id, user_id):
-    """Verify upload belongs to user via client join. Returns upload row or None."""
-    cur.execute("""
-        SELECT u.id, u.client_id, u.filename, u.file_type, u.s3_key, u.status,
-               u.file_size, u.version, u.source, c.s3_folder
-        FROM uploads u
-        JOIN clients c ON u.client_id = c.id
-        WHERE u.id = %s AND c.user_id = %s
-    """, (upload_id, user_id))
+def _verify_upload_ownership(cur, upload_id, user_id, is_admin=False):
+    """Verify upload belongs to user via client join (admins can access any). Returns upload row or None."""
+    if is_admin:
+        cur.execute("""
+            SELECT u.id, u.client_id, u.filename, u.file_type, u.s3_key, u.status,
+                   u.file_size, u.version, u.source, c.s3_folder
+            FROM uploads u
+            JOIN clients c ON u.client_id = c.id
+            WHERE u.id = %s
+        """, (upload_id,))
+    else:
+        cur.execute("""
+            SELECT u.id, u.client_id, u.filename, u.file_type, u.s3_key, u.status,
+                   u.file_size, u.version, u.source, c.s3_folder
+            FROM uploads u
+            JOIN clients c ON u.client_id = c.id
+            WHERE u.id = %s AND c.user_id = %s
+        """, (upload_id, user_id))
     return cur.fetchone()
 
 
@@ -133,7 +145,7 @@ def handle_upload(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    db_client_id, _ = _verify_client(cur, client_id, user['user_id'])
+    db_client_id, _ = _verify_client(cur, client_id, user['user_id'], user.get('is_admin', False))
     if not db_client_id:
         cur.close()
         conn.close()
@@ -210,7 +222,7 @@ def handle_list_uploads(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    db_client_id, _ = _verify_client(cur, client_id, user['user_id'])
+    db_client_id, _ = _verify_client(cur, client_id, user['user_id'], user.get('is_admin', False))
     if not db_client_id:
         cur.close()
         conn.close()
@@ -272,7 +284,7 @@ def handle_delete_upload(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    row = _verify_upload_ownership(cur, upload_id, user['user_id'])
+    row = _verify_upload_ownership(cur, upload_id, user['user_id'], user.get('is_admin', False))
     if not row:
         cur.close()
         conn.close()
@@ -322,7 +334,7 @@ def handle_toggle_upload(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    row = _verify_upload_ownership(cur, upload_id, user['user_id'])
+    row = _verify_upload_ownership(cur, upload_id, user['user_id'], user.get('is_admin', False))
     if not row:
         cur.close()
         conn.close()
@@ -378,7 +390,7 @@ def handle_replace_upload(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    row = _verify_upload_ownership(cur, upload_id, user['user_id'])
+    row = _verify_upload_ownership(cur, upload_id, user['user_id'], user.get('is_admin', False))
     if not row:
         cur.close()
         conn.close()
@@ -474,7 +486,7 @@ def handle_branding_upload(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    db_client_id, _ = _verify_client(cur, client_id, user['user_id'])
+    db_client_id, _ = _verify_client(cur, client_id, user['user_id'], user.get('is_admin', False))
     if not db_client_id:
         cur.close()
         conn.close()
@@ -535,7 +547,7 @@ def handle_branding_get(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    db_client_id, _ = _verify_client(cur, client_id, user['user_id'])
+    db_client_id, _ = _verify_client(cur, client_id, user['user_id'], user.get('is_admin', False))
     if not db_client_id:
         cur.close()
         conn.close()
