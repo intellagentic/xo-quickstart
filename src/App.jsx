@@ -1829,7 +1829,11 @@ function PartnersScreen({ partners, setPartners }) {
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editPartner, setEditPartner] = useState(null)
-  const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', industry: '', notes: '' })
+  const [form, setForm] = useState({ name: '', website: '', industry: '', notes: '' })
+  const [formContacts, setFormContacts] = useState([])
+  const [formAddresses, setFormAddresses] = useState([])
+  const [contactsExpanded, setContactsExpanded] = useState(false)
+  const [addressesExpanded, setAddressesExpanded] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const fetchPartners = async () => {
@@ -1850,27 +1854,51 @@ function PartnersScreen({ partners, setPartners }) {
 
   const openAdd = () => {
     setEditPartner(null)
-    setForm({ name: '', company: '', email: '', phone: '', industry: '', notes: '' })
+    setForm({ name: '', website: '', industry: '', notes: '' })
+    setFormContacts([{ firstName: '', lastName: '', title: '', email: '', phone: '', linkedin: '' }])
+    setFormAddresses([])
+    setContactsExpanded(false)
+    setAddressesExpanded(false)
     setShowForm(true)
   }
 
   const openEdit = (p) => {
     setEditPartner(p)
-    setForm({ name: p.name, company: p.company, email: p.email, phone: p.phone, industry: p.industry, notes: p.notes })
+    setForm({ name: p.name || '', website: p.website || '', industry: p.industry || '', notes: p.notes || '' })
+    setFormContacts((p.contacts && p.contacts.length > 0) ? p.contacts.map(c => ({ ...c })) : [{ firstName: '', lastName: '', title: '', email: p.email || '', phone: p.phone || '', linkedin: '' }])
+    setFormAddresses((p.addresses && p.addresses.length > 0) ? p.addresses.map(a => ({ ...a })) : [])
+    setContactsExpanded(false)
+    setAddressesExpanded(false)
     setShowForm(true)
   }
 
+  const addFormContact = () => setFormContacts(prev => [...prev, { firstName: '', lastName: '', title: '', email: '', phone: '', linkedin: '' }])
+  const updateFormContact = (index, field, value) => setFormContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
+  const removeFormContact = (index) => setFormContacts(prev => prev.filter((_, i) => i !== index))
+  const addFormAddress = () => setFormAddresses(prev => [...prev, { label: '', address1: '', address2: '', city: '', state: '', postalCode: '', country: '' }])
+  const updateFormAddress = (index, field, value) => setFormAddresses(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a))
+  const removeFormAddress = (index) => setFormAddresses(prev => prev.filter((_, i) => i !== index))
+
   const handleSave = async () => {
-    if (!form.name.trim()) { alert('Name is required'); return }
+    if (!form.name.trim()) { alert('Organization name is required'); return }
+    const primaryContact = formContacts[0] || {}
+    const payload = {
+      ...form,
+      company: form.name,
+      email: primaryContact.email || '',
+      phone: primaryContact.phone || '',
+      contacts: formContacts,
+      addresses: formAddresses
+    }
     try {
       const res = editPartner
         ? await fetch(`${API_BASE}/partners`, {
             method: 'PUT', headers: getAuthHeaders(),
-            body: JSON.stringify({ id: editPartner.id, ...form })
+            body: JSON.stringify({ id: editPartner.id, ...payload })
           })
         : await fetch(`${API_BASE}/partners`, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify(form)
+            body: JSON.stringify(payload)
           })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -1894,11 +1922,20 @@ function PartnersScreen({ partners, setPartners }) {
     }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '0.5rem 0.625rem', fontSize: '0.8125rem',
-    border: '1px solid var(--border-color)', borderRadius: '6px',
-    fontFamily: 'inherit', background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)'
+  const fieldStyle = {
+    width: '100%', padding: '0.625rem',
+    border: '1px solid var(--border-color)', borderRadius: '8px',
+    fontSize: '0.875rem', fontFamily: 'inherit',
+    background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)'
   }
+  const contactFieldStyle = {
+    width: '100%', padding: '0.5rem',
+    border: '1px solid var(--border-color)', borderRadius: '6px',
+    fontSize: '0.8rem', fontFamily: 'inherit',
+    background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)'
+  }
+  const sectionLabelStyle = { fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }
+  const fieldLabelStyle = { display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--text-primary)' }
 
   return (
     <div style={{ padding: '1.5rem' }}>
@@ -1938,10 +1975,13 @@ function PartnersScreen({ partners, setPartners }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</div>
-                {p.company && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{p.company}</div>}
+                {(p.contacts && p.contacts.length > 0 && (p.contacts[0].firstName || p.contacts[0].lastName)) ? (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{[p.contacts[0].firstName, p.contacts[0].lastName].filter(Boolean).join(' ')}{p.contacts[0].title ? ` — ${p.contacts[0].title}` : ''}</div>
+                ) : p.email ? (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)' }}>{p.email}</div>
+                ) : null}
               </div>
               {p.industry && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.industry}</span>}
-              {p.email && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{p.email}</span>}
               <button onClick={() => openEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem' }} title="Edit">
                 <Edit2 size={14} />
               </button>
@@ -1953,44 +1993,155 @@ function PartnersScreen({ partners, setPartners }) {
         </div>
       )}
 
-      {/* Add/Edit Form Modal */}
+      {/* Add/Edit Partner Modal — matches Organization Profile layout */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Users size={20} className="icon-red" />
+                <Building2 size={20} className="icon-red" />
                 <h2>{editPartner ? 'Edit Partner' : 'Add Partner'}</h2>
               </div>
               <button className="modal-close" onClick={() => setShowForm(false)}><X size={20} /></button>
             </div>
             <div className="modal-body">
-              <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {/* Organization Name */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Name *</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Partner name" style={inputStyle} />
+                  <label style={fieldLabelStyle}>Company/Organization Name *</label>
+                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                    placeholder="Enter organization name" style={fieldStyle} />
                 </div>
+
+                {/* Website */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Company</label>
-                  <input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="Company name" style={inputStyle} />
+                  <label style={fieldLabelStyle}>Website URL</label>
+                  <input type="url" value={form.website} onChange={e => setForm({ ...form, website: e.target.value })}
+                    placeholder="https://example.com" style={fieldStyle} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Email</label>
-                    <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" style={inputStyle} />
+
+                {/* Industry */}
+                <div>
+                  <label style={fieldLabelStyle}>Industry/Vertical</label>
+                  <input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })}
+                    placeholder="e.g., Waste Management, Healthcare, Hospitality" style={fieldStyle} />
+                </div>
+
+                {/* Contacts Section */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <label style={sectionLabelStyle}>Contacts</label>
+                    <button type="button" onClick={addFormContact}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500, background: 'var(--accent-color, #3b82f6)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                      <Plus size={14} /> Add Contact
+                    </button>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Phone</label>
-                    <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="(555) 123-4567" style={inputStyle} />
+                  {formContacts.length === 0 && (
+                    <div style={{ border: '2px dashed var(--border-color)', borderRadius: '8px', padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <User size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                      <div style={{ fontSize: '0.85rem' }}>No contacts added yet</div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Click "Add Contact" to add a primary contact</div>
+                    </div>
+                  )}
+                  {formContacts.map((contact, idx) => (idx > 0 && !contactsExpanded) ? null : (
+                    <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: idx === 0 ? 'var(--accent-color, #3b82f6)' : 'var(--text-secondary)' }}>
+                          {idx === 0 ? 'Primary Contact' : `Contact ${idx + 1}`}
+                        </span>
+                        <button type="button" onClick={() => removeFormContact(idx)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }} title="Remove contact">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <input type="text" value={contact.firstName || ''} onChange={e => updateFormContact(idx, 'firstName', e.target.value)}
+                            placeholder="First Name" style={contactFieldStyle} />
+                          <input type="text" value={contact.lastName || ''} onChange={e => updateFormContact(idx, 'lastName', e.target.value)}
+                            placeholder="Last Name" style={contactFieldStyle} />
+                        </div>
+                        <input type="text" value={contact.title || ''} onChange={e => updateFormContact(idx, 'title', e.target.value)}
+                          placeholder="Title / Role" style={contactFieldStyle} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <input type="email" value={contact.email || ''} onChange={e => updateFormContact(idx, 'email', e.target.value)}
+                            placeholder="Email" style={contactFieldStyle} />
+                          <input type="text" value={contact.phone || ''} onChange={e => updateFormContact(idx, 'phone', e.target.value)}
+                            placeholder="Phone" style={contactFieldStyle} />
+                        </div>
+                        <input type="url" value={contact.linkedin || ''} onChange={e => updateFormContact(idx, 'linkedin', e.target.value)}
+                          placeholder="LinkedIn URL" style={contactFieldStyle} />
+                      </div>
+                    </div>
+                  ))}
+                  {formContacts.length > 1 && (
+                    <button type="button" onClick={() => setContactsExpanded(prev => !prev)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0', fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-color, #3b82f6)' }}>
+                      {contactsExpanded ? <><ChevronUp size={14} /> Hide {formContacts.length - 1} more contact{formContacts.length - 1 > 1 ? 's' : ''}</> : <><ChevronDown size={14} /> View {formContacts.length - 1} more contact{formContacts.length - 1 > 1 ? 's' : ''}</>}
+                    </button>
+                  )}
+                </div>
+
+                {/* Addresses Section */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <label style={sectionLabelStyle}>Addresses</label>
+                    <button type="button" onClick={addFormAddress}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.75rem', fontSize: '0.8rem', fontWeight: 500, background: 'var(--accent-color, #3b82f6)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                      <Plus size={14} /> Add Address
+                    </button>
                   </div>
+                  {formAddresses.length === 0 && (
+                    <div style={{ border: '2px dashed var(--border-color)', borderRadius: '8px', padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <MapPin size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                      <div style={{ fontSize: '0.85rem' }}>No addresses added yet</div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Click "Add Address" to add a location</div>
+                    </div>
+                  )}
+                  {formAddresses.map((addr, idx) => (idx > 0 && !addressesExpanded) ? null : (
+                    <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: idx === 0 ? 'var(--accent-color, #3b82f6)' : 'var(--text-secondary)' }}>
+                          {idx === 0 ? 'Primary Address' : `Address ${idx + 1}`}
+                        </span>
+                        <button type="button" onClick={() => removeFormAddress(idx)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }} title="Remove address">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <input type="text" value={addr.label || ''} onChange={e => updateFormAddress(idx, 'label', e.target.value)}
+                          placeholder="Label (e.g., Headquarters, Warehouse)" style={contactFieldStyle} />
+                        <input type="text" value={addr.address1 || ''} onChange={e => updateFormAddress(idx, 'address1', e.target.value)}
+                          placeholder="Address Line 1" style={contactFieldStyle} />
+                        <input type="text" value={addr.address2 || ''} onChange={e => updateFormAddress(idx, 'address2', e.target.value)}
+                          placeholder="Address Line 2" style={contactFieldStyle} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <input type="text" value={addr.city || ''} onChange={e => updateFormAddress(idx, 'city', e.target.value)}
+                            placeholder="City" style={contactFieldStyle} />
+                          <input type="text" value={addr.state || ''} onChange={e => updateFormAddress(idx, 'state', e.target.value)}
+                            placeholder="State / Province" style={contactFieldStyle} />
+                          <input type="text" value={addr.postalCode || ''} onChange={e => updateFormAddress(idx, 'postalCode', e.target.value)}
+                            placeholder="Postal Code" style={contactFieldStyle} />
+                          <input type="text" value={addr.country || ''} onChange={e => updateFormAddress(idx, 'country', e.target.value)}
+                            placeholder="Country" style={contactFieldStyle} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {formAddresses.length > 1 && (
+                    <button type="button" onClick={() => setAddressesExpanded(prev => !prev)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0', fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-color, #3b82f6)' }}>
+                      {addressesExpanded ? <><ChevronUp size={14} /> Hide {formAddresses.length - 1} more address{formAddresses.length - 1 > 1 ? 'es' : ''}</> : <><ChevronDown size={14} /> View {formAddresses.length - 1} more address{formAddresses.length - 1 > 1 ? 'es' : ''}</>}
+                    </button>
+                  )}
                 </div>
+
+                {/* Notes */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Industry</label>
-                  <input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} placeholder="e.g., Waste Management" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--text-primary)' }}>Notes</label>
-                  <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Additional notes..." rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+                  <label style={fieldLabelStyle}>Notes</label>
+                  <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Additional notes..." rows={3} style={{ ...fieldStyle, resize: 'vertical' }} />
                 </div>
               </div>
             </div>

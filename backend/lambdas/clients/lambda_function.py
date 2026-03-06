@@ -87,6 +87,10 @@ def _run_partner_migrations():
         """)
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS partner_id INTEGER REFERENCES partners(id) ON DELETE SET NULL;")
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS intellagentic_lead BOOLEAN DEFAULT FALSE;")
+        # Partner org profile columns
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS website VARCHAR(500);")
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS contacts_json TEXT;")
+        cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS addresses_json TEXT;")
         conn.commit()
         cur.close()
         conn.close()
@@ -444,15 +448,30 @@ def handle_list_partners(event, user):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, name, company, email, phone, industry, notes, created_at, updated_at FROM partners ORDER BY name")
+        cur.execute("SELECT id, name, company, email, phone, industry, notes, created_at, updated_at, website, contacts_json, addresses_json FROM partners ORDER BY name")
         partners = []
         for row in cur.fetchall():
+            contacts = []
+            addresses = []
+            try:
+                if row[10]:
+                    contacts = json.loads(row[10])
+            except Exception:
+                pass
+            try:
+                if row[11]:
+                    addresses = json.loads(row[11])
+            except Exception:
+                pass
             partners.append({
                 'id': row[0], 'name': row[1] or '', 'company': row[2] or '',
                 'email': row[3] or '', 'phone': row[4] or '', 'industry': row[5] or '',
                 'notes': row[6] or '',
                 'created_at': row[7].isoformat() if row[7] else None,
-                'updated_at': row[8].isoformat() if row[8] else None
+                'updated_at': row[8].isoformat() if row[8] else None,
+                'website': row[9] or '',
+                'contacts': contacts,
+                'addresses': addresses
             })
         cur.close()
         conn.close()
@@ -474,12 +493,17 @@ def handle_create_partner(event, user):
         return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'name is required'})}
     conn = get_db_connection()
     cur = conn.cursor()
+    contacts = body.get('contacts')
+    addresses = body.get('addresses')
+    contacts_json = json.dumps(contacts) if contacts else None
+    addresses_json = json.dumps(addresses) if addresses else None
     try:
         cur.execute("""
-            INSERT INTO partners (name, company, email, phone, industry, notes)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            INSERT INTO partners (name, company, email, phone, industry, notes, website, contacts_json, addresses_json)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
         """, (name, body.get('company', '').strip(), body.get('email', '').strip(),
-              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip()))
+              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
+              body.get('website', '').strip(), contacts_json, addresses_json))
         partner_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
@@ -502,12 +526,18 @@ def handle_update_partner(event, user):
         return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'id is required'})}
     conn = get_db_connection()
     cur = conn.cursor()
+    contacts = body.get('contacts')
+    addresses = body.get('addresses')
+    contacts_json = json.dumps(contacts) if contacts else None
+    addresses_json = json.dumps(addresses) if addresses else None
     try:
         cur.execute("""
-            UPDATE partners SET name=%s, company=%s, email=%s, phone=%s, industry=%s, notes=%s, updated_at=NOW()
+            UPDATE partners SET name=%s, company=%s, email=%s, phone=%s, industry=%s, notes=%s,
+                   website=%s, contacts_json=%s, addresses_json=%s, updated_at=NOW()
             WHERE id=%s RETURNING id
         """, (body.get('name', '').strip(), body.get('company', '').strip(), body.get('email', '').strip(),
-              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(), partner_id))
+              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
+              body.get('website', '').strip(), contacts_json, addresses_json, partner_id))
         row = cur.fetchone()
         conn.commit()
         cur.close()
