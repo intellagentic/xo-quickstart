@@ -1025,6 +1025,7 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
                 phase.get("phase", ""): phase.get("actions", [])
                 for phase in analysis.get("plan", [])
             },
+            "client_summary": analysis.get("client_summary", ""),
             "data_sources": analysis.get("sources", []),
             "source_files": source_files,
             "xo_results_url": "https://d36la414u58rw5.cloudfront.net",
