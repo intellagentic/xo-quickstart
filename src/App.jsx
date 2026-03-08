@@ -6360,6 +6360,9 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
   const [webhookUrl, setWebhookUrl] = useState('')
   const [webhookUrlSaving, setWebhookUrlSaving] = useState(false)
   const [webhookUrlSaved, setWebhookUrlSaved] = useState(false)
+  const [inviteWebhookUrl, setInviteWebhookUrl] = useState('')
+  const [inviteWebhookUrlSaving, setInviteWebhookUrlSaving] = useState(false)
+  const [inviteWebhookUrlSaved, setInviteWebhookUrlSaved] = useState(false)
 
   useEffect(() => {
     if (clientId) {
@@ -6369,6 +6372,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
           if (data) {
             setWebhookEnabled(!!data.streamline_webhook_enabled)
             setWebhookUrl(data.streamline_webhook_url || '')
+            setInviteWebhookUrl(data.invite_webhook_url || '')
           }
         })
         .catch(() => {})
@@ -6439,6 +6443,37 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
       console.error('Failed to save webhook URL:', err)
     }
     setWebhookUrlSaving(false)
+  }
+
+  const saveInviteWebhookUrl = async () => {
+    if (!clientId) return
+    setInviteWebhookUrlSaving(true)
+    setInviteWebhookUrlSaved(false)
+    try {
+      const getRes = await fetch(`${API_BASE}/clients?client_id=${clientId}`, { headers: getAuthHeaders() })
+      if (getRes.ok) {
+        const current = await getRes.json()
+        await fetch(`${API_BASE}/clients`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            client_id: clientId,
+            company_name: current.company_name,
+            website: current.website,
+            contacts: current.contacts || [],
+            industry: current.industry,
+            description: current.description,
+            painPoint: current.painPoint,
+            invite_webhook_url: inviteWebhookUrl
+          })
+        })
+        setInviteWebhookUrlSaved(true)
+        setTimeout(() => setInviteWebhookUrlSaved(false), 2000)
+      }
+    } catch (err) {
+      console.error('Failed to save invite webhook URL:', err)
+    }
+    setInviteWebhookUrlSaving(false)
   }
 
   // Theme-aware colors matching reference C object
@@ -6691,7 +6726,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
               border: `1px solid ${C.border}`
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Webhook URL</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Enrichment Webhook URL</span>
                 {webhookUrlSaving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
                 {webhookUrlSaved && <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>Saved</span>}
               </div>
@@ -6701,6 +6736,40 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
                 onChange={e => setWebhookUrl(e.target.value)}
                 onBlur={saveWebhookUrl}
                 placeholder="https://hooks.example.com/webhook"
+                style={{
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem 0.625rem',
+                  fontSize: '0.8rem',
+                  fontFamily: 'monospace',
+                  color: C.text,
+                  background: C.surface,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  wordBreak: 'break-all'
+                }}
+              />
+            </div>
+            <div style={{
+              marginTop: '0.5rem',
+              padding: '0.625rem 0.875rem',
+              background: `${C.muted}10`,
+              borderRadius: 8,
+              border: `1px solid ${C.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invite Webhook URL</span>
+                {inviteWebhookUrlSaving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
+                {inviteWebhookUrlSaved && <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>Saved</span>}
+              </div>
+              <input
+                type="url"
+                value={inviteWebhookUrl}
+                onChange={e => setInviteWebhookUrl(e.target.value)}
+                onBlur={saveInviteWebhookUrl}
+                placeholder="https://hooks.example.com/invite-webhook"
                 style={{
                   width: '100%',
                   marginTop: 4,

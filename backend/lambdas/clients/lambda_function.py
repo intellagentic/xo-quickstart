@@ -26,10 +26,11 @@ def _run_migrations():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_url VARCHAR(1000);")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS invite_webhook_url VARCHAR(1000);")
         conn.commit()
         cur.close()
         conn.close()
-        print("Migration complete: streamline_webhook_url column ensured")
+        print("Migration complete: streamline_webhook_url + invite_webhook_url columns ensured")
     except Exception as e:
         print(f"Migration check (non-fatal): {e}")
 
@@ -735,7 +736,7 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json
+                           future_plans, pain_points_json, invite_webhook_url
                     FROM clients WHERE s3_folder = %s
                 """, (client_id,))
             elif user.get('is_partner') and user.get('partner_id'):
@@ -746,7 +747,7 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json
+                           future_plans, pain_points_json, invite_webhook_url
                     FROM clients WHERE s3_folder = %s AND partner_id = %s
                 """, (client_id, user['partner_id']))
             else:
@@ -757,7 +758,7 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json
+                           future_plans, pain_points_json, invite_webhook_url
                     FROM clients WHERE s3_folder = %s AND user_id = %s
                 """, (client_id, user['user_id']))
         else:
@@ -882,7 +883,8 @@ def handle_get_client(event, user):
                 'addresses': addresses,
                 'streamline_webhook_url': row[19] or '',
                 'partner_id': row[20],
-                'intellagentic_lead': bool(row[21])
+                'intellagentic_lead': bool(row[21]),
+                'invite_webhook_url': row[24] or ''
             })
         }
     except Exception as e:
@@ -977,6 +979,10 @@ def handle_update_client(event, user):
         if 'streamline_webhook_url' in body:
             set_fields.append("streamline_webhook_url = %s")
             params.append(body['streamline_webhook_url'].strip())
+
+        if 'invite_webhook_url' in body:
+            set_fields.append("invite_webhook_url = %s")
+            params.append(body['invite_webhook_url'].strip())
 
         if 'partner_id' in body:
             set_fields.append("partner_id = %s")
@@ -1157,7 +1163,7 @@ def handle_invite(event):
 
         # Check for existing invite by email
         cur.execute("""
-            SELECT c.id, c.s3_folder, ct.token
+            SELECT c.id, c.s3_folder, ct.token, c.invite_webhook_url
             FROM clients c
             LEFT JOIN client_tokens ct ON ct.client_id = c.id AND ct.expires_at > NOW()
             WHERE c.contact_email = %s AND c.source = 'invite'
@@ -1166,12 +1172,12 @@ def handle_invite(event):
         existing = cur.fetchone()
 
         if existing:
-            db_id, s3_folder, token = existing
+            db_id, s3_folder, token, client_invite_url = existing
             if token:
                 cur.close()
                 conn.close()
                 print(f"Invite signup (existing): {company_name} ({email})")
-                _send_invite_webhook(company_name, first_name, last_name, email, phone, linkedin)
+                _send_invite_webhook(company_name, first_name, last_name, email, phone, linkedin, webhook_url=client_invite_url or '')
                 return {
                     'statusCode': 200,
                     'headers': CORS_HEADERS,
@@ -1259,10 +1265,11 @@ def handle_invite(event):
         }
 
 
-def _send_invite_webhook(company_name, first_name, last_name, email, phone, linkedin):
-    """Best-effort POST to Streamline invite webhook."""
-    if not STREAMLINE_INVITE_WEBHOOK_URL:
-        print("No STREAMLINE_INVITE_WEBHOOK_URL configured, skipping invite webhook")
+def _send_invite_webhook(company_name, first_name, last_name, email, phone, linkedin, webhook_url=''):
+    """Best-effort POST to Streamline invite webhook. Uses per-client URL if provided, falls back to env var."""
+    url = webhook_url or STREAMLINE_INVITE_WEBHOOK_URL
+    if not url:
+        print("No invite webhook URL configured (no per-client URL or env var), skipping")
         return
     try:
         payload = json.dumps({
@@ -1277,13 +1284,13 @@ def _send_invite_webhook(company_name, first_name, last_name, email, phone, link
             'signup_date': datetime.now(timezone.utc).isoformat()
         }).encode('utf-8')
         req = urllib.request.Request(
-            STREAMLINE_INVITE_WEBHOOK_URL,
+            url,
             data=payload,
             headers={'Content-Type': 'application/json'},
             method='POST'
         )
         urllib.request.urlopen(req, timeout=5)
-        print(f"Invite webhook sent for {email}")
+        print(f"Invite webhook sent for {email} to {url}")
     except Exception as e:
         print(f"Invite webhook failed (non-fatal): {e}")
 

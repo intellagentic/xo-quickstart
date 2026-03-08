@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.72)
+**Status:** Deployed & Operational (v1.73)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2656,6 +2656,15 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.73 — Invite Webhook URL: per-client configuration**
+- New `invite_webhook_url VARCHAR(1000)` column on clients table, auto-migrated on Lambda cold start
+- Configuration screen now shows two webhook URL fields under Streamline toggle: "Enrichment Webhook URL" (renamed from "Webhook URL") and "Invite Webhook URL" (new)
+- Both fields save on blur with "Saved" indicator
+- `_send_invite_webhook()` uses per-client `invite_webhook_url` if set, falls back to `STREAMLINE_INVITE_WEBHOOK_URL` env var
+- Added to all 4 SELECT queries, response mapping, and PUT handler in clients Lambda
+- Existing-invite path (duplicate email) also passes per-client URL from DB
+- Deployed: xo-clients Lambda + frontend
 
 **v1.72 — Country code dropdown on all phone fields**
 - Added country code dropdown before phone number input across all 4 locations: Invite page, CompanyInfoModal, Partner Info modal, inline auto-save form
