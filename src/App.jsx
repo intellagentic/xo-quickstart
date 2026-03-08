@@ -23,6 +23,30 @@ function migrateContact(c) {
   }
 }
 
+// Country codes for phone fields
+const COUNTRY_CODES = [
+  { code: '+1', label: '+1 (US/Canada)' },
+  { code: '+44', label: '+44 (UK)' },
+  { code: '+61', label: '+61 (Australia)' },
+  { code: '+353', label: '+353 (Ireland)' },
+  { code: '+256', label: '+256 (Uganda)' },
+  { code: '+971', label: '+971 (UAE)' }
+]
+
+function splitPhone(phone) {
+  if (!phone) return { countryCode: '+1', number: '' }
+  for (const { code } of COUNTRY_CODES) {
+    if (phone.startsWith(code + ' ')) return { countryCode: code, number: phone.slice(code.length + 1) }
+    if (phone.startsWith(code)) return { countryCode: code, number: phone.slice(code.length) }
+  }
+  return { countryCode: '+1', number: phone }
+}
+
+function joinPhone(countryCode, number) {
+  const n = number.trim()
+  return n ? `${countryCode} ${n}` : ''
+}
+
 // Auth helpers
 function getAuthHeaders() {
   const token = localStorage.getItem('xo-token')
@@ -1046,7 +1070,8 @@ function InvitePage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phoneCode, setPhoneCode] = useState('+1')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [linkedin, setLinkedin] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -1074,7 +1099,7 @@ function InvitePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!firstName.trim() || !email.trim() || !phone.trim() || !companyName.trim()) {
+    if (!firstName.trim() || !email.trim() || !phoneNumber.trim() || !companyName.trim()) {
       setError('All fields are required')
       return
     }
@@ -1088,7 +1113,7 @@ function InvitePage() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           email: email.trim(),
-          phone: phone.trim(),
+          phone: joinPhone(phoneCode, phoneNumber),
           linkedin: linkedin.trim(),
           company_name: companyName.trim()
         })
@@ -1229,10 +1254,10 @@ function InvitePage() {
             {/* Email, Phone, LinkedIn, Company */}
             {[
               { label: 'Email', value: email, set: setEmail, auto: 'email', type: 'email', req: true },
-              { label: 'Phone', value: phone, set: setPhone, auto: 'tel', type: 'tel', req: true },
+              { label: 'Phone', isPhone: true, req: true },
               { label: 'linkedin', value: linkedin, set: setLinkedin, auto: 'url', type: 'url', req: false, placeholder: 'linkedin.com/in/yourprofile' },
               { label: 'Company', value: companyName, set: setCompanyName, auto: 'organization', type: 'text', req: true }
-            ].map(({ label, value, set, auto, type, req, placeholder }) => (
+            ].map(({ label, value, set, auto, type, req, placeholder, isPhone }) => (
               <div key={label} style={{ marginBottom: '6px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#888', marginBottom: '2px', letterSpacing: '1px' }}>
                   {label === 'linkedin' ? (
@@ -1240,28 +1265,51 @@ function InvitePage() {
                   ) : label}
                   {!req && <span style={{ fontSize: '9px', color: '#666', fontStyle: 'italic' }}>(optional)</span>}
                 </label>
-                <input
-                  type={type}
-                  value={value}
-                  onChange={e => set(e.target.value)}
-                  autoComplete={auto}
-                  required={req}
-                  placeholder={placeholder || ''}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    fontSize: '16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: '6px',
-                    color: '#fff',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={e => e.target.style.borderColor = 'rgba(220, 38, 38, 0.6)'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
-                />
+                {isPhone ? (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <select value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
+                      style={{
+                        width: '90px', flexShrink: 0, padding: '8px 4px', fontSize: '14px',
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '6px', color: '#fff', outline: 'none'
+                      }}>
+                      {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code} style={{ background: '#1a1a2e' }}>{cc.label}</option>)}
+                    </select>
+                    <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
+                      autoComplete="tel" required
+                      style={{
+                        flex: 1, padding: '8px 10px', fontSize: '16px',
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '6px', color: '#fff', outline: 'none', transition: 'border-color 0.2s',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={e => e.target.style.borderColor = 'rgba(220, 38, 38, 0.6)'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'} />
+                  </div>
+                ) : (
+                  <input
+                    type={type}
+                    value={value}
+                    onChange={e => set(e.target.value)}
+                    autoComplete={auto}
+                    required={req}
+                    placeholder={placeholder || ''}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      fontSize: '16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => e.target.style.borderColor = 'rgba(220, 38, 38, 0.6)'}
+                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
+                  />
+                )}
               </div>
             ))}
 
@@ -2416,8 +2464,14 @@ function PartnersScreen({ partners, setPartners }) {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                           <input type="email" value={contact.email || ''} onChange={e => updateFormContact(idx, 'email', e.target.value)}
                             placeholder="Email" style={contactFieldStyle} />
-                          <input type="text" value={contact.phone || ''} onChange={e => updateFormContact(idx, 'phone', e.target.value)}
-                            placeholder="Phone" style={contactFieldStyle} />
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <select value={splitPhone(contact.phone).countryCode} onChange={e => updateFormContact(idx, 'phone', joinPhone(e.target.value, splitPhone(contact.phone).number))}
+                              style={{ ...contactFieldStyle, width: '80px', flexShrink: 0, padding: '0.35rem 0.2rem' }}>
+                              {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
+                            </select>
+                            <input type="tel" value={splitPhone(contact.phone).number} onChange={e => updateFormContact(idx, 'phone', joinPhone(splitPhone(contact.phone).countryCode, e.target.value))}
+                              placeholder="Phone" style={{ ...contactFieldStyle, flex: 1 }} />
+                          </div>
                         </div>
                         <input type="url" value={contact.linkedin || ''} onChange={e => updateFormContact(idx, 'linkedin', e.target.value)}
                           placeholder="LinkedIn URL" style={contactFieldStyle} />
@@ -2802,8 +2856,14 @@ function CompanyInfoModal({ companyData, setCompanyData, onClose, onClientCreate
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                       <input type="email" value={contact.email} onChange={(e) => updateContact(idx, 'email', e.target.value)}
                         placeholder="Email" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
-                      <input type="text" value={contact.phone} onChange={(e) => updateContact(idx, 'phone', e.target.value)}
-                        placeholder="Phone" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <select value={splitPhone(contact.phone).countryCode} onChange={(e) => updateContact(idx, 'phone', joinPhone(e.target.value, splitPhone(contact.phone).number))}
+                          style={{ width: '80px', flexShrink: 0, padding: '0.5rem 0.2rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }}>
+                          {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
+                        </select>
+                        <input type="tel" value={splitPhone(contact.phone).number} onChange={(e) => updateContact(idx, 'phone', joinPhone(splitPhone(contact.phone).countryCode, e.target.value))}
+                          placeholder="Phone" style={{ flex: 1, padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
+                      </div>
                     </div>
                     <input type="url" value={contact.linkedin} onChange={(e) => updateContact(idx, 'linkedin', e.target.value)}
                       placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'inherit' }} />
@@ -3794,8 +3854,14 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem' }}>
                     <input type="email" value={contact.email} onChange={(e) => updateContact(idx, 'email', e.target.value)} onBlur={autoSave}
                       placeholder="Email" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
-                    <input type="text" value={contact.phone} onChange={(e) => updateContact(idx, 'phone', e.target.value)} onBlur={autoSave}
-                      placeholder="Phone" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <select value={splitPhone(contact.phone).countryCode} onChange={(e) => { updateContact(idx, 'phone', joinPhone(e.target.value, splitPhone(contact.phone).number)); setTimeout(autoSave, 0) }}
+                        style={{ width: '72px', flexShrink: 0, padding: '0.375rem 0.15rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }}>
+                        {COUNTRY_CODES.map(cc => <option key={cc.code} value={cc.code}>{cc.code}</option>)}
+                      </select>
+                      <input type="tel" value={splitPhone(contact.phone).number} onChange={(e) => updateContact(idx, 'phone', joinPhone(splitPhone(contact.phone).countryCode, e.target.value))} onBlur={autoSave}
+                        placeholder="Phone" style={{ flex: 1, padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />
+                    </div>
                   </div>
                   <input type="url" value={contact.linkedin || ''} onChange={(e) => updateContact(idx, 'linkedin', e.target.value)} onBlur={autoSave}
                     placeholder="LinkedIn URL" style={{ width: '100%', padding: '0.375rem 0.5rem', background: '#ffffff', border: '1px solid #d1d5db', borderRadius: '5px', fontSize: '0.75rem', color: '#111827', fontFamily: 'inherit', outline: 'none' }} />

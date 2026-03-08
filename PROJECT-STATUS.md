@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.71)
+**Status:** Deployed & Operational (v1.72)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2656,6 +2656,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.72 — Country code dropdown on all phone fields**
+- Added country code dropdown before phone number input across all 4 locations: Invite page, CompanyInfoModal, Partner Info modal, inline auto-save form
+- Country codes: +1 (US/Canada), +44 (UK), +61 (Australia), +353 (Ireland), +256 (Uganda), +971 (UAE) — defaults to +1
+- Shared utilities at top of App.jsx: `COUNTRY_CODES` array, `splitPhone()` parser, `joinPhone()` combiner
+- Stored as combined value (e.g. `+44 7700900123`) — `splitPhone()` parses existing values to pre-select correct dropdown
+- Small dropdown on left, phone input taking remaining width on right
 
 **v1.71 — XO + Streamline dual-layer architecture in system skills**
 - Updated `analysis-framework.md` system skill to distinguish XO (intelligence layer) from Streamline (action layer)
