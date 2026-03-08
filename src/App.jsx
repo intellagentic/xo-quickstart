@@ -6656,6 +6656,34 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
                 />
               </div>
 
+              {/* Default Enrichment Webhook URL */}
+              <div style={{
+                marginTop: '0.5rem',
+                padding: '0.625rem 0.875rem',
+                background: `${C.muted}10`,
+                borderRadius: 8,
+                border: `1px solid ${C.border}`
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Default Enrichment Webhook URL</span>
+                  {sysEnrichmentSaving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
+                  {sysEnrichmentSaved && <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>Saved</span>}
+                </div>
+                <input
+                  type="url"
+                  value={sysEnrichmentUrl}
+                  onChange={e => setSysEnrichmentUrl(e.target.value)}
+                  onBlur={() => saveSysConfig('enrichment_webhook_url', sysEnrichmentUrl, setSysEnrichmentSaving, setSysEnrichmentSaved)}
+                  placeholder="https://hooks.example.com/webhook"
+                  style={{
+                    width: '100%', marginTop: 4, padding: '0.5rem 0.625rem',
+                    fontSize: '0.8rem', fontFamily: 'monospace', color: C.text,
+                    background: C.surface, border: `1px solid ${C.border}`,
+                    borderRadius: 6, outline: 'none', boxSizing: 'border-box', wordBreak: 'break-all'
+                  }}
+                />
+              </div>
+
               {/* Send to Streamline toggle */}
               <div style={{
                 display: 'flex',
@@ -6696,36 +6724,8 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, preferre
                 </button>
               </div>
 
-              {/* Default Enrichment Webhook URL */}
-              <div style={{
-                marginTop: '0.5rem',
-                padding: '0.625rem 0.875rem',
-                background: `${C.muted}10`,
-                borderRadius: 8,
-                border: `1px solid ${C.border}`
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Default Enrichment Webhook URL</span>
-                  {sysEnrichmentSaving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
-                  {sysEnrichmentSaved && <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>Saved</span>}
-                </div>
-                <input
-                  type="url"
-                  value={sysEnrichmentUrl}
-                  onChange={e => setSysEnrichmentUrl(e.target.value)}
-                  onBlur={() => saveSysConfig('enrichment_webhook_url', sysEnrichmentUrl, setSysEnrichmentSaving, setSysEnrichmentSaved)}
-                  placeholder="https://hooks.example.com/webhook"
-                  style={{
-                    width: '100%', marginTop: 4, padding: '0.5rem 0.625rem',
-                    fontSize: '0.8rem', fontFamily: 'monospace', color: C.text,
-                    background: C.surface, border: `1px solid ${C.border}`,
-                    borderRadius: 6, outline: 'none', boxSizing: 'border-box', wordBreak: 'break-all'
-                  }}
-                />
-              </div>
-
               <p style={{ fontSize: '0.7rem', color: C.muted, marginTop: '0.625rem', lineHeight: 1.4 }}>
-                Per-client enrichment URL (set in client Configuration) overrides the default above.
+                Per-client settings (in client Configuration) override these system defaults.
               </p>
             </div>
           </div>

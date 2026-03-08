@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.76)
+**Status:** Deployed & Operational (v1.77)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2658,8 +2658,13 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
 
+**v1.77 — Reorder System Configuration: toggle below URL fields**
+- Moved "Send to Streamline" toggle below Default Enrichment Webhook URL (order: Invite URL → Enrichment URL → toggle)
+- Updated help text to "Per-client settings (in client Configuration) override these system defaults."
+- Deployed: frontend only
+
 **v1.76 — System-level Send to Streamline toggle**
-- New "Send to Streamline" toggle on System Configuration screen, between Invite Webhook URL and Default Enrichment Webhook URL
+- New "Send to Streamline" toggle on System Configuration screen, below Default Enrichment Webhook URL
 - Stored in `system_config` table as `streamline_webhook_enabled` (`"true"` / `"false"`), OFF by default
 - xo-enrich Lambda: after enrichment completes, checks per-client toggle first; if OFF, falls back to system-level toggle from `system_config`
 - Precedence: per-client ON → fires; per-client OFF → check system default; system ON → fires; system OFF → manual only
