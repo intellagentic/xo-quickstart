@@ -1181,8 +1181,8 @@ function InvitePage() {
       {/* Subtle text */}
       <p style={{
         margin: 0,
-        fontSize: '12px',
-        color: '#555',
+        fontSize: '14px',
+        color: '#c0c0c0',
         letterSpacing: '3px',
         fontStyle: 'italic'
       }}>Your Second-in-Command</p>
