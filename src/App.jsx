@@ -1271,7 +1271,7 @@ function InvitePage() {
             <CheckCircle size={40} style={{ color: '#22c55e', marginBottom: '12px' }} />
             <h2 style={{ fontSize: '24px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>You're in.</h2>
             <p style={{ color: '#aaa', fontSize: '15px', margin: '0 0 24px' }}>We'll send your access on March 16.</p>
-            <img src={intellistackLogo} alt="Intellagentic" style={{ height: '22px', opacity: 0.5 }} />
+            <img src={logoLight} alt="Intellagentic" style={{ height: '22px', opacity: 0.5 }} />
           </div>
         )}
       </div>
