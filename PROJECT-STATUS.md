@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.67)
+**Status:** Deployed & Operational (v1.68)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -73,6 +73,18 @@
 
 ```
 App (root)
+|
++-- InvitePage (if pathname === '/invite') — public, no auth
+|     +-- Dark gradient background (0a0a0f → 1a1a2e → 0a0a0f)
+|     +-- XO red logo box + "Capture" header
+|     +-- "Invitation" heading (42px, light weight, letter-spaced)
+|     +-- Tagline: "XO clears the path. You decide. Streamline Acts."
+|     +-- Countdown timer (4 boxes: Days/Hrs/Min/Sec → March 16 2026 10AM PST)
+|     +-- "Something is coming." italic text
+|     +-- Glass-morphism form card (first name, email, company)
+|     +-- Submit → POST /invite → confirmation with CheckCircle
+|     +-- "Launch XO Capture" button (magic link URL)
+|     +-- Intellagentic logo footer
 |
 +-- LoginScreen (if !isLoggedIn)
 |     +-- Header bar (same as main app: XO logo box, "Rapid Deployment", Intellagentic logo)
@@ -775,7 +787,7 @@ Browser                          API Gateway                Lambda (xo-auth)    
 
 ## API ENDPOINTS
 
-**Authentication:** All endpoints except POST /auth/login, /auth/register, /auth/reset-password require a JWT Bearer token in the Authorization header.
+**Authentication:** All endpoints except POST /auth/login, /auth/register, /auth/reset-password, and POST /invite require a JWT Bearer token in the Authorization header.
 
 ### POST /auth/login
 
@@ -2644,6 +2656,22 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.68 — Invite Landing Page for HIMSS 2026**
+- New public `/invite` page — dark-themed, mobile-first landing page for conference signups (no auth required)
+- `InvitePage` component: dark gradient background, XO Capture header, "Invitation" heading, tagline
+- Live countdown timer to March 16, 2026 10:00 AM PST (4 red-tinted boxes: Days/Hrs/Min/Sec)
+- Glass-morphism form card with 3 inputs: First Name, Email, Company (16px+ fonts, red focus borders)
+- Submit → `POST /invite` → creates client (S3 folders, client-config.md, default skill) + generates 30-day magic link
+- Confirmation screen: CheckCircle icon, "You're in. We'll be in touch.", "Launch XO Capture" button (magic link URL)
+- Idempotent: same email returns existing magic link (no duplicate clients)
+- Backend: `handle_invite()` in clients Lambda, routed before auth check
+- Auto-migration: `source` column on clients table, `user_id` made nullable for invite clients
+- Fires `invite_signup` webhook to Streamline with client name, contact, email, magic link URL
+- API Gateway: `/invite` resource with POST + OPTIONS methods → Lambda proxy to xo-clients
+- `STREAMLINE_WEBHOOK_URL` and `FRONTEND_URL` env vars added to clients Lambda
+- Intellagentic logo footer with copyright
+- CloudFront SPA routing handles `/invite` path (404 → index.html already configured)
 
 **v1.66 — Streamline Applications: new system skill + Potential Streamline Applications on Results screen**
 - New system skill: `streamline-applications.md` — full reference of 12 Streamline workflow steps and 15 integrations
