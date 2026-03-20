@@ -18,6 +18,11 @@ Query params for PUT body:
 
 import json
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import encrypt, decrypt
+except ImportError:
+    def encrypt(x): return x
+    def decrypt(x): return x
 
 
 # ── Auto-migration: add client_id column, make user_id nullable ──
@@ -123,7 +128,7 @@ def handle_get(event, user):
                 'label': row[1],
                 'icon': row[2],
                 'color': row[3],
-                'url': row[4] or '',
+                'url': decrypt(row[4]) or '',
                 'sort_order': row[5],
                 'scope': 'system' if row[6] is None else 'client'
             })
@@ -176,7 +181,7 @@ def handle_sync(event, user):
                     btn.get('label', btn.get('name', 'Button')),
                     btn.get('icon', 'Zap'),
                     btn.get('color', '#3b82f6'),
-                    btn.get('url', ''),
+                    encrypt(btn.get('url', '')),
                     btn.get('sort_order', i)
                 ))
             print(f"Synced {len(buttons)} system buttons by {user['email']}")
@@ -194,7 +199,7 @@ def handle_sync(event, user):
                     btn.get('label', btn.get('name', 'Button')),
                     btn.get('icon', 'Zap'),
                     btn.get('color', '#3b82f6'),
-                    btn.get('url', ''),
+                    encrypt(btn.get('url', '')),
                     btn.get('sort_order', i)
                 ))
             print(f"Synced {len(buttons)} client buttons for {client_id} by {user['email']}")
@@ -211,7 +216,7 @@ def handle_sync(event, user):
                     btn.get('label', btn.get('name', 'Button')),
                     btn.get('icon', 'Zap'),
                     btn.get('color', '#3b82f6'),
-                    btn.get('url', ''),
+                    encrypt(btn.get('url', '')),
                     btn.get('sort_order', i)
                 ))
             print(f"Synced {len(buttons)} buttons for user {user['email']}")

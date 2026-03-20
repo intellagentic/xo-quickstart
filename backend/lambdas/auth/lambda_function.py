@@ -16,11 +16,23 @@ import jwt
 import urllib.request
 from datetime import datetime, timedelta, timezone
 import psycopg2
+try:
+    from crypto_helper import encrypt, decrypt, encrypt_json, decrypt_json, search_hash
+except ImportError:
+    # Fallback if crypto_helper.py not yet deployed — pass-through mode
+    def encrypt(x): return x
+    def decrypt(x): return x
+    def encrypt_json(x): return __import__('json').dumps(x) if x else x
+    def decrypt_json(x):
+        if not x: return None
+        try: return __import__('json').loads(x)
+        except: return None
+    def search_hash(x): return __import__('hashlib').sha256(x.lower().strip().encode()).hexdigest() if x else ''
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 JWT_SECRET = os.environ.get('JWT_SECRET', '')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://d36la414u58rw5.cloudfront.net')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://d2np82m8rfcd6u.cloudfront.net/')
 
 # Seed these emails as role='admin' on cold start
 ADMIN_SEED_EMAILS = [
@@ -72,13 +84,17 @@ def _run_role_migrations():
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'client'")
         # Add partner_id FK to users (links partner users to their partner record)
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS partner_id INTEGER REFERENCES partners(id) ON DELETE SET NULL")
-        # Seed admin roles for known admin emails
+        # Add email_hash for encrypted email lookups
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_hash VARCHAR(64)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_email_hash ON users(email_hash)")
+        # Seed admin roles for known admin emails (match by email_hash or legacy plaintext email)
         for email in ADMIN_SEED_EMAILS:
-            cur.execute("UPDATE users SET role = 'admin' WHERE email = %s AND (role IS NULL OR role = 'client')", (email,))
+            email_h = search_hash(email)
+            cur.execute("UPDATE users SET role = 'admin' WHERE (email_hash = %s OR email = %s) AND (role IS NULL OR role = 'client')", (email_h, email))
         conn.commit()
         cur.close()
         conn.close()
-        print("Migration complete: users role + partner_id columns ensured, admins seeded")
+        print("Migration complete: users role + partner_id + email_hash columns ensured, admins seeded")
     except Exception as e:
         print(f"Role migration check (non-fatal): {e}")
 
@@ -156,13 +172,14 @@ def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-2
 
 def _upsert_user(conn, cur, email, name, role='client', partner_id=None):
     """Upsert a user record. Returns user_id."""
-    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    email_h = search_hash(email)
+    cur.execute("SELECT id FROM users WHERE email_hash = %s OR email = %s", (email_h, email))
     row = cur.fetchone()
     if row:
         return row[0]
     cur.execute(
-        "INSERT INTO users (email, password_hash, name, role, partner_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (email, 'google-oauth-no-password', name, role, partner_id)
+        "INSERT INTO users (email, email_hash, password_hash, name, role, partner_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (encrypt(email), email_h, 'google-oauth-no-password', encrypt(name), role, partner_id)
     )
     user_id = cur.fetchone()[0]
     conn.commit()
@@ -516,14 +533,18 @@ def handle_google_login(event):
         cur = conn.cursor()
 
         # Step 1: Check if user exists in DB with a role
+        email_h = search_hash(email)
         cur.execute(
-            "SELECT id, email, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email = %s",
-            (email,)
+            "SELECT id, email, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email_hash = %s OR email = %s",
+            (email_h, email)
         )
         user_row = cur.fetchone()
 
         if user_row:
-            user_id, user_email, user_name, preferred_model, role, partner_id = user_row
+            user_id, user_email, user_name, preferred_model, role, partner_id = (
+                user_row[0], decrypt(user_row[1]), decrypt(user_row[2]),
+                user_row[3], user_row[4], user_row[5]
+            )
 
             if role == 'admin':
                 cur.close()
@@ -540,7 +561,7 @@ def handle_google_login(event):
             # role='client' in DB — still check client contacts below
 
         # Step 2: Check if email is in ADMIN_SEED_EMAILS (in case user not yet in DB)
-        if email in ADMIN_SEED_EMAILS:
+        if email.lower() in [e.lower() for e in ADMIN_SEED_EMAILS]:
             user_id = _upsert_user(conn, cur, email, name, role='admin')
             # Also ensure role is set correctly for existing users
             cur.execute("UPDATE users SET role = 'admin' WHERE id = %s", (user_id,))
@@ -557,7 +578,9 @@ def handle_google_login(event):
         for row in rows:
             db_client_id, s3_folder, contacts_raw, company_name = row
             try:
-                contacts = json.loads(contacts_raw)
+                contacts = decrypt_json(contacts_raw)
+                if not contacts:
+                    contacts = json.loads(contacts_raw)
             except (json.JSONDecodeError, TypeError):
                 continue
             for contact in contacts:
@@ -608,16 +631,23 @@ def handle_login(event):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
+        email_h = search_hash(email)
         cur.execute(
-            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email = %s",
-            (email,)
+            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email_hash = %s OR email = %s",
+            (email_h, email)
         )
         row = cur.fetchone()
 
         if row:
             cur.close()
             conn.close()
-            user_id, user_email, password_hash, user_name, preferred_model, role, partner_id = row
+            user_id = row[0]
+            user_email = decrypt(row[1])
+            password_hash = row[2]
+            user_name = decrypt(row[3])
+            preferred_model = row[4]
+            role = row[5]
+            partner_id = row[6]
 
             if not bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
                 return {
@@ -643,8 +673,8 @@ def handle_login(event):
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
             cur.execute(
-                "INSERT INTO users (email, password_hash, name, role) VALUES (%s, %s, %s, 'client') RETURNING id",
-                (email, password_hash, name)
+                "INSERT INTO users (email, email_hash, password_hash, name, role) VALUES (%s, %s, %s, %s, 'client') RETURNING id",
+                (encrypt(email), email_h, password_hash, encrypt(name))
             )
             user_id = cur.fetchone()[0]
             conn.commit()
@@ -693,7 +723,8 @@ def handle_register(event):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        email_h = search_hash(email)
+        cur.execute("SELECT id FROM users WHERE email_hash = %s OR email = %s", (email_h, email))
         if cur.fetchone():
             cur.close()
             conn.close()
@@ -704,8 +735,8 @@ def handle_register(event):
             }
 
         cur.execute(
-            "INSERT INTO users (email, password_hash, name, role) VALUES (%s, %s, %s, 'client') RETURNING id",
-            (email, password_hash, name)
+            "INSERT INTO users (email, email_hash, password_hash, name, role) VALUES (%s, %s, %s, %s, 'client') RETURNING id",
+            (encrypt(email), email_h, password_hash, encrypt(name))
         )
         user_id = cur.fetchone()[0]
         conn.commit()
@@ -748,8 +779,10 @@ def handle_reset_password(event):
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-        if not cur.fetchone():
+        email_h = search_hash(email)
+        cur.execute("SELECT id FROM users WHERE email_hash = %s OR email = %s", (email_h, email))
+        user_row = cur.fetchone()
+        if not user_row:
             cur.close()
             conn.close()
             return {
@@ -759,7 +792,7 @@ def handle_reset_password(event):
             }
 
         password_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cur.execute("UPDATE users SET password_hash = %s WHERE email = %s", (password_hash, email))
+        cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_row[0]))
         conn.commit()
         cur.close()
         conn.close()

@@ -9,9 +9,14 @@ import os
 from datetime import datetime
 import boto3
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import unwrap_client_key, decrypt_s3_body
+except ImportError:
+    def unwrap_client_key(x): return None
+    def decrypt_s3_body(k, b): return b if isinstance(b, str) else b.decode('utf-8', errors='replace') if b else ''
 
 s3_client = boto3.client('s3')
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 
 
 def lambda_handler(event, context):
@@ -50,14 +55,14 @@ def lambda_handler(event, context):
         if user.get('is_admin'):
             cur.execute("""
                 SELECT company_name, website_url, contact_name, contact_title,
-                       industry, description, pain_point
+                       industry, description, pain_point, encryption_key
                 FROM clients
                 WHERE s3_folder = %s
             """, (client_id,))
         else:
             cur.execute("""
                 SELECT company_name, website_url, contact_name, contact_title,
-                       industry, description, pain_point
+                       industry, description, pain_point, encryption_key
                 FROM clients
                 WHERE s3_folder = %s AND user_id = %s
             """, (client_id, user['user_id']))
@@ -73,6 +78,8 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'Client not found'})
             }
 
+        ck = unwrap_client_key(row[7]) if row[7] else None
+
         company_name = row[0] or 'Unknown Company'
         website_url = row[1] or ''
         contact_name = row[2] or ''
@@ -81,11 +88,13 @@ def lambda_handler(event, context):
         description = row[5] or ''
         pain_point = row[6] or ''
 
-        # Read analysis.json from S3
+        # Read analysis.json from S3 (decrypt with client key)
         s3_key = f"{client_id}/results/analysis.json"
         try:
             response = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-            analysis = json.loads(response['Body'].read().decode('utf-8'))
+            raw = response['Body'].read()
+            decrypted = decrypt_s3_body(ck, raw)
+            analysis = json.loads(decrypted)
         except s3_client.exceptions.NoSuchKey:
             return {
                 'statusCode': 404,

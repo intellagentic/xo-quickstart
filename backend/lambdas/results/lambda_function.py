@@ -8,9 +8,14 @@ import json
 import os
 import boto3
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import unwrap_client_key, decrypt_s3_body
+except ImportError:
+    def unwrap_client_key(x): return None
+    def decrypt_s3_body(k, b): return b if isinstance(b, str) else b.decode('utf-8', errors='replace') if b else ''
 
 s3_client = boto3.client('s3')
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 
 
 def lambda_handler(event, context):
@@ -47,7 +52,7 @@ def lambda_handler(event, context):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT e.status, e.results_s3_key, e.stage
+            SELECT e.status, e.results_s3_key, e.stage, c.encryption_key
             FROM enrichments e
             JOIN clients c ON e.client_id = c.id
             WHERE c.s3_folder = %s AND c.user_id = %s
@@ -59,8 +64,11 @@ def lambda_handler(event, context):
         cur.close()
         conn.close()
 
+        # Get client encryption key
+        ck = unwrap_client_key(row[3]) if row and row[3] else None
+
         if row:
-            enrichment_status, results_s3_key, enrichment_stage = row
+            enrichment_status, results_s3_key, enrichment_stage = row[0], row[1], row[2]
 
             if enrichment_status == 'processing':
                 return {
@@ -94,7 +102,9 @@ def lambda_handler(event, context):
                 Bucket=BUCKET_NAME,
                 Key=s3_key
             )
-            results = json.loads(response['Body'].read().decode('utf-8'))
+            raw = response['Body'].read()
+            decrypted = decrypt_s3_body(ck, raw)
+            results = json.loads(decrypted)
 
             # Guarantee status field exists for frontend polling
             results['status'] = 'complete'

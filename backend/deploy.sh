@@ -6,9 +6,9 @@
 
 set -e
 
-REGION="us-west-1"
-BUCKET_NAME="xo-client-data"
-LAYER_NAME="xo-psycopg2"
+REGION="eu-west-2"
+BUCKET_NAME="xo-client-data-mv"
+LAYER_NAME="psycopg2-py311"
 
 echo "🚀 XO Platform - Lambda Deployment"
 echo "=================================="
@@ -27,6 +27,9 @@ if [ "$LAYER_ARN" = "None" ] || [ -z "$LAYER_ARN" ]; then
     LAYER_ARN=""
 fi
 
+LAYERS="arn:aws:lambda:eu-west-2:290528720671:layer:bcrypt-jwt-layer:1 \
+        arn:aws:lambda:eu-west-2:290528720671:layer:psycopg2-py311:1"
+echo $LAYERS
 # Helper function to deploy a Lambda
 deploy_lambda() {
     local FUNC_NAME=$1
@@ -37,10 +40,11 @@ deploy_lambda() {
     echo "📦 Deploying $FUNC_NAME Lambda..."
     cd lambdas/$FUNC_DIR
 
-    # Copy auth_helper into package
+    # Copy shared helpers into package
     cp ../shared/auth_helper.py .
+    cp ../shared/crypto_helper.py .
 
-    zip -q -r function.zip lambda_function.py auth_helper.py
+    zip -q -r function.zip lambda_function.py auth_helper.py crypto_helper.py
 
     if aws lambda get-function --function-name $FUNC_NAME --region $REGION 2>/dev/null; then
         echo "   Updating existing function..."
@@ -54,7 +58,7 @@ deploy_lambda() {
         if [ -n "$LAYER_ARN" ]; then
             aws lambda update-function-configuration \
                 --function-name $FUNC_NAME \
-                --layers $LAYER_ARN \
+                --layers $LAYERS \
                 --region $REGION \
                 --output text > /dev/null 2>/dev/null || true
         fi
@@ -62,7 +66,7 @@ deploy_lambda() {
         echo "   Creating new function..."
         local LAYER_FLAG=""
         if [ -n "$LAYER_ARN" ]; then
-            LAYER_FLAG="--layers $LAYER_ARN"
+            LAYER_FLAG="--layers $LAYERS"
         fi
         aws lambda create-function \
             --function-name $FUNC_NAME \
@@ -79,7 +83,7 @@ deploy_lambda() {
     fi
 
     # Clean up
-    rm -f function.zip auth_helper.py
+    rm -f function.zip auth_helper.py crypto_helper.py
     cd ../..
     echo "   ✅ $FUNC_NAME deployed"
 }
@@ -90,6 +94,9 @@ deploy_lambda "xo-upload" "upload"
 deploy_lambda "xo-results" "results"
 deploy_lambda "xo-auth" "auth"
 deploy_lambda "xo-buttons" "buttons"
+deploy_lambda "xo-enrich" "enrich"
+deploy_lambda "xo-gdrive-import" "gdrive"
+deploy_lambda "xo-rapid-prototype" "rapid-prototype"
 
 echo ""
 echo "✨ Simple Lambda deployment complete!"
