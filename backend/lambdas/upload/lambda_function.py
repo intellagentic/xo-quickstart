@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
 
 s3_client = boto3.client('s3')
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 URL_EXPIRATION = 3600  # 1 hour
 
 

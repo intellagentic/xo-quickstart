@@ -1,0 +1,6 @@
+pytest>=7.0
+pytest-cov>=4.0
+cryptography>=41.0
+PyJWT>=2.8
+bcrypt>=4.0
+psycopg2-binary>=2.9

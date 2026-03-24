@@ -9,7 +9,7 @@ import intellistackLogo from './assets/intellistack-logo.png'
 // Three screens: Upload -> Enrich -> Results
 // ============================================================
 
-const API_BASE = 'https://2t9mg17baj.execute-api.us-west-1.amazonaws.com/prod'
+const API_BASE = 'https://odvopohlp3.execute-api.eu-west-2.amazonaws.com/prod'
 
 // Migrate contact: split legacy "name" into firstName/lastName if needed
 function migrateContact(c) {

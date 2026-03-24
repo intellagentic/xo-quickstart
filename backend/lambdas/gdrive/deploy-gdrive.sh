@@ -16,9 +16,10 @@ pip3 install -r requirements.txt -t package/ --quiet \
   --python-version 3.11 \
   --only-binary=:all:
 
-# Copy Lambda function and auth helper
+# Copy Lambda function and shared helpers
 cp lambda_function.py package/
 cp ../shared/auth_helper.py package/
+cp ../shared/crypto_helper.py package/
 
 # Create zip
 cd package

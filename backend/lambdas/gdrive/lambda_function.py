@@ -19,11 +19,18 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import encrypt, decrypt, unwrap_client_key, encrypt_s3_bytes
+except ImportError:
+    def encrypt(x): return x
+    def decrypt(x): return x
+    def unwrap_client_key(x): return None
+    def encrypt_s3_bytes(k, d): return d
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
-GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://d36la414u58rw5.cloudfront.net/')
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://d2np82m8rfcd6u.cloudfront.net/')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
@@ -145,7 +152,7 @@ def handle_callback(event):
                 'body': json.dumps({'error': 'No refresh token received. Please revoke app access in Google and try again.'})
             }
 
-        # Store refresh token in DB
+        # Store refresh token in DB (encrypted)
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
@@ -153,7 +160,7 @@ def handle_callback(event):
                SET google_drive_refresh_token = %s,
                    google_drive_connected_at = %s
                WHERE id = %s""",
-            (credentials.refresh_token, datetime.now(timezone.utc), user['user_id'])
+            (encrypt(credentials.refresh_token), datetime.now(timezone.utc), user['user_id'])
         )
         conn.commit()
         cur.close()
@@ -199,7 +206,7 @@ def handle_list_files(event):
                 'body': json.dumps({'error': 'Google Drive not connected'})
             }
 
-        refresh_token = row[0]
+        refresh_token = decrypt(row[0])
         service = _get_drive_service(refresh_token)
 
         # Get folder_id from query params
@@ -268,7 +275,7 @@ def handle_import(event):
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "SELECT s3_folder FROM clients WHERE id = %s AND user_id = %s",
+            "SELECT s3_folder, encryption_key FROM clients WHERE id = %s AND user_id = %s",
             (client_id, user['user_id'])
         )
         row = cur.fetchone()
@@ -281,6 +288,7 @@ def handle_import(event):
                 'body': json.dumps({'error': 'Client not found or not owned by user'})
             }
         s3_folder = row[0]
+        ck = unwrap_client_key(row[1]) if row[1] else None
 
         # Get refresh token
         cur.execute(
@@ -297,7 +305,7 @@ def handle_import(event):
                 'body': json.dumps({'error': 'Google Drive not connected'})
             }
 
-        refresh_token = token_row[0]
+        refresh_token = decrypt(token_row[0])
         service = _get_drive_service(refresh_token)
 
         imported_files = []
@@ -336,13 +344,14 @@ def handle_import(event):
 
             buffer.seek(0)
 
-            # Upload to S3
+            # Upload to S3 (encrypted with client key)
             s3_key = f"{s3_folder}/uploads/{file_name}"
+            file_data = buffer.read()
             s3.put_object(
                 Bucket=BUCKET_NAME,
                 Key=s3_key,
-                Body=buffer.read(),
-                ContentType=content_type
+                Body=encrypt_s3_bytes(ck, file_data),
+                ContentType='application/octet-stream'
             )
 
             # Record in uploads table

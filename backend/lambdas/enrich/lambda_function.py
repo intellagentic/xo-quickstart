@@ -19,12 +19,34 @@ import csv
 from datetime import datetime, timezone
 from anthropic import Anthropic
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import (
+        decrypt, decrypt_json, unwrap_client_key,
+        client_decrypt, client_decrypt_json,
+        decrypt_s3_body, decrypt_s3_bytes, encrypt_s3_body
+    )
+except ImportError:
+    import json as _json
+    def decrypt(x): return x
+    def decrypt_json(x):
+        if not x: return None
+        try: return _json.loads(x)
+        except: return None
+    def unwrap_client_key(x): return None
+    def client_decrypt(k, x): return x
+    def client_decrypt_json(k, x):
+        if not x: return None
+        try: return _json.loads(x)
+        except: return None
+    def decrypt_s3_body(k, b): return b if isinstance(b, str) else b.decode('utf-8', errors='replace') if b else ''
+    def decrypt_s3_bytes(k, d): return d
+    def encrypt_s3_body(k, b): return b if isinstance(b, bytes) else (b.encode('utf-8') if b else b'')
 
 s3_client = boto3.client('s3')
 lambda_client = boto3.client('lambda')
 transcribe_client = boto3.client('transcribe')
 
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 FUNCTION_NAME = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'xo-enrich')
 STREAMLINE_WEBHOOK_URL = os.environ.get('STREAMLINE_WEBHOOK_URL', '')
@@ -229,7 +251,7 @@ def _run_enrichment_pipeline(event):
                    logo_s3_key, icon_s3_key,
                    COALESCE(streamline_webhook_enabled, FALSE),
                    contact_email, contact_phone, contacts_json, addresses_json,
-                   streamline_webhook_url
+                   streamline_webhook_url, encryption_key
             FROM clients WHERE id = %s
         """, (db_client_id,))
         row = cur.fetchone()
@@ -238,26 +260,31 @@ def _run_enrichment_pipeline(event):
             conn.close()
             return {'status': 'error', 'message': 'Client not found'}
 
+        # Unwrap per-client encryption key
+        ck = unwrap_client_key(row[16]) if row[16] else None
+
         company_name = row[0] or 'Unknown Company'
         website = row[1] or ''
-        contact_name = row[2] or ''
-        contact_title = row[3] or ''
-        contact_linkedin = row[4] or ''
+        contact_name = client_decrypt(ck, row[2]) or ''
+        contact_title = client_decrypt(ck, row[3]) or ''
+        contact_linkedin = client_decrypt(ck, row[4]) or ''
         industry = row[5] or ''
         description = row[6] or ''
         pain_point = row[7] or ''
         logo_s3_key = row[8] or ''
         icon_s3_key = row[9] or ''
         streamline_webhook_enabled = bool(row[10])
-        contact_email = row[11] or ''
-        contact_phone = row[12] or ''
+        contact_email = client_decrypt(ck, row[11]) or ''
+        contact_phone = client_decrypt(ck, row[12]) or ''
 
         # Parse contacts_json with legacy fallback
         contacts_json_raw = row[13]
         contacts = []
         if contacts_json_raw:
             try:
-                contacts = json.loads(contacts_json_raw)
+                contacts = client_decrypt_json(ck, contacts_json_raw)
+                if not contacts:
+                    contacts = json.loads(contacts_json_raw)
             except (json.JSONDecodeError, TypeError):
                 pass
         if not contacts:
@@ -271,11 +298,13 @@ def _run_enrichment_pipeline(event):
         addresses = []
         if addresses_json_raw:
             try:
-                addresses = json.loads(addresses_json_raw)
+                addresses = client_decrypt_json(ck, addresses_json_raw)
+                if not addresses:
+                    addresses = json.loads(addresses_json_raw)
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        streamline_webhook_url = row[15] or ''
+        streamline_webhook_url = client_decrypt(ck, row[15]) or ''
         if not streamline_webhook_url:
             streamline_webhook_url = _get_system_config_value(conn, 'enrichment_webhook_url')
 
@@ -286,21 +315,21 @@ def _run_enrichment_pipeline(event):
             system_skills = load_system_skills()
         print(f"Loaded {len(system_skills)} system skills")
 
-        # Read domain/client skills
-        skills = read_skills_from_db(cur, db_client_id, client_id)
+        # Read domain/client skills (decrypt with client key)
+        skills = read_skills_from_db(cur, db_client_id, client_id, client_key=ck)
         print(f"Loaded {len(skills)} client skills for: {client_id}")
         cur.close()
 
-        # Read client-config.md if it exists
-        client_config = read_client_config(client_id)
+        # Read client-config.md if it exists (decrypt with client key)
+        client_config = read_client_config(client_id, client_key=ck)
         if client_config:
             print(f"Loaded client-config.md ({len(client_config)} chars)")
         else:
             print("No client-config.md found")
 
-        # Stage: extracting
+        # Stage: extracting (decrypt uploaded files with client key)
         update_enrichment_stage(conn, enrichment_id, 'extracting')
-        extracted_text = extract_all_files(client_id, active_keys=active_keys)
+        extracted_text = extract_all_files(client_id, active_keys=active_keys, client_key=ck)
         print(f"Extracted text from {len(extracted_text)} files")
 
         # Stage: transcribing
@@ -308,7 +337,7 @@ def _run_enrichment_pipeline(event):
         if audio_files:
             update_enrichment_stage(conn, enrichment_id, 'transcribing')
             print(f"Found {len(audio_files)} audio files to transcribe")
-            transcripts = transcribe_audio_files(client_id, audio_files)
+            transcripts = transcribe_audio_files(client_id, audio_files, client_key=ck)
             # Merge transcripts into extracted_text
             for filename, transcript in transcripts.items():
                 extracted_text[filename] = transcript
@@ -335,13 +364,14 @@ def _run_enrichment_pipeline(event):
             contacts=contacts
         )
 
-        # Write results to S3
+        # Write results to S3 (encrypted with client key)
         results_key = f"{client_id}/results/analysis.json"
+        results_body = json.dumps(analysis, indent=2)
         s3_client.put_object(
             Bucket=BUCKET_NAME,
             Key=results_key,
-            Body=json.dumps(analysis, indent=2),
-            ContentType='application/json'
+            Body=encrypt_s3_body(ck, results_body),
+            ContentType='application/octet-stream'
         )
 
         # Stage: complete
@@ -431,7 +461,8 @@ def _handle_send_to_streamline(event):
             SELECT c.company_name, c.contact_name, c.contact_title, c.id,
                    e.results_s3_key, c.logo_s3_key, c.icon_s3_key,
                    c.contact_email, c.contact_phone, c.contacts_json,
-                   c.contact_linkedin, c.addresses_json, c.streamline_webhook_url
+                   c.contact_linkedin, c.addresses_json, c.streamline_webhook_url,
+                   c.encryption_key
             FROM clients c
             LEFT JOIN enrichments e ON e.client_id = c.id AND e.status = 'complete'
             WHERE c.s3_folder = %s AND c.user_id = %s
@@ -450,22 +481,27 @@ def _handle_send_to_streamline(event):
                 'body': json.dumps({'error': 'Client or enrichment not found'})
             }
 
+        # Unwrap per-client encryption key
+        ck = unwrap_client_key(row[13]) if row[13] else None
+
         company_name = row[0] or 'Unknown Company'
-        contact_name = row[1] or ''
-        contact_title = row[2] or ''
+        contact_name = client_decrypt(ck, row[1]) or ''
+        contact_title = client_decrypt(ck, row[2]) or ''
         results_s3_key = row[4]
         logo_s3_key = row[5] or ''
         icon_s3_key = row[6] or ''
-        contact_email = row[7] or ''
-        contact_phone = row[8] or ''
+        contact_email = client_decrypt(ck, row[7]) or ''
+        contact_phone = client_decrypt(ck, row[8]) or ''
 
         # Parse contacts_json with legacy fallback
         contacts_json_raw = row[9]
-        contact_linkedin = row[10] or ''
+        contact_linkedin = client_decrypt(ck, row[10]) or ''
         contacts = []
         if contacts_json_raw:
             try:
-                contacts = json.loads(contacts_json_raw)
+                contacts = client_decrypt_json(ck, contacts_json_raw)
+                if not contacts:
+                    contacts = json.loads(contacts_json_raw)
             except (json.JSONDecodeError, TypeError):
                 pass
         if not contacts:
@@ -479,11 +515,13 @@ def _handle_send_to_streamline(event):
         addresses = []
         if addresses_json_raw:
             try:
-                addresses = json.loads(addresses_json_raw)
+                addresses = client_decrypt_json(ck, addresses_json_raw)
+                if not addresses:
+                    addresses = json.loads(addresses_json_raw)
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        manual_webhook_url = row[12] or ''
+        manual_webhook_url = client_decrypt(ck, row[12]) or ''
         if not manual_webhook_url:
             manual_webhook_url = _get_system_config_value(conn, 'enrichment_webhook_url')
 
@@ -591,7 +629,7 @@ def read_audio_context(client_id, filename):
         return None
 
 
-def transcribe_audio_files(client_id, audio_s3_keys):
+def transcribe_audio_files(client_id, audio_s3_keys, client_key=None):
     """Transcribe all audio files using AWS Transcribe. Returns {filename: transcript_text}."""
     transcripts = {}
     for s3_key in audio_s3_keys:
@@ -614,13 +652,13 @@ def transcribe_audio_files(client_id, audio_s3_keys):
                     header = f"Audio Transcript ({filename})"
 
                 transcripts[filename] = f"{header}\n\n{transcript}"
-                # Save transcript to extracted folder
+                # Save transcript to extracted folder (encrypted)
                 transcript_key = f"{client_id}/extracted/{filename}.transcript.txt"
                 s3_client.put_object(
                     Bucket=BUCKET_NAME,
                     Key=transcript_key,
-                    Body=transcript,
-                    ContentType='text/plain'
+                    Body=encrypt_s3_body(client_key, transcript),
+                    ContentType='application/octet-stream'
                 )
                 print(f"Saved transcript: {transcript_key}")
         except Exception as e:
@@ -741,19 +779,20 @@ def load_system_skills():
     return skills
 
 
-def read_client_config(client_id):
-    """Read client-config.md from S3 if it exists."""
+def read_client_config(client_id, client_key=None):
+    """Read client-config.md from S3 if it exists. Decrypts with client key."""
     try:
         response = s3_client.get_object(
             Bucket=BUCKET_NAME,
             Key=f"{client_id}/client-config.md"
         )
-        return response['Body'].read().decode('utf-8')
+        raw = response['Body'].read()
+        return decrypt_s3_body(client_key, raw)
     except Exception:
         return None
 
 
-def read_skills_from_db(cur, db_client_id, client_id):
+def read_skills_from_db(cur, db_client_id, client_id, client_key=None):
     """Read skills from DB, with S3 fallback for s3_key-only skills."""
     skills = []
 
@@ -768,10 +807,11 @@ def read_skills_from_db(cur, db_client_id, client_id):
             if content:
                 skills.append({'name': name, 'content': content})
             elif s3_key:
-                # Fallback: read from S3
+                # Fallback: read from S3 (decrypt with client key)
                 try:
                     file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-                    skill_content = file_obj['Body'].read().decode('utf-8')
+                    raw = file_obj['Body'].read()
+                    skill_content = decrypt_s3_body(client_key, raw)
                     skills.append({'name': name, 'content': skill_content})
                 except Exception as e:
                     print(f"Error reading skill from S3 ({s3_key}): {e}")
@@ -779,12 +819,12 @@ def read_skills_from_db(cur, db_client_id, client_id):
     except Exception as e:
         print(f"Error reading skills from DB: {e}")
         # Fallback to S3 listing
-        skills = read_skills_from_s3(client_id)
+        skills = read_skills_from_s3(client_id, client_key=client_key)
 
     return skills
 
 
-def read_skills_from_s3(client_id):
+def read_skills_from_s3(client_id, client_key=None):
     """Fallback: Read all skill files from S3 skills folder."""
     skills = []
 
@@ -805,7 +845,8 @@ def read_skills_from_s3(client_id):
                 continue
 
             file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
-            skill_content = file_obj['Body'].read().decode('utf-8')
+            raw = file_obj['Body'].read()
+            skill_content = decrypt_s3_body(client_key, raw)
             skills.append({
                 'name': filename.replace('.md', ''),
                 'content': skill_content
@@ -817,7 +858,7 @@ def read_skills_from_s3(client_id):
     return skills
 
 
-def extract_all_files(client_id, active_keys=None):
+def extract_all_files(client_id, active_keys=None, client_key=None):
     """Extract text from all uploaded files. If active_keys provided, only process those."""
     extracted_text = {}
     active_keys_set = set(active_keys) if active_keys else None
@@ -857,6 +898,9 @@ def extract_all_files(client_id, active_keys=None):
 
             file_obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=key)
             file_content = file_obj['Body'].read()
+
+            # Decrypt if encrypted with client key
+            file_content = decrypt_s3_bytes(client_key, file_content)
 
             text = extract_text(filename, file_content)
             if text:
@@ -1068,9 +1112,9 @@ def _send_streamline_webhook(company_name, contacts, model, analysis, source_fil
             "streamline_applications": analysis.get("streamline_applications", ""),
             "data_sources": analysis.get("sources", []),
             "source_files": source_files,
-            "xo_results_url": "https://d36la414u58rw5.cloudfront.net",
-            "client_logo_url": f"https://xo-client-data.s3.us-west-1.amazonaws.com/{logo_s3_key}" if logo_s3_key else None,
-            "client_icon_url": f"https://xo-client-data.s3.us-west-1.amazonaws.com/{icon_s3_key}" if icon_s3_key else None
+            "xo_results_url": "https://d2np82m8rfcd6u.cloudfront.net",
+            "client_logo_url": f"https://xo-client-data-mv.s3.us-west-1.amazonaws.com/{logo_s3_key}" if logo_s3_key else None,
+            "client_icon_url": f"https://xo-client-data-mv.s3.us-west-1.amazonaws.com/{icon_s3_key}" if icon_s3_key else None
         }
 
         data = json.dumps(payload).encode('utf-8')

@@ -13,9 +13,40 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
 from auth_helper import require_auth, get_db_connection, CORS_HEADERS
+try:
+    from crypto_helper import (
+        encrypt, decrypt, encrypt_json, decrypt_json, search_hash,
+        generate_client_key, unwrap_client_key,
+        client_encrypt, client_decrypt, client_encrypt_json, client_decrypt_json,
+        encrypt_s3_body, decrypt_s3_body, encrypt_s3_bytes, decrypt_s3_bytes
+    )
+except ImportError:
+    # Fallback pass-through stubs if crypto_helper.py not yet deployed
+    import json as _json, hashlib as _hl
+    def encrypt(x): return x
+    def decrypt(x): return x
+    def encrypt_json(x): return _json.dumps(x) if x else x
+    def decrypt_json(x):
+        if not x: return None
+        try: return _json.loads(x)
+        except: return None
+    def search_hash(x): return _hl.sha256(x.lower().strip().encode()).hexdigest() if x else ''
+    def generate_client_key(): return ''
+    def unwrap_client_key(x): return None
+    def client_encrypt(k, x): return x
+    def client_decrypt(k, x): return x
+    def client_encrypt_json(k, x): return _json.dumps(x) if x else x
+    def client_decrypt_json(k, x):
+        if not x: return None
+        try: return _json.loads(x)
+        except: return None
+    def encrypt_s3_body(k, b): return b if isinstance(b, bytes) else (b.encode('utf-8') if b else b'')
+    def decrypt_s3_body(k, b): return b if isinstance(b, str) else b.decode('utf-8', errors='replace') if b else ''
+    def encrypt_s3_bytes(k, d): return d
+    def decrypt_s3_bytes(k, d): return d
 
 s3_client = boto3.client('s3')
-BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data')
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 STREAMLINE_WEBHOOK_URL = os.environ.get('STREAMLINE_WEBHOOK_URL', '')
 STREAMLINE_INVITE_WEBHOOK_URL = os.environ.get('STREAMLINE_INVITE_WEBHOOK_URL', '')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://xo.intellagentic.io')
@@ -28,10 +59,12 @@ def _run_migrations():
         cur = conn.cursor()
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS streamline_webhook_url VARCHAR(1000);")
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS invite_webhook_url VARCHAR(1000);")
+        # Per-client encryption key (encrypted with master key)
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS encryption_key TEXT;")
         conn.commit()
         cur.close()
         conn.close()
-        print("Migration complete: streamline_webhook_url + invite_webhook_url columns ensured")
+        print("Migration complete: streamline_webhook_url + invite_webhook_url + encryption_key columns ensured")
     except Exception as e:
         print(f"Migration check (non-fatal): {e}")
 
@@ -154,6 +187,30 @@ def _run_system_config_migration():
         print(f"system_config migration check (non-fatal): {e}")
 
 _run_system_config_migration()
+
+
+def _get_client_key(cur, s3_folder):
+    """Look up and unwrap a client's encryption key by s3_folder. Returns raw key bytes or None."""
+    try:
+        cur.execute("SELECT encryption_key FROM clients WHERE s3_folder = %s", (s3_folder,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return unwrap_client_key(row[0])
+    except Exception as e:
+        print(f"Failed to get client key (non-fatal): {e}")
+    return None
+
+
+def _get_client_key_by_id(cur, db_client_id):
+    """Look up and unwrap a client's encryption key by DB id. Returns raw key bytes or None."""
+    try:
+        cur.execute("SELECT encryption_key FROM clients WHERE id = %s", (db_client_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return unwrap_client_key(row[0])
+    except Exception as e:
+        print(f"Failed to get client key by id (non-fatal): {e}")
+    return None
 
 
 def lambda_handler(event, context):
@@ -300,11 +357,18 @@ def handle_get_skills(event, user):
                     })
 
         # Load content from S3 for skills that only have s3_key
+        # Get client key if we have a client_id
+        ck = _get_client_key(cur, client_id) if client_id else None
         for skill in skills:
             if not skill['content'] and skill['s3_key']:
                 try:
                     obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=skill['s3_key'])
-                    skill['content'] = obj['Body'].read().decode('utf-8')
+                    raw = obj['Body'].read()
+                    # Client skills: decrypt with client key; system skills: read as-is
+                    if skill['scope'] == 'client' and ck:
+                        skill['content'] = decrypt_s3_body(ck, raw)
+                    else:
+                        skill['content'] = raw.decode('utf-8', errors='replace')
                 except Exception as e:
                     print(f"Failed to load skill content from S3 ({skill['s3_key']}): {e}")
 
@@ -374,7 +438,8 @@ def handle_create_skill(event, user):
             db_client_id = str(row[0])
             s3_key = f"{client_id}/skills/{name}.md"
             if content:
-                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+                ck = _get_client_key(cur, client_id)
+                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=encrypt_s3_body(ck, content), ContentType='application/octet-stream')
             cur.execute(
                 "INSERT INTO skills (client_id, name, content, s3_key) VALUES (%s, %s, %s, %s) RETURNING id",
                 (db_client_id, name, content, s3_key)
@@ -441,7 +506,12 @@ def handle_update_skill(event, user):
         # Update S3 file
         s3_key = row[2]
         if content and s3_key:
-            s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+            if is_system:
+                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
+            else:
+                # Client skill — encrypt with client key
+                skill_ck = _get_client_key_by_id(cur, row[1]) if row[1] else None
+                s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=encrypt_s3_body(skill_ck, content), ContentType='application/octet-stream')
         elif content and is_system and name:
             s3_key = f"_system/skills/{name}.md"
             s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=content, ContentType='text/markdown')
@@ -524,12 +594,16 @@ def handle_list_partners(event, user):
             addresses = []
             try:
                 if row[10]:
-                    contacts = json.loads(row[10])
+                    contacts = decrypt_json(row[10])
+                    if not contacts:
+                        contacts = json.loads(row[10])
             except Exception:
                 pass
             try:
                 if row[11]:
-                    addresses = json.loads(row[11])
+                    addresses = decrypt_json(row[11])
+                    if not addresses:
+                        addresses = json.loads(row[11])
             except Exception:
                 pass
             pain_points = []
@@ -540,7 +614,7 @@ def handle_list_partners(event, user):
                 pass
             partners.append({
                 'id': row[0], 'name': row[1] or '', 'company': row[2] or '',
-                'email': row[3] or '', 'phone': row[4] or '', 'industry': row[5] or '',
+                'email': decrypt(row[3]) or '', 'phone': decrypt(row[4]) or '', 'industry': row[5] or '',
                 'notes': row[6] or '',
                 'created_at': row[7].isoformat() if row[7] else None,
                 'updated_at': row[8].isoformat() if row[8] else None,
@@ -580,9 +654,13 @@ def handle_create_partner(event, user):
         cur.execute("""
             INSERT INTO partners (name, company, email, phone, industry, notes, website, contacts_json, addresses_json, description, future_plans, pain_points_json)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-        """, (name, body.get('company', '').strip(), body.get('email', '').strip(),
-              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
-              body.get('website', '').strip(), contacts_json, addresses_json,
+        """, (name, body.get('company', '').strip(),
+              encrypt(body.get('email', '').strip()),
+              encrypt(body.get('phone', '').strip()),
+              body.get('industry', '').strip(), body.get('notes', '').strip(),
+              body.get('website', '').strip(),
+              encrypt_json(contacts) if contacts else None,
+              encrypt_json(addresses) if addresses else None,
               body.get('description', '').strip(), body.get('futurePlans', '').strip(),
               json.dumps(p_pain_points) if p_pain_points else None))
         partner_id = cur.fetchone()[0]
@@ -618,9 +696,13 @@ def handle_update_partner(event, user):
                    website=%s, contacts_json=%s, addresses_json=%s,
                    description=%s, future_plans=%s, pain_points_json=%s, updated_at=NOW()
             WHERE id=%s RETURNING id
-        """, (body.get('name', '').strip(), body.get('company', '').strip(), body.get('email', '').strip(),
-              body.get('phone', '').strip(), body.get('industry', '').strip(), body.get('notes', '').strip(),
-              body.get('website', '').strip(), contacts_json, addresses_json,
+        """, (body.get('name', '').strip(), body.get('company', '').strip(),
+              encrypt(body.get('email', '').strip()),
+              encrypt(body.get('phone', '').strip()),
+              body.get('industry', '').strip(), body.get('notes', '').strip(),
+              body.get('website', '').strip(),
+              encrypt_json(contacts) if contacts else None,
+              encrypt_json(addresses) if addresses else None,
               body.get('description', '').strip(), body.get('futurePlans', '').strip(),
               json.dumps(u_pain_points) if u_pain_points else None, partner_id))
         row = cur.fetchone()
@@ -769,7 +851,8 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json, invite_webhook_url
+                           future_plans, pain_points_json, invite_webhook_url,
+                           encryption_key
                     FROM clients WHERE s3_folder = %s
                 """, (client_id,))
             elif user.get('is_partner') and user.get('partner_id'):
@@ -780,7 +863,8 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json, invite_webhook_url
+                           future_plans, pain_points_json, invite_webhook_url,
+                           encryption_key
                     FROM clients WHERE s3_folder = %s AND partner_id = %s
                 """, (client_id, user['partner_id']))
             else:
@@ -791,7 +875,8 @@ def handle_get_client(event, user):
                            COALESCE(streamline_webhook_enabled, FALSE),
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                           future_plans, pain_points_json, invite_webhook_url
+                           future_plans, pain_points_json, invite_webhook_url,
+                           encryption_key
                     FROM clients WHERE s3_folder = %s AND user_id = %s
                 """, (client_id, user['user_id']))
         else:
@@ -803,7 +888,8 @@ def handle_get_client(event, user):
                        COALESCE(streamline_webhook_enabled, FALSE),
                        contact_email, contact_phone, contacts_json, addresses_json,
                        streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
-                       future_plans, pain_points_json
+                       future_plans, pain_points_json, invite_webhook_url,
+                       encryption_key
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -818,6 +904,9 @@ def handle_get_client(event, user):
                 'headers': CORS_HEADERS,
                 'body': json.dumps({'error': 'No client found'})
             }
+
+        # Unwrap per-client encryption key
+        ck = unwrap_client_key(row[25]) if len(row) > 25 and row[25] else None
 
         logo_s3_key = row[12]
         icon_s3_key = row[13]
@@ -848,7 +937,9 @@ def handle_get_client(event, user):
         contacts_json_raw = row[17]
         if contacts_json_raw:
             try:
-                contacts = json.loads(contacts_json_raw)
+                contacts = client_decrypt_json(ck, contacts_json_raw)
+                if not contacts:
+                    contacts = json.loads(contacts_json_raw)
             except (json.JSONDecodeError, TypeError):
                 contacts = []
         else:
@@ -856,15 +947,15 @@ def handle_get_client(event, user):
 
         if not contacts:
             # Construct from legacy fields — split name into firstName/lastName
-            full_name = row[3] or ''
+            full_name = client_decrypt(ck, row[3]) or ''
             space_idx = full_name.find(' ')
             legacy = {
                 'firstName': full_name[:space_idx] if space_idx > 0 else full_name,
                 'lastName': full_name[space_idx + 1:] if space_idx > 0 else '',
-                'title': row[4] or '',
-                'linkedin': row[5] or '',
-                'email': row[15] or '',
-                'phone': row[16] or ''
+                'title': client_decrypt(ck, row[4]) or '',
+                'linkedin': client_decrypt(ck, row[5]) or '',
+                'email': client_decrypt(ck, row[15]) or '',
+                'phone': client_decrypt(ck, row[16]) or ''
             }
             if any(legacy.values()):
                 contacts = [legacy]
@@ -882,7 +973,9 @@ def handle_get_client(event, user):
         addresses = []
         if addresses_json_raw:
             try:
-                addresses = json.loads(addresses_json_raw)
+                addresses = client_decrypt_json(ck, addresses_json_raw)
+                if not addresses:
+                    addresses = json.loads(addresses_json_raw)
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -914,10 +1007,10 @@ def handle_get_client(event, user):
                 'contactPhone': primary.get('phone', ''),
                 'contacts': contacts,
                 'addresses': addresses,
-                'streamline_webhook_url': row[19] or '',
+                'streamline_webhook_url': client_decrypt(ck, row[19]) or '',
                 'partner_id': row[20],
                 'intellagentic_lead': bool(row[21]),
-                'invite_webhook_url': row[24] or ''
+                'invite_webhook_url': client_decrypt(ck, row[24]) or ''
             })
         }
     except Exception as e:
@@ -976,6 +1069,9 @@ def handle_update_client(event, user):
         conn = get_db_connection()
         cur = conn.cursor()
 
+        # Get client's encryption key
+        ck = _get_client_key(cur, client_id)
+
         # Build dynamic SET clause — streamline_webhook_enabled is optional
         set_fields = [
             "company_name = %s", "website_url = %s", "contact_name = %s",
@@ -991,13 +1087,13 @@ def handle_update_client(event, user):
         params = [
             company_name,
             body.get('website', '').strip(),
-            f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip(),
-            primary.get('title', ''),
-            primary.get('linkedin', ''),
-            primary.get('email', ''),
-            primary.get('phone', ''),
-            json.dumps(contacts) if contacts else None,
-            json.dumps(addresses) if addresses else None,
+            client_encrypt(ck, f"{primary.get('firstName', '')} {primary.get('lastName', '')}".strip()),
+            client_encrypt(ck, primary.get('title', '')),
+            client_encrypt(ck, primary.get('linkedin', '')),
+            client_encrypt(ck, primary.get('email', '')),
+            client_encrypt(ck, primary.get('phone', '')),
+            client_encrypt_json(ck, contacts) if contacts else None,
+            client_encrypt_json(ck, addresses) if addresses else None,
             body.get('industry', '').strip(),
             body.get('description', '').strip(),
             body.get('painPoint', '').strip(),
@@ -1011,11 +1107,11 @@ def handle_update_client(event, user):
 
         if 'streamline_webhook_url' in body:
             set_fields.append("streamline_webhook_url = %s")
-            params.append(body['streamline_webhook_url'].strip())
+            params.append(client_encrypt(ck, body['streamline_webhook_url'].strip()))
 
         if 'invite_webhook_url' in body:
             set_fields.append("invite_webhook_url = %s")
-            params.append(body['invite_webhook_url'].strip())
+            params.append(client_encrypt(ck, body['invite_webhook_url'].strip()))
 
         if 'partner_id' in body:
             set_fields.append("partner_id = %s")
@@ -1070,8 +1166,8 @@ def handle_update_client(event, user):
         s3_client.put_object(
             Bucket=BUCKET_NAME,
             Key=f"{client_id}/client-config.md",
-            Body=config_md,
-            ContentType='text/markdown'
+            Body=encrypt_s3_body(ck, config_md),
+            ContentType='application/octet-stream'
         )
 
         cur.close()
@@ -1293,31 +1389,36 @@ def handle_invite(event):
             name_hash = hashlib.md5(company_name.encode()).hexdigest()[:8]
             client_id = f"client_{timestamp}_{name_hash}"
 
+            # Generate per-client encryption key
+            encrypted_client_key = generate_client_key()
+            ck = unwrap_client_key(encrypted_client_key)
+
             # S3 folders
             for folder in [f"{client_id}/uploads/", f"{client_id}/extracted/", f"{client_id}/results/"]:
                 s3_client.put_object(Bucket=BUCKET_NAME, Key=folder, Body='')
 
-            # Client config
+            # Client config (encrypted with client key)
             config_md = generate_client_config(
                 company_name, '', contact_name, '', linkedin, '', '', '',
                 contact_email=email, contact_phone=phone
             )
             s3_client.put_object(
                 Bucket=BUCKET_NAME, Key=f"{client_id}/client-config.md",
-                Body=config_md, ContentType='text/markdown'
+                Body=encrypt_s3_body(ck, config_md), ContentType='application/octet-stream'
             )
 
-            # Default skill
-            copy_default_skill(client_id)
+            # Default skill (encrypted)
+            copy_default_skill(client_id, client_key=ck)
 
             # Insert client with user_id=NULL, source='invite'
             cur.execute("""
                 INSERT INTO clients (
                     user_id, company_name, contact_name, contact_email,
-                    contact_phone, contact_linkedin, s3_folder, source
-                ) VALUES (NULL, %s, %s, %s, %s, %s, %s, 'invite')
+                    contact_phone, contact_linkedin, s3_folder, source,
+                    encryption_key
+                ) VALUES (NULL, %s, %s, %s, %s, %s, %s, 'invite', %s)
                 RETURNING id
-            """, (company_name, contact_name, email, phone, linkedin, client_id))
+            """, (company_name, client_encrypt(ck, contact_name), client_encrypt(ck, email), client_encrypt(ck, phone), client_encrypt(ck, linkedin), client_id, encrypted_client_key))
             db_client_id = cur.fetchone()[0]
 
             # Insert default skill into DB
@@ -1460,6 +1561,10 @@ def handle_create_client(event, user):
         name_hash = hashlib.md5(company_name.encode()).hexdigest()[:8]
         client_id = f"client_{timestamp}_{name_hash}"
 
+        # Generate per-client encryption key
+        encrypted_client_key = generate_client_key()
+        ck = unwrap_client_key(encrypted_client_key)  # raw key for S3 encryption
+
         # Create folder structure in S3
         folders = [
             f"{client_id}/uploads/",
@@ -1470,7 +1575,7 @@ def handle_create_client(event, user):
         for folder in folders:
             s3_client.put_object(Bucket=BUCKET_NAME, Key=folder, Body='')
 
-        # Generate client-config.md
+        # Generate client-config.md (encrypted with client key)
         config_md = generate_client_config(
             company_name, website, contact_name, contact_title,
             contact_linkedin, industry, description, pain_point,
@@ -1481,12 +1586,12 @@ def handle_create_client(event, user):
         s3_client.put_object(
             Bucket=BUCKET_NAME,
             Key=f"{client_id}/client-config.md",
-            Body=config_md,
-            ContentType='text/markdown'
+            Body=encrypt_s3_body(ck, config_md),
+            ContentType='application/octet-stream'
         )
 
-        # Copy default skill template to client's skills folder
-        copy_default_skill(client_id)
+        # Copy default skill template to client's skills folder (encrypted)
+        copy_default_skill(client_id, client_key=ck)
 
         # Insert into PostgreSQL
         conn = get_db_connection()
@@ -1503,18 +1608,21 @@ def handle_create_client(event, user):
                 user_id, company_name, website_url, contact_name, contact_title,
                 contact_linkedin, contact_email, contact_phone,
                 contacts_json, addresses_json, industry, description, pain_point, s3_folder,
-                partner_id, intellagentic_lead, future_plans, pain_points_json
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                partner_id, intellagentic_lead, future_plans, pain_points_json,
+                encryption_key
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
-            user['user_id'], company_name, website, contact_name, contact_title,
-            contact_linkedin, contact_email, contact_phone,
-            json.dumps(contacts) if contacts else None,
-            json.dumps(addresses) if addresses else None,
+            user['user_id'], company_name, website,
+            client_encrypt(ck, contact_name), client_encrypt(ck, contact_title),
+            client_encrypt(ck, contact_linkedin), client_encrypt(ck, contact_email), client_encrypt(ck, contact_phone),
+            client_encrypt_json(ck, contacts) if contacts else None,
+            client_encrypt_json(ck, addresses) if addresses else None,
             industry, description, pain_point, client_id,
             partner_id_val, intellagentic_lead_val,
             future_plans,
-            json.dumps(pain_points) if pain_points else None
+            json.dumps(pain_points) if pain_points else None,
+            encrypted_client_key
         ))
 
         db_id = str(cur.fetchone()[0])
@@ -1623,14 +1731,21 @@ What should Claude recommend directly vs. flag for human review?
 """
 
 
-def copy_default_skill(client_id):
+def copy_default_skill(client_id, client_key=None):
     """Copy the default skill template to the client's skills folder in S3."""
     try:
+        body = DEFAULT_SKILL_TEMPLATE.strip()
+        if client_key:
+            body = encrypt_s3_body(client_key, body)
+            content_type = 'application/octet-stream'
+        else:
+            body = body.encode('utf-8')
+            content_type = 'text/markdown'
         s3_client.put_object(
             Bucket=BUCKET_NAME,
             Key=f"{client_id}/skills/analysis-template.md",
-            Body=DEFAULT_SKILL_TEMPLATE.strip(),
-            ContentType='text/markdown'
+            Body=body,
+            ContentType=content_type
         )
         print(f"Copied default skill to {client_id}/skills/analysis-template.md")
     except Exception as e:
