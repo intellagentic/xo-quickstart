@@ -61,10 +61,16 @@ def _run_migrations():
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS invite_webhook_url VARCHAR(1000);")
         # Per-client encryption key (encrypted with master key)
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS encryption_key TEXT;")
+        # Track who last updated the client (encrypted user name)
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;")
+        # NDA signed flag and existing apps text
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS nda_signed BOOLEAN DEFAULT FALSE;")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS nda_signed_at TIMESTAMP;")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS existing_apps TEXT;")
         conn.commit()
         cur.close()
         conn.close()
-        print("Migration complete: streamline_webhook_url + invite_webhook_url + encryption_key columns ensured")
+        print("Migration complete: streamline_webhook_url + invite_webhook_url + encryption_key + updated_by + nda_signed + existing_apps columns ensured")
     except Exception as e:
         print(f"Migration check (non-fatal): {e}")
 
@@ -770,7 +776,11 @@ def handle_list_clients(event, user):
                    u.name as owner_name,
                    p.name as partner_name,
                    c.partner_id,
-                   COALESCE(c.intellagentic_lead, FALSE) as intellagentic_lead
+                   COALESCE(c.intellagentic_lead, FALSE) as intellagentic_lead,
+                   c.updated_by,
+                   COALESCE(c.nda_signed, FALSE) as nda_signed,
+                   c.existing_apps,
+                   c.nda_signed_at
             FROM clients c
             LEFT JOIN users u ON c.user_id = u.id
             LEFT JOIN partners p ON c.partner_id = p.id
@@ -814,10 +824,14 @@ def handle_list_clients(event, user):
                 'enrichment_status': row[8] or 'none',
                 'enrichment_date': row[9].isoformat() if row[9] else None,
                 'icon_url': icon_url,
-                'owner_name': row[11] or '',
+                'owner_name': decrypt(row[11]) or '',
                 'partner_name': row[12] or '',
                 'partner_id': row[13],
-                'intellagentic_lead': bool(row[14])
+                'intellagentic_lead': bool(row[14]),
+                'updated_by': decrypt(row[15]) or '',
+                'ndaSigned': bool(row[16]),
+                'existingApps': row[17] or '',
+                'ndaSignedAt': row[18].isoformat() if row[18] else None
             })
 
         return {
@@ -861,7 +875,8 @@ def handle_get_client(event, user):
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
                            future_plans, pain_points_json, invite_webhook_url,
-                           encryption_key
+                           encryption_key, updated_by,
+                           COALESCE(nda_signed, FALSE), existing_apps, nda_signed_at
                     FROM clients WHERE s3_folder = %s
                 """, (client_id,))
             elif user.get('is_partner') and user.get('partner_id'):
@@ -873,7 +888,8 @@ def handle_get_client(event, user):
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
                            future_plans, pain_points_json, invite_webhook_url,
-                           encryption_key
+                           encryption_key, updated_by,
+                           COALESCE(nda_signed, FALSE), existing_apps, nda_signed_at
                     FROM clients WHERE s3_folder = %s AND partner_id = %s
                 """, (client_id, user['partner_id']))
             else:
@@ -885,7 +901,8 @@ def handle_get_client(event, user):
                            contact_email, contact_phone, contacts_json, addresses_json,
                            streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
                            future_plans, pain_points_json, invite_webhook_url,
-                           encryption_key
+                           encryption_key, updated_by,
+                           COALESCE(nda_signed, FALSE), existing_apps, nda_signed_at
                     FROM clients WHERE s3_folder = %s AND user_id = %s
                 """, (client_id, user['user_id']))
         else:
@@ -898,7 +915,8 @@ def handle_get_client(event, user):
                        contact_email, contact_phone, contacts_json, addresses_json,
                        streamline_webhook_url, partner_id, COALESCE(intellagentic_lead, FALSE),
                        future_plans, pain_points_json, invite_webhook_url,
-                       encryption_key
+                       encryption_key, updated_by,
+                       COALESCE(nda_signed, FALSE), existing_apps, nda_signed_at
                 FROM clients WHERE user_id = %s
                 ORDER BY created_at DESC LIMIT 1
             """, (user['user_id'],))
@@ -1019,7 +1037,11 @@ def handle_get_client(event, user):
                 'streamline_webhook_url': client_decrypt(ck, row[19]) or '',
                 'partner_id': row[20],
                 'intellagentic_lead': bool(row[21]),
-                'invite_webhook_url': client_decrypt(ck, row[24]) or ''
+                'invite_webhook_url': client_decrypt(ck, row[24]) or '',
+                'updated_by': (decrypt(row[26]) or '') if len(row) > 26 else '',
+                'ndaSigned': bool(row[27]) if len(row) > 27 else False,
+                'existingApps': (row[28] or '') if len(row) > 28 else '',
+                'ndaSignedAt': row[29].isoformat() if len(row) > 29 and row[29] else None
             })
         }
     except Exception as e:
@@ -1090,7 +1112,7 @@ def handle_update_client(event, user):
             "industry = %s",
             "description = %s", "pain_point = %s",
             "future_plans = %s", "pain_points_json = %s",
-            "updated_at = NOW()"
+            "updated_at = NOW()", "updated_by = %s"
         ]
         pain_points = body.get('painPoints', [])
         params = [
@@ -1108,6 +1130,7 @@ def handle_update_client(event, user):
             body.get('painPoint', '').strip(),
             body.get('futurePlans', '').strip(),
             json.dumps(pain_points) if pain_points else None,
+            encrypt(user.get('name', '') or user.get('email', '')),
         ]
 
         if 'streamline_webhook_enabled' in body:
@@ -1129,6 +1152,19 @@ def handle_update_client(event, user):
         if 'intellagentic_lead' in body:
             set_fields.append("intellagentic_lead = %s")
             params.append(bool(body['intellagentic_lead']))
+
+        if 'ndaSigned' in body:
+            nda_val = bool(body['ndaSigned'])
+            set_fields.append("nda_signed = %s")
+            params.append(nda_val)
+            if nda_val:
+                set_fields.append("nda_signed_at = NOW()")
+            else:
+                set_fields.append("nda_signed_at = NULL")
+
+        if 'existingApps' in body:
+            set_fields.append("existing_apps = %s")
+            params.append(body['existingApps'].strip())
 
         if user.get('is_admin') or (user.get('is_client') and user.get('client_id') == client_id):
             params.append(client_id)
@@ -1618,8 +1654,8 @@ def handle_create_client(event, user):
                 contact_linkedin, contact_email, contact_phone,
                 contacts_json, addresses_json, industry, description, pain_point, s3_folder,
                 partner_id, intellagentic_lead, future_plans, pain_points_json,
-                encryption_key
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                encryption_key, updated_by, nda_signed, nda_signed_at, existing_apps
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             user['user_id'], company_name, website,
@@ -1631,7 +1667,11 @@ def handle_create_client(event, user):
             partner_id_val, intellagentic_lead_val,
             future_plans,
             json.dumps(pain_points) if pain_points else None,
-            encrypted_client_key
+            encrypted_client_key,
+            encrypt(user.get('name', '') or user.get('email', '')),
+            bool(body.get('ndaSigned', False)),
+            datetime.now(timezone.utc) if body.get('ndaSigned', False) else None,
+            body.get('existingApps', '').strip()
         ))
 
         db_id = str(cur.fetchone()[0])

@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.81)
+**Status:** Deployed & Operational (v1.86)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,58 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.86 — NDA signed timestamp tracking**
+
+- New `nda_signed_at TIMESTAMP` column on clients table (auto-migration)
+- When `ndaSigned` set to true: `nda_signed_at` automatically set to `NOW()`
+- When `ndaSigned` set to false: `nda_signed_at` cleared to null
+- Create also sets `nda_signed_at` if `ndaSigned` is true at creation time
+- GET, List endpoints return `ndaSignedAt` as ISO timestamp or null
+- Deployed: backend only
+
+**v1.85 — 2FA opt-in: only check when user has enabled it**
+
+- 2FA is now opt-in per user via `users.two_factor_enabled` (boolean, default false)
+- Login flows (password + all 4 Google OAuth paths) check `two_factor_enabled` before triggering 2FA challenge
+- If 2FA disabled: login returns JWT directly as before (no behavior change for existing users)
+- If 2FA enabled: login returns `{ requires_2fa: true, session_id, masked_email }` → user enters code → `POST /auth/verify-2fa` returns JWT
+- New accounts and registrations skip 2FA (user hasn't opted in yet)
+- Magic link token validation still exempt from 2FA
+- `PUT /auth/preferences` accepts `{ two_factor_enabled: true/false }` to toggle 2FA on/off
+- `_success_response` now includes `two_factor_enabled` in user data so frontend can show toggle state
+- Deployed: backend only
+
+**v1.84 — Email-based Two-Factor Authentication (2FA)**
+
+- New `two_factor_codes` table: session_id, user_id, 6-digit code, encrypted user context, expiry, attempt counter
+- New endpoint `POST /auth/verify-2fa`: accepts `{ session_id, code }`, validates code, issues JWT on success
+- Login flow (when 2FA enabled): credentials validated → 6-digit code emailed via AWS SES → frontend shows code entry → verify-2fa returns JWT
+- Security: codes expire after 10 minutes, max 5 attempts per session, codes deleted after use
+- Email: HTML + plaintext via SES with branded template, configurable `SES_FROM_EMAIL` and `SES_REGION` env vars
+- User context (role, partner_id, client_id, preferred_model) stored encrypted in DB during 2FA, restored on verification
+- Requires: SES sender email verified in AWS, `POST /auth/verify-2fa` route added to API Gateway
+- Deployed: backend only (frontend 2FA code entry screen needed)
+
+**v1.83 — NDA signed flag and Existing Apps per client**
+
+- New `nda_signed` (boolean, default false) and `existing_apps` (text) columns on clients table
+- Auto-migration adds columns on cold start
+- Create, Update, GET, and List endpoints all support `ndaSigned` (boolean) and `existingApps` (string)
+- Update is conditional: only sets these fields when present in the PUT body
+- Deployed: backend only
+
+**v1.82 — updated_by tracking, owner_name decryption, layer version fix**
+
+- Bug fix: `owner_name` in client list was returning encrypted blob — now decrypted with `decrypt()` (master key)
+- New `updated_by` column on clients table: stores encrypted name of the user who last created or updated the client
+- `handle_update_client`: sets `updated_by = encrypt(user.name)` on every save
+- `handle_create_client`: sets `updated_by = encrypt(user.name)` on create
+- `handle_get_client` and `handle_list_clients` both return decrypted `updated_by` in response
+- Auto-migration adds `updated_by TEXT` column on cold start
+- Layer fix: all 8 Lambdas updated from `bcrypt-jwt-layer:1` to `:2` (which includes `cryptography` library for AES-GCM encryption)
+- `deploy.sh` now dynamically resolves latest layer versions instead of hardcoding `:1`
+- Deployed: backend only
 
 **v1.81 — Encryption fixes, deploy hardening, API activity logging**
 

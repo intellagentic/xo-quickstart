@@ -852,6 +852,11 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
           {client.industry}
         </span>
       )}
+      {client.updated_at && (
+          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {client.updated_at?"Last Updated: "+formatDateTime(client.updated_at)+(client.updated_by?" by "+client.updated_by:" ") :""}
+        </span>
+      )}
       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #6b7280)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
         <FolderOpen size={12} /> {client.source_count}
       </span>
@@ -1488,7 +1493,10 @@ export default function App() {
     futurePlans: '',
     painPoints: [],
     logoUrl: null,
-    iconUrl: null
+    iconUrl: null,
+    existingApps:'',
+    ndaSigned:false,
+    ndaSignedAt:''
   })
 
   // Partners state (for admin partner management & dropdowns)
@@ -1629,6 +1637,9 @@ export default function App() {
         }
         setCompanyData({
           name: data.company_name || '',
+          ndaSigned: data.ndaSigned || false,
+          ndaSignedAt: data.ndaSignedAt || '',
+          existingApps: data.existingApps || '',
           website: data.website || '',
           contacts,
           addresses: data.addresses || [],
@@ -1722,7 +1733,9 @@ export default function App() {
             futurePlans: data.futurePlans || '',
             painPoints: data.painPoints || [],
             partner_id: data.partner_id,
-            intellagentic_lead: data.intellagentic_lead
+            intellagentic_lead: data.intellagentic_lead,
+            ndaSigned:data.ndaSigned,
+            existingApps: data.existingApps
           })
         })
         if (response.ok) {
@@ -1744,7 +1757,9 @@ export default function App() {
             futurePlans: data.futurePlans || '',
             painPoints: data.painPoints || [],
             partner_id: data.partner_id,
-            intellagentic_lead: data.intellagentic_lead
+            intellagentic_lead: data.intellagentic_lead,
+            ndaSigned:data.ndaSigned,
+            existingApps: data.existingApps
           })
         })
         if (response.ok) {
@@ -1776,6 +1791,9 @@ export default function App() {
         }
         setCompanyData({
           name: data.company_name || '',
+          ndaSigned: data.ndaSigned || false,
+          ndaSignedAt: data.ndaSignedAt || '',
+          existingApps: data.existingApps || '',
           website: data.website || '',
           contacts,
           addresses: data.addresses || [],
@@ -1787,7 +1805,9 @@ export default function App() {
           logoUrl: data.logo_url || null,
           iconUrl: data.icon_url || null,
           partner_id: data.partner_id || null,
-          intellagentic_lead: data.intellagentic_lead || false
+          intellagentic_lead: data.intellagentic_lead || false,
+          updated_by:data.updated_by,
+          updated_at:data.updated_at
         })
       }
     } catch (err) {
@@ -1865,7 +1885,7 @@ export default function App() {
               )}
             </div>
           </div>
-          <div className="header-right">
+          <div className="header-right" style={{display: 'flex', alignItems: 'center'}}>
             <img src={logoLight} alt="Intellagentic" style={{ height: '26px' }} />
           </div>
         </div>
@@ -2154,8 +2174,13 @@ export default function App() {
                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
                     {companyData.name || 'New Client'}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
                     {(isAdmin || isPartner) ? 'Partner Workspace' : (companyData.name || 'My Workspace')}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                    {companyData.updated_at?<span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {companyData.updated_at?"Last Updated: "+formatDateTime(companyData.updated_at)+(companyData.updated_by?" by "+companyData.updated_by:" ") :""}
+        </span>:""}
                   </div>
                 </div>
               </>
@@ -2196,6 +2221,7 @@ export default function App() {
             companyData={companyData}
             setCompanyData={setCompanyData}
             onClientCreate={handleClientCreate}
+            onSelectClient={handleSelectClient}
             onComplete={() => setCurrentScreen('enrich')}
             onOpenCompanyModal={() => setShowCompanyModal(true)}
             configButtons={configButtons}
@@ -3579,7 +3605,7 @@ function BrandingScreen({ clientId, companyData, setCompanyData }) {
 // ============================================================
 // UPLOAD SCREEN
 // ============================================================
-function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin }) {
+function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin,onSelectClient }) {
   const [error, setError] = useState(null)
   const [sourceCount, setSourceCount] = useState(0)
   const [activeCount, setActiveCount] = useState(0)
@@ -3587,6 +3613,10 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   // Inline form state
   const [formData, setFormData] = useState({
     name: companyData.name || '',
+    ndaSigned: companyData.ndaSigned || false,
+    ndaSignedAt: companyData.ndaSignedAt || '',
+    updated_at:companyData.updated_at || '',
+    existingApps: companyData.existingApps || '',
     website: companyData.website || '',
     industry: companyData.industry || '',
     description: companyData.description || '',
@@ -3607,11 +3637,16 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
   const [savedIndicator, setSavedIndicator] = useState(false)
   const [contactsExpanded, setContactsExpanded] = useState(false)
   const [addressesExpanded, setAddressesExpanded] = useState(false)
+  const [existingAppsEdit, setExistingAppsEdit] = useState(false)
 
   // Sync form when companyData changes externally (e.g. client switch)
   useEffect(() => {
     setFormData({
       name: companyData.name || '',
+      ndaSigned: companyData.ndaSigned || false,
+      ndaSignedAt: companyData.ndaSignedAt || '',
+      updated_at:companyData.updated_at || '',
+      existingApps: companyData.existingApps || '',
       website: companyData.website || '',
       industry: companyData.industry || '',
       description: companyData.description || '',
@@ -3654,6 +3689,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
     if (onClientCreate) await onClientCreate(saveData)
     setSaving(false)
     setSavedIndicator(true)
+    setExistingAppsEdit(false)
     setTimeout(() => setSavedIndicator(false), 2000)
   }
 
@@ -3682,7 +3718,8 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
 
   const step1Complete = !!companyData.name
   const step2Complete = sourceCount > 0
-  const allStepsComplete = step1Complete && step2Complete
+  const step3Complete = !!companyData.existingApps
+  const allStepsComplete = step1Complete && step2Complete && step3Complete
 
   return (
     <div>
@@ -4100,7 +4137,8 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
         {/* RIGHT COLUMN — Workflow Cards */}
         <div className="workspace-col-right" style={{ flex: '1 1 0', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 
-          {/* Card 1: Domain Expertise */}
+
+          {/* Card 2: Domain Expertise */}
           <div style={{
             background: '#1a1a2e',
             borderRadius: '10px',
@@ -4239,7 +4277,70 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             </div>
           </div>
 
-          {/* Card 3: Intellagentic Growth */}
+          {/* Card 4: Apps & Services */}
+          <div style={{
+            background: '#1a1a2e',
+            borderRadius: '10px',
+            padding: '0.625rem 0.75rem',
+            border: step3Complete ? '2px solid #dc2626' : '2px solid transparent',
+            transition: 'all 0.3s',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                background: step3Complete ? '#dc2626' : 'rgba(220, 38, 38, 0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid rgba(220, 38, 38, 0.3)', transition: 'all 0.3s'
+              }} onClick={()=>{setExistingAppsEdit(!existingAppsEdit)}}>
+                {step3Complete ? (
+                    <CheckCircle2 size={16} style={{ color: 'white' }} />
+                ) : (
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#dc2626' }}>3</span>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'white', marginBottom: '0.1rem', letterSpacing: '-0.01em' }}>
+                  APPS & SERVICES
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                  The Current Tools
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.4, marginBottom: '0.5rem' }}>
+                  List your key apps, services and vendors. Upload screen shots in Your Data if useful.
+                </p>
+
+                {!existingAppsEdit ? (
+                    <div style={{
+                      color: 'rgba(255, 255, 255, 0.7)'
+                    }} onClick={()=>{setExistingAppsEdit(true)}}>
+                      {companyData.existingApps}
+                    </div>
+                ) : (
+                    <div style={{display:"flex",justifyContent:"center",gap:"0.375rem"}}>
+                      <textarea
+                          value={formData.existingApps}
+                          onChange={(e) => setFormData({ ...formData, existingApps: e.target.value })}
+                          onBlur={autoSave}
+                          placeholder="List your key apps, services and vendors"
+                          rows={4}
+                          style={{
+                            width: '100%', padding: '0.5rem 0.625rem',
+                            background: '#f9fafb',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
+                            fontFamily: 'inherit', outline: 'none', resize: 'vertical',
+                            minHeight: '100px'
+                          }}
+                      />
+                    </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Card 5: Intellagentic Growth */}
           <div style={{
             background: allStepsComplete ? '#1a1a2e' : '#2a2a3e',
             borderRadius: '10px',
@@ -4257,7 +4358,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                 border: `2px solid ${allStepsComplete ? 'rgba(220, 38, 38, 0.3)' : 'rgba(150, 150, 150, 0.4)'}`,
                 transition: 'all 0.3s'
               }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: allStepsComplete ? '#dc2626' : '#999' }}>3</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: allStepsComplete ? '#dc2626' : '#999' }}>4</span>
               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{
@@ -4311,7 +4412,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   </div>
                 ) : (
                   <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic', textAlign: 'center' }}>
-                    Complete steps 1 & 2 →
+                    Complete steps 1, 2 & 3 →
                   </p>
                 )}
               </div>
@@ -4415,6 +4516,12 @@ function formatDate(isoString) {
   if (!isoString) return '—'
   const d = new Date(isoString)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return '—'
+  const d = new Date(isoString)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric',hour:'numeric',minute:'numeric',hour12:true })
 }
 
 function SourcesScreen({ clientId, companyData, onNavigate }) {
@@ -4879,16 +4986,16 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: '0.625rem', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        <span style={{
+                        {/*<span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
                           padding: '1px 6px', borderRadius: '999px', fontSize: '0.6rem', fontWeight: 600,
                           background: upload.source === 'google_drive' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(220, 38, 38, 0.12)',
                           color: upload.source === 'google_drive' ? '#3b82f6' : '#dc2626'
                         }}>
                           {upload.source === 'google_drive' ? 'Google Drive' : 'Local'}
-                        </span>
+                        </span>*/}
                         <span>{formatFileSize(upload.file_size)}</span>
-                        <span>{formatDate(upload.uploaded_at)}</span>
+                        <span>{" Uploaded: "+formatDateTime(upload.uploaded_at)}</span>
                       </div>
                     </div>
 
@@ -6893,6 +7000,60 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
         )}
       </div>
 
+      {/* AI Model Selector */}
+      <div className="panel" style={{ marginTop: '1rem' }}>
+        <div className="panel-header">
+          <h2>AI Model</h2>
+        </div>
+        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+          {[
+            { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', desc: 'Best analysis, deeper reasoning', color: '#a855f7' },
+            { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', desc: 'Balanced speed and quality (default)', color: '#3b82f6' },
+            { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', desc: 'Fastest responses, lowest cost', color: '#22c55e' }
+          ].map(m => {
+            const isSelected = preferredModel === m.id
+            return (
+                <button
+                    key={m.id}
+                    onClick={() => setPreferredModel(m.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.875rem 1rem',
+                      background: isSelected ? `${m.color}12` : C.surface,
+                      borderRadius: 10,
+                      border: `2px solid ${isSelected ? m.color : C.border}`,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      textAlign: 'left',
+                      width: '100%'
+                    }}
+                >
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    border: `2px solid ${isSelected ? m.color : C.muted}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {isSelected && <div style={{ width: 10, height: 10, borderRadius: '50%', background: m.color }} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: C.text }}>{m.label}</div>
+                    <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: 2 }}>{m.desc}</div>
+                  </div>
+                  {isSelected && (
+                      <span style={{
+                        fontSize: '0.65rem', fontWeight: 700, color: m.color,
+                        background: `${m.color}18`, padding: '2px 8px', borderRadius: 999
+                      }}>Active</span>
+                  )}
+                </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* ── System Configuration (dashboard mode, admin) ── */}
       {!inWorkspace && isAdmin && (
         <>
@@ -7083,60 +7244,6 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
         </div>
       </div>
 
-      {/* AI Model Selector */}
-      <div className="panel" style={{ marginTop: '1rem' }}>
-        <div className="panel-header">
-          <h2>AI Model</h2>
-        </div>
-        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-          {[
-            { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', desc: 'Best analysis, deeper reasoning', color: '#a855f7' },
-            { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', desc: 'Balanced speed and quality (default)', color: '#3b82f6' },
-            { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', desc: 'Fastest responses, lowest cost', color: '#22c55e' }
-          ].map(m => {
-            const isSelected = preferredModel === m.id
-            return (
-              <button
-                key={m.id}
-                onClick={() => setPreferredModel(m.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.875rem 1rem',
-                  background: isSelected ? `${m.color}12` : C.surface,
-                  borderRadius: 10,
-                  border: `2px solid ${isSelected ? m.color : C.border}`,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  textAlign: 'left',
-                  width: '100%'
-                }}
-              >
-                <div style={{
-                  width: 20, height: 20, borderRadius: '50%',
-                  border: `2px solid ${isSelected ? m.color : C.muted}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0
-                }}>
-                  {isSelected && <div style={{ width: 10, height: 10, borderRadius: '50%', background: m.color }} />}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: C.text }}>{m.label}</div>
-                  <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: 2 }}>{m.desc}</div>
-                </div>
-                {isSelected && (
-                  <span style={{
-                    fontSize: '0.65rem', fontWeight: 700, color: m.color,
-                    background: `${m.color}18`, padding: '2px 8px', borderRadius: 999
-                  }}>Active</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       {/* System Skills — dynamic from API */}
       <SystemSkillsPanel C={C} />
 
@@ -7268,7 +7375,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
   const [formattedResults,setFormattedResults] = useState([
     {id:"executiveSummary",icon:"TrendingUp",name:"Executive Summary",shortDescription:"Here is our understanding of your business",severity: 'high'},
     {id:"problemsIdentified",icon:"AlertTriangle",name:"Problems Identified",shortDescription:"Key pain points and gaps surfaced by the analysis",severity: 'high'},
-    {id:"whatwecando",icon:"Zap",name:"What We Can Do For You",shortDescription:"Capability sections",severity: 'high'},
+    {id:"whatwecando",icon:"Zap",name:"Potential Streamline Applications",shortDescription:"",severity: 'high'},
     {id:"rapidDeployment",icon:"Package",name:"Rapid Deployment",shortDescription:"Timeline and action plan",severity: 'high'},
     {id:"technicalSection",icon:"Globe",name:"Technical Section",shortDescription:"",severity: 'high'}
   ]);
@@ -7607,6 +7714,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
                 {streamlineSending ? 'Sending...' : 'Issue Report'}
               </button>*/}
               {systemButtons.filter((d)=>{return d.label==="Issue Report"}).map((btn,idx)=>{
+                const IconComp = ICON_MAP[btn.icon] || Zap
                 return <button
                     key={"btn"+idx}
                     onClick={()=>{if (btn.url && btn.url !== '#') window.open(btn.url, '_blank')
@@ -7615,14 +7723,14 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       padding: '6px 14px',
-                      background: streamlineSending ? '#94a3b8' : '#3b82f6',
+                      background: btn.color,
                       color: 'white', border: 'none', borderRadius: 8,
                       cursor: streamlineSending ? 'not-allowed' : 'pointer',
                       fontSize: '0.75rem', fontWeight: 600,
                       transition: 'all .2s'
                     }}
                 >
-                  {streamlineSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
+                  {streamlineSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <IconComp size={14} />}
                   {streamlineSending ? 'Sending...' : btn.label}
                 </button>
               })}
@@ -7636,6 +7744,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
         {formattedResults?.map((item, index) =>
             {
               const exp = expandedResult !==null && expandedResult.id=== item.id;
+              const IconCompe = ICON_MAP[item.icon] || Zap
               return <div
               key={index}
             style={{
@@ -7652,17 +7761,15 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '1rem'
+                  gap: '1rem',
+                  backgroundColor:item.id==="whatwecando"?"black":"",
+                  color:item.id==="whatwecando"?"white":""
                 }}
             >
               <div style={{flex: 1}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem'}}>
-                  {item.icon==="TrendingUp"?<TrendingUp size={20} className="icon-red" />:
-                      (item.icon==="Package"?<Package size={20} className="icon-red" />:
-                      (item.icon==="Zap"?<Zap size={20} className="icon-red" />:
-                      (item.icon==="AlertTriangle"?<AlertTriangle size={20} className="icon-red" />:
-                      (item.icon==="Globe"?<Globe size={20} className="icon-red" />:<FileText size={20} className="icon-red" />))))}
-                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0}}>
+                  {item.id==="whatwecando"?<img src={intellistackLogo} alt="Intellistack" style={{ height: '22px' }} />:<IconCompe size={20} className="icon-red" />}
+                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, color: item.id==="whatwecando"?"white":'var(--text-primary)', margin: 0}}>
                     {item.name}
                   </h3>
                   <span style={{
@@ -7672,7 +7779,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
                     borderRadius: '4px',
                     textTransform: 'uppercase'
                   }}>
-                        - {item.shortDescription}
+                        {item.shortDescription?" - "+item.shortDescription:""}
                       </span>
                 </div>
 

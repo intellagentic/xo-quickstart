@@ -209,3 +209,47 @@ Idempotency Design
 - No real DB, S3, or AWS calls — fully mocked with SmartCursor routing SQL to FakeDB
 - Every test creates its own data and verifies cleanup — no shared state between tests
 
+
+Here's the full summary of the 2FA implementation:
+
+New table: two_factor_codes
+- session_id (unique token returned to client)
+- user_id, code (6-digit), email (stores encrypted user context for JWT issuance)
+- expires_at (10 minutes), attempts counter (max 5), verified flag
+
+New endpoint: POST /auth/verify-2fa
+- Accepts { session_id, code }
+- Validates: expiry, max attempts (5), code match
+- On success: decrypts stored user context, issues JWT via _success_response
+- On failure: increments attempts, returns remaining tries
+
+Modified login flow (all paths):
+1. handle_login (password) → credentials valid → _start_2fa_challenge() instead of JWT
+2. handle_google_login (all 4 paths: admin, partner, admin seed, client contact) → _start_2fa_challenge()
+3. handle_register → account created → _start_2fa_challenge()
+4. New account via handle_login → _start_2fa_challenge()
+
+Exempt from 2FA:
+- Magic link token validation (/auth/token) — already token-based access
+- Preferences update — already authenticated via JWT
+
+Email via AWS SES:
+- HTML + plaintext email with 6-digit code
+- Configurable via SES_FROM_EMAIL and SES_REGION env vars
+- Masked email returned to frontend: k****t@intellagentic.io
+
+Frontend response format:
+{
+"requires_2fa": true,
+"session_id": "abc123...",
+"masked_email": "k****t@intellagentic.io",
+"expires_in": 600
+}
+
+Env vars needed on Lambda:
+- SES_FROM_EMAIL — sender address (default: noreply@intellagentic.io)
+- SES_REGION — SES region (default: eu-west-2)
+- The SES sender email must be verified in AWS SES
+
+API Gateway: New route POST /auth/verify-2fa needs to be added.
+

@@ -1,19 +1,23 @@
 """
 XO Platform - Auth Lambda
 Routes: POST /auth/login, POST /auth/register, POST /auth/reset-password, POST /auth/google,
-        PUT /auth/preferences, POST /auth/token, POST/GET/DELETE /auth/magic-link
+        PUT /auth/preferences, POST /auth/token, POST/GET/DELETE /auth/magic-link,
+        POST /auth/verify-2fa
 
 Three-tier role system: admin, partner, client.
 Google OAuth checks: DB role first → client contacts fallback → denied.
 Magic links provide token-based client access.
+Email-based 2FA on all password and Google logins.
 """
 
 import json
 import os
 import logging
+import random
 import secrets
 import bcrypt
 import jwt
+import boto3
 import urllib.request
 from datetime import datetime, timedelta, timezone
 import psycopg2
@@ -37,6 +41,11 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '')
 JWT_SECRET = os.environ.get('JWT_SECRET', '')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://d2np82m8rfcd6u.cloudfront.net/')
+SES_FROM_EMAIL = os.environ.get('SES_FROM_EMAIL', 'noreply@intellagentic.io')
+SES_REGION = os.environ.get('SES_REGION', 'eu-west-2')
+TWO_FA_CODE_EXPIRY_MINUTES = 10
+
+ses_client = boto3.client('ses', region_name=SES_REGION)
 
 # Seed these emails as role='admin' on cold start
 ADMIN_SEED_EMAILS = [
@@ -91,6 +100,8 @@ def _run_role_migrations():
         # Add email_hash for encrypted email lookups
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_hash VARCHAR(64)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_users_email_hash ON users(email_hash)")
+        # 2FA opt-in flag
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE")
         # Seed admin roles for known admin emails (match by email_hash or legacy plaintext email)
         for email in ADMIN_SEED_EMAILS:
             email_h = search_hash(email)
@@ -103,6 +114,35 @@ def _run_role_migrations():
         print(f"Role migration check (non-fatal): {e}")
 
 _run_role_migrations()
+
+
+# ── Auto-migration: two_factor_codes table ──
+def _run_2fa_migrations():
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS two_factor_codes (
+                id SERIAL PRIMARY KEY,
+                session_id VARCHAR(64) UNIQUE NOT NULL,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                code VARCHAR(6) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW(),
+                expires_at TIMESTAMP NOT NULL,
+                verified BOOLEAN DEFAULT FALSE,
+                attempts INTEGER DEFAULT 0
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_2fa_session_id ON two_factor_codes(session_id)")
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Migration complete: two_factor_codes table ensured")
+    except Exception as e:
+        print(f"2FA migration check (non-fatal): {e}")
+
+_run_2fa_migrations()
 
 
 def _log_auth_activity(event, response):
@@ -155,7 +195,9 @@ def lambda_handler(event, context):
     path = event.get('path', '')
     method = event.get('httpMethod', '')
 
-    if path.endswith('/auth/token') and method == 'POST':
+    if path.endswith('/auth/verify-2fa') and method == 'POST':
+        response = handle_verify_2fa(event)
+    elif path.endswith('/auth/token') and method == 'POST':
         response = handle_validate_token(event)
     elif path.endswith('/auth/magic-link'):
         if method == 'POST':
@@ -203,6 +245,20 @@ def _make_token(user_id, email, name, role='client', partner_id=None, client_id=
 def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-20250929',
                       status=200, role='client', partner_id=None, client_id=None):
     token = _make_token(user_id, email, name, role=role, partner_id=partner_id, client_id=client_id)
+
+    # Look up 2FA status for response
+    tfa_enabled = False
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(two_factor_enabled, FALSE) FROM users WHERE id = %s", (str(user_id),))
+        tfa_row = cur.fetchone()
+        tfa_enabled = bool(tfa_row[0]) if tfa_row else False
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
+
     user_data = {
         'id': str(user_id), 'email': email, 'name': name,
         'preferred_model': preferred_model,
@@ -210,6 +266,7 @@ def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-2
         'is_admin': role == 'admin',
         'is_partner': role == 'partner',
         'is_client': role == 'client',
+        'two_factor_enabled': tfa_enabled,
     }
     if partner_id:
         user_data['partner_id'] = partner_id
@@ -220,6 +277,233 @@ def _success_response(user_id, email, name, preferred_model='claude-sonnet-4-5-2
         'headers': CORS_HEADERS,
         'body': json.dumps({'token': token, 'user': user_data})
     }
+
+
+def _send_2fa_email(to_email, code):
+    """Send 2FA verification code via AWS SES."""
+    try:
+        ses_client.send_email(
+            Source=SES_FROM_EMAIL,
+            Destination={'ToAddresses': [to_email]},
+            Message={
+                'Subject': {'Data': f'XO Platform - Your verification code: {code}', 'Charset': 'UTF-8'},
+                'Body': {
+                    'Html': {
+                        'Data': f"""
+                        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+                            <h2 style="color: #1a1a2e;">XO Platform Verification</h2>
+                            <p>Your one-time verification code is:</p>
+                            <div style="background: #f0f0f5; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+                                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1a1a2e;">{code}</span>
+                            </div>
+                            <p style="color: #666;">This code expires in {TWO_FA_CODE_EXPIRY_MINUTES} minutes. Do not share it with anyone.</p>
+                            <p style="color: #999; font-size: 12px;">If you did not request this code, please ignore this email.</p>
+                        </div>
+                        """,
+                        'Charset': 'UTF-8'
+                    },
+                    'Text': {
+                        'Data': f'Your XO Platform verification code is: {code}\n\nThis code expires in {TWO_FA_CODE_EXPIRY_MINUTES} minutes.',
+                        'Charset': 'UTF-8'
+                    }
+                }
+            }
+        )
+        print(f"2FA code sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Failed to send 2FA email to {to_email}: {e}")
+        return False
+
+
+def _start_2fa_challenge(user_id, email, name, preferred_model='claude-sonnet-4-5-20250929',
+                         role='client', partner_id=None, client_id=None):
+    """Generate 2FA code, store it, send email. Returns 2FA challenge response.
+    Stores all user context needed to issue the JWT after verification."""
+    code = f"{random.randint(0, 999999):06d}"
+    session_id = secrets.token_hex(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=TWO_FA_CODE_EXPIRY_MINUTES)
+
+    # Store the code and user context in DB
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+
+        # Clean up expired codes for this user
+        cur.execute("DELETE FROM two_factor_codes WHERE user_id = %s OR expires_at < NOW()", (str(user_id),))
+
+        # Store user context as encrypted JSON so we can issue the JWT after verification
+        user_context = json.dumps({
+            'user_id': str(user_id),
+            'email': email,
+            'name': name,
+            'preferred_model': preferred_model,
+            'role': role,
+            'partner_id': partner_id,
+            'client_id': client_id
+        })
+
+        cur.execute("""
+            INSERT INTO two_factor_codes (session_id, user_id, code, email, expires_at)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (session_id, str(user_id), code, encrypt(user_context), expires_at))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Failed to store 2FA code: {e}")
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Failed to initiate verification'})
+        }
+
+    # Send email
+    if not _send_2fa_email(email, code):
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Failed to send verification email'})
+        }
+
+    # Mask email for display
+    parts = email.split('@')
+    if len(parts) == 2 and len(parts[0]) > 2:
+        masked = parts[0][0] + '*' * (len(parts[0]) - 2) + parts[0][-1] + '@' + parts[1]
+    else:
+        masked = email
+
+    return {
+        'statusCode': 200,
+        'headers': CORS_HEADERS,
+        'body': json.dumps({
+            'requires_2fa': True,
+            'session_id': session_id,
+            'masked_email': masked,
+            'expires_in': TWO_FA_CODE_EXPIRY_MINUTES * 60
+        })
+    }
+
+
+# ============================================================
+# POST /auth/verify-2fa — Verify email 2FA code and issue JWT
+# ============================================================
+def handle_verify_2fa(event):
+    """POST /auth/verify-2fa - Verify 2FA code and return JWT."""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        session_id = body.get('session_id', '').strip()
+        code = body.get('code', '').strip()
+
+        if not session_id or not code:
+            return {
+                'statusCode': 400,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'session_id and code are required'})
+            }
+
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, user_id, code, email, expires_at, verified, attempts
+            FROM two_factor_codes
+            WHERE session_id = %s
+        """, (session_id,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Invalid or expired session'})
+            }
+
+        record_id, user_id, stored_code, encrypted_context, expires_at, verified, attempts = row
+
+        # Check if already verified
+        if verified:
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Code already used'})
+            }
+
+        # Check expiry
+        if datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc):
+            cur.execute("DELETE FROM two_factor_codes WHERE id = %s", (record_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Code expired. Please log in again.'})
+            }
+
+        # Check max attempts (5)
+        if attempts >= 5:
+            cur.execute("DELETE FROM two_factor_codes WHERE id = %s", (record_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Too many attempts. Please log in again.'})
+            }
+
+        # Verify code
+        if code != stored_code:
+            cur.execute("UPDATE two_factor_codes SET attempts = attempts + 1 WHERE id = %s", (record_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            remaining = 4 - attempts
+            return {
+                'statusCode': 401,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': f'Invalid code. {remaining} attempts remaining.'})
+            }
+
+        # Code is valid — mark as verified and delete
+        cur.execute("DELETE FROM two_factor_codes WHERE id = %s", (record_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # Decrypt user context and issue JWT
+        context_str = decrypt(encrypted_context)
+        try:
+            ctx = json.loads(context_str)
+        except (json.JSONDecodeError, TypeError):
+            return {
+                'statusCode': 500,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({'error': 'Failed to restore session'})
+            }
+
+        print(f"2FA verified for user: {ctx['email']}")
+        return _success_response(
+            ctx['user_id'], ctx['email'], ctx['name'],
+            preferred_model=ctx.get('preferred_model', 'claude-sonnet-4-5-20250929'),
+            role=ctx.get('role', 'client'),
+            partner_id=ctx.get('partner_id'),
+            client_id=ctx.get('client_id')
+        )
+
+    except Exception as e:
+        print(f"2FA verification error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Internal server error'})
+        }
 
 
 def _upsert_user(conn, cur, email, name, role='client', partner_id=None):
@@ -587,26 +871,32 @@ def handle_google_login(event):
         # Step 1: Check if user exists in DB with a role
         email_h = search_hash(email)
         cur.execute(
-            "SELECT id, email, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email_hash = %s OR email = %s",
+            "SELECT id, email, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id, COALESCE(two_factor_enabled, FALSE) FROM users WHERE email_hash = %s OR email = %s",
             (email_h, email)
         )
         user_row = cur.fetchone()
 
         if user_row:
-            user_id, user_email, user_name, preferred_model, role, partner_id = (
+            user_id, user_email, user_name, preferred_model, role, partner_id, tfa_enabled = (
                 user_row[0], decrypt(user_row[1]), decrypt(user_row[2]),
-                user_row[3], user_row[4], user_row[5]
+                user_row[3], user_row[4], user_row[5], bool(user_row[6])
             )
 
             if role == 'admin':
                 cur.close()
                 conn.close()
+                if tfa_enabled:
+                    print(f"Google login valid (admin): {user_email} — starting 2FA")
+                    return _start_2fa_challenge(user_id, user_email, user_name, preferred_model, role='admin')
                 print(f"Google login successful (admin): {user_email}")
                 return _success_response(user_id, user_email, user_name, preferred_model, role='admin')
 
             if role == 'partner':
                 cur.close()
                 conn.close()
+                if tfa_enabled:
+                    print(f"Google login valid (partner): {user_email}, partner_id={partner_id} — starting 2FA")
+                    return _start_2fa_challenge(user_id, user_email, user_name, preferred_model, role='partner', partner_id=partner_id)
                 print(f"Google login successful (partner): {user_email}, partner_id={partner_id}")
                 return _success_response(user_id, user_email, user_name, preferred_model, role='partner', partner_id=partner_id)
 
@@ -617,9 +907,16 @@ def handle_google_login(event):
             user_id = _upsert_user(conn, cur, email, name, role='admin')
             # Also ensure role is set correctly for existing users
             cur.execute("UPDATE users SET role = 'admin' WHERE id = %s", (user_id,))
+            # Check 2FA for this user
+            cur.execute("SELECT COALESCE(two_factor_enabled, FALSE) FROM users WHERE id = %s", (user_id,))
+            tfa_row = cur.fetchone()
+            tfa_enabled = bool(tfa_row[0]) if tfa_row else False
             conn.commit()
             cur.close()
             conn.close()
+            if tfa_enabled:
+                print(f"Google login valid (admin seed): {email} — starting 2FA")
+                return _start_2fa_challenge(user_id, email, name, role='admin')
             print(f"Google login successful (admin seed): {email}")
             return _success_response(user_id, email, name, role='admin')
 
@@ -639,8 +936,18 @@ def handle_google_login(event):
                 contact_email = (contact.get('email') or '').lower().strip()
                 if contact_email and contact_email == email:
                     user_id = _upsert_user(conn, cur, email, name, role='client')
+                    # Check 2FA for this user
+                    cur.execute("SELECT COALESCE(two_factor_enabled, FALSE) FROM users WHERE id = %s", (user_id,))
+                    tfa_row = cur.fetchone()
+                    tfa_enabled = bool(tfa_row[0]) if tfa_row else False
                     cur.close()
                     conn.close()
+                    if tfa_enabled:
+                        print(f"Google login valid (client contact): {email} -> {s3_folder} — starting 2FA")
+                        return _start_2fa_challenge(
+                            user_id, email, name,
+                            role='client', client_id=s3_folder
+                        )
                     print(f"Google login successful (client contact): {email} -> {s3_folder}")
                     return _success_response(
                         user_id, email, name,
@@ -685,7 +992,7 @@ def handle_login(event):
 
         email_h = search_hash(email)
         cur.execute(
-            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id FROM users WHERE email_hash = %s OR email = %s",
+            "SELECT id, email, password_hash, name, COALESCE(preferred_model, 'claude-sonnet-4-5-20250929'), COALESCE(role, 'client'), partner_id, COALESCE(two_factor_enabled, FALSE) FROM users WHERE email_hash = %s OR email = %s",
             (email_h, email)
         )
         row = cur.fetchone()
@@ -700,6 +1007,7 @@ def handle_login(event):
             preferred_model = row[4]
             role = row[5]
             partner_id = row[6]
+            tfa_enabled = bool(row[7])
 
             if not bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
                 return {
@@ -707,6 +1015,13 @@ def handle_login(event):
                     'headers': CORS_HEADERS,
                     'body': json.dumps({'error': 'Invalid password'})
                 }
+
+            if tfa_enabled:
+                print(f"Login credentials valid: {user_email} (role={role}) — starting 2FA")
+                return _start_2fa_challenge(
+                    user_id, user_email, user_name, preferred_model,
+                    role=role, partner_id=partner_id
+                )
 
             print(f"Login successful: {user_email} (role={role})")
             return _success_response(user_id, user_email, user_name, preferred_model, role=role, partner_id=partner_id)
@@ -881,27 +1196,47 @@ def handle_preferences(event):
 
     try:
         body = json.loads(event.get('body', '{}'))
-        preferred_model = body.get('preferred_model', '')
-
-        allowed_models = ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']
-        if preferred_model not in allowed_models:
-            return {
-                'statusCode': 400,
-                'headers': CORS_HEADERS,
-                'body': json.dumps({'error': f'Invalid model. Allowed: {", ".join(allowed_models)}'})
-            }
+        response_data = {}
 
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
-        cur.execute("UPDATE users SET preferred_model = %s WHERE id = %s", (preferred_model, user_id))
+
+        # Update preferred_model if provided
+        if 'preferred_model' in body:
+            preferred_model = body['preferred_model']
+            allowed_models = ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001']
+            if preferred_model not in allowed_models:
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': f'Invalid model. Allowed: {", ".join(allowed_models)}'})
+                }
+            cur.execute("UPDATE users SET preferred_model = %s WHERE id = %s", (preferred_model, user_id))
+            response_data['preferred_model'] = preferred_model
+
+        # Update two_factor_enabled if provided
+        if 'two_factor_enabled' in body:
+            tfa_val = bool(body['two_factor_enabled'])
+            cur.execute("UPDATE users SET two_factor_enabled = %s WHERE id = %s", (tfa_val, user_id))
+            response_data['two_factor_enabled'] = tfa_val
+            print(f"2FA {'enabled' if tfa_val else 'disabled'} for user {user_id}")
+
         conn.commit()
+
+        # Return current 2FA status
+        cur.execute("SELECT COALESCE(two_factor_enabled, FALSE) FROM users WHERE id = %s", (user_id,))
+        tfa_row = cur.fetchone()
+        response_data['two_factor_enabled'] = bool(tfa_row[0]) if tfa_row else False
+
         cur.close()
         conn.close()
 
         return {
             'statusCode': 200,
             'headers': CORS_HEADERS,
-            'body': json.dumps({'preferred_model': preferred_model})
+            'body': json.dumps(response_data)
         }
 
     except Exception as e:
