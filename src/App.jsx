@@ -1962,7 +1962,7 @@ export default function App() {
               )}
               {[
                 { screen: 'upload', icon: Home, label: 'Welcome' },
-                { screen: 'sources', icon: FolderOpen, label: 'Sources' },
+                { screen: 'sources', icon: FolderOpen, label: 'Your Data' },
                 { screen: 'enrich', icon: Sparkles, label: 'Enrich' },
                 { screen: 'results', icon: FileText, label: 'Results' },
                 { screen: 'skills', icon: Database, label: 'Skills' },
@@ -2218,7 +2218,7 @@ export default function App() {
             preferredModel={preferredModel}
           />
         )}
-        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} />}
+        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} systemButtons={systemButtons} />}
         {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} />}
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} systemButtons={systemButtons} setSystemButtons={saveSystemButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} inWorkspace={inWorkspace} isAdmin={isAdmin} companyName={companyData.name} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
@@ -4186,7 +4186,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   The Noise
                 </p>
                 <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.4, marginBottom: '0.5rem' }}>
-                  Upload documents, connect data sources.
+                  Upload documents, connect your data libraries.
                 </p>
 
                 {sourceCount > 0 ? (
@@ -4200,7 +4200,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <FolderOpen size={18} style={{ color: '#dc2626' }} />
                         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'white' }}>
-                          {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                           Your data librar{sourceCount !== 1 ? 'ies' : 'y'} {sourceCount}
                         </span>
                       </div>
                       <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>
@@ -4220,7 +4220,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                       }}
                     >
                       <FolderOpen size={14} />
-                      Manage Sources
+                      Manage Your Data
                     </button>
                     </div>
                   </div>
@@ -4231,7 +4231,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                     style={{ justifyContent: 'center', padding: '0.75rem', fontSize: '0.9rem' }}
                   >
                     <Upload size={18} />
-                    Add Sources
+                    Add Your Data
                   </button>
                   </div>
                 )}
@@ -4737,7 +4737,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
         <div className="panel-header">
           <div className="panel-header-left">
             <FolderOpen size={20} className="icon-red" />
-            <h2>Source Library</h2>
+            <h2>Your Data Library</h2>
           </div>
         </div>
         <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -4747,7 +4747,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
           </h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
             Fill in your company information on the Welcome screen to create a project,<br />
-            then come back here to upload and manage your sources.
+            then come back here to upload and manage your data.
           </p>
           <button
             onClick={() => onNavigate('upload')}
@@ -4770,7 +4770,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
         <div className="panel-header">
           <div className="panel-header-left">
             <FolderOpen size={20} className="icon-red" />
-            <h2>Source Library</h2>
+            <h2>Your Data Library</h2>
             <span className="badge-count blue">{uploads.length}</span>
           </div>
           <button
@@ -4804,21 +4804,21 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <Loader2 size={64} style={{ color: '#dc2626', opacity: 0.5, margin: '0 auto 1.5rem', animation: 'spin 1s linear infinite' }} />
               <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
-                Loading Sources
+                Loading Your Data
               </h3>
             </div>
           ) : uploads.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <FolderOpen size={64} style={{ color: '#dc2626', opacity: 0.5, margin: '0 auto 1.5rem' }} />
               <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
-                No Sources Yet
+                No Data Yet
               </h3>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
-                Sources are the raw data that feeds your analysis — CSVs, PDFs, audio recordings,<br />
+                Your Data Library are the raw data that feeds your analysis — CSVs, PDFs, audio recordings,<br />
                 spreadsheets. Drop files below or connect Google Drive.
               </p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Drag & drop files in the <strong>Add Sources</strong> area below to get started.
+                Drag & drop files in the <strong>Add Your Data</strong> area below to get started.
               </p>
             </div>
           ) : (
@@ -4990,7 +4990,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                         >
                           <Trash2 size={32} style={{ color: '#ef4444', margin: '0 auto 0.75rem' }} />
                           <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginBottom: '0.5rem' }}>
-                            Delete Source?
+                            Delete Your Data?
                           </h3>
                           <p style={{ fontSize: '0.85rem', color: '#444444', marginBottom: '1.25rem' }}>
                             <strong>{upload.filename}</strong> will be permanently removed.
@@ -5048,7 +5048,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
         <div className="panel-header">
           <div className="panel-header-left">
             <Upload size={20} className="icon-red" />
-            <h2>Add Sources</h2>
+            <h2>Add Your Data</h2>
           </div>
         </div>
         <div style={{ padding: '1.25rem' }}>
@@ -5128,7 +5128,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               <Upload size={11} /> Upload
             </span>
 
-            <button
+            {/*<button
               onClick={gdriveConnected ? openGdrivePicker : connectGoogleDrive}
               disabled={gdriveLoading}
               style={{
@@ -5142,9 +5142,9 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
             >
               {gdriveLoading ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <HardDrive size={11} />}
               {gdriveConnected ? 'Google Drive' : 'Connect Drive'}
-            </button>
+            </button>*/}
 
-            {['NotebookLM', 'Dropbox', 'OneDrive'].map(name => (
+            {/*['NotebookLM', 'Dropbox', 'OneDrive'].map(name => (
               <span key={name} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', borderRadius: '999px', fontSize: '0.65rem', fontWeight: 600,
@@ -5155,7 +5155,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               }}>
                 {name === 'NotebookLM' ? <FileText size={11} /> : <Cloud size={11} />} {name}
               </span>
-            ))}
+            ))*/}
           </div>
           {/* Text Input Source */}
           <div style={{
@@ -5165,7 +5165,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <FileText size={16} style={{ color: '#dc2626' }} />
-              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Paste Text Source</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Paste Text Input</span>
             </div>
 
             <input
@@ -5211,7 +5211,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               }}
             >
               {textSourceSaving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : textSourceStatus === 'saved' ? <CheckCircle2 size={15} /> : <Plus size={15} />}
-              {textSourceSaving ? 'Saving...' : textSourceStatus === 'saved' ? 'Source Added!' : 'Add Source'}
+              {textSourceSaving ? 'Saving...' : textSourceStatus === 'saved' ? 'Your Data Added!' : 'Add Your Data'}
             </button>
             {textSourceStatus === 'error' && (
               <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.375rem', textAlign: 'center' }}>
@@ -6628,22 +6628,26 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
       icon: 'Zap',
       url: ''
     }
-    setButtons(prev => [...prev, newBtn])
+    let newButtons = [...buttons,newBtn]
+    setButtons(newButtons)
     setEditingId(newBtn.id)
   }
 
   const deleteButton = (id) => {
-    setButtons(prev => prev.filter(b => b.id !== id))
+    let newButtons = buttons.filter(b => b.id !== id)
+    setButtons(newButtons)
     if (editingId === id) setEditingId(null)
   }
 
   const duplicateButton = (btn) => {
     const newBtn = { ...btn, id: Date.now(), label: `${btn.label} (copy)` }
-    setButtons(prev => [...prev, newBtn])
+    let newButtons = [...buttons,newBtn]
+    setButtons(newButtons)
   }
 
   const updateButton = (id, field, value) => {
-    setButtons(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b))
+    let newButtons = buttons.map(b => b.id === id ? { ...b, [field]: value } : b)
+    setButtons(newButtons)
   }
 
   // ── Drag & Drop ───────────────────────────────────────────
@@ -6665,19 +6669,23 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
   // ── System Button Operations ─────────────────────────────
   const addSysButton = () => {
     const newBtn = { id: Date.now(), label: 'New Button', color: '#3b82f6', icon: 'Zap', url: '' }
-    setSystemButtons(prev => [...prev, newBtn])
+    let newButtons = [...systemButtons, newBtn]
+    setSystemButtons(newButtons)
     setSysEditingId(newBtn.id)
   }
   const deleteSysButton = (id) => {
-    setSystemButtons(prev => prev.filter(b => b.id !== id))
+    let newButtons = systemButtons.filter(b => b.id !== id)
+    setSystemButtons(newButtons)
     if (sysEditingId === id) setSysEditingId(null)
   }
   const duplicateSysButton = (btn) => {
     const newBtn = { ...btn, id: Date.now(), label: `${btn.label} (copy)` }
-    setSystemButtons(prev => [...prev, newBtn])
+    let newButtons = [...systemButtons, newBtn]
+    setSystemButtons(newButtons)
   }
   const updateSysButton = (id, field, value) => {
-    setSystemButtons(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b))
+    let newButtons = systemButtons.map(b => b.id === id ? { ...b, [field]: value } : b);
+    setSystemButtons(newButtons)
   }
   const handleSysDragStart = (id) => setSysDraggedId(id)
   const handleSysDragOver = (e, targetId) => {
@@ -6968,9 +6976,9 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
               }}>
                 <div style={{ flex: 1, marginRight: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 500, color: C.text }}>
+                    {/*<span style={{ fontSize: '0.9rem', fontWeight: 500, color: C.text }}>
                       Send to Streamline
-                    </span>
+                    </span>*/}
                     {sysWebhookSaving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: C.muted }} />}
                   </div>
                   <p style={{ fontSize: '0.75rem', color: C.muted, marginTop: 4, lineHeight: 1.4 }}>
@@ -7247,7 +7255,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
 // ============================================================
 // RESULTS SCREEN
 // ============================================================
-function ResultsScreen({ setShowModal, clientId, isAdmin }) {
+function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -7256,6 +7264,28 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
   const [streamlineSending, setStreamlineSending] = useState(false)
   const [streamlineStatus, setStreamlineStatus] = useState(null) // null | 'sent' | 'error'
   const [protoDownloading, setProtoDownloading] = useState(false)
+  const [expandedResult,setExpandedResult]= useState({id:"executiveSummary",name:"Executive Summary",shortDescription:"Here is our understanding of your business",severity: 'high'});
+  const [formattedResults,setFormattedResults] = useState([
+    {id:"executiveSummary",icon:"TrendingUp",name:"Executive Summary",shortDescription:"Here is our understanding of your business",severity: 'high'},
+    {id:"problemsIdentified",icon:"AlertTriangle",name:"Problems Identified",shortDescription:"Key pain points and gaps surfaced by the analysis",severity: 'high'},
+    {id:"whatwecando",icon:"Zap",name:"What We Can Do For You",shortDescription:"Capability sections",severity: 'high'},
+    {id:"rapidDeployment",icon:"Package",name:"Rapid Deployment",shortDescription:"Timeline and action plan",severity: 'high'},
+    {id:"technicalSection",icon:"Globe",name:"Technical Section",shortDescription:"",severity: 'high'}
+  ]);
+  const [expandedSummary,setExpandedSummary]= useState(null);
+  const [formattedSummary,setFormattedSummary] = useState([
+    {id:"opportunitiesList",icon:"Star",name:"Opportunities List",shortDescription:"",severity: 'high'},
+    {id:"bottomLine",icon:"Zap",name:"Bottom Line",shortDescription:"",severity: 'high'}
+  ]);
+
+  const toggleResult = (item) => {
+    setExpandedResult(item);
+  }
+
+  const toggleSummary = (item) => {
+    if(item===null || item!==expandedSummary) setExpandedSummary(item);
+    else setExpandedSummary(null);
+  }
 
   useEffect(() => {
     if (clientId) {
@@ -7298,6 +7328,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
     } finally {
       setStreamlineSending(false)
     }
+  }
+
+  const issueReport = async () => {
+    // Report implementation to go here
   }
 
   const toggleTable = (tableName) => {
@@ -7433,6 +7467,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
 
   const displayResults = results || mockResults
 
+  let displaySummary = displayResults.summary;
+  displaySummary = displaySummary.replaceAll("\n","------");
+  displaySummary = displaySummary.replaceAll(": ",": ------");
+  displaySummary = displaySummary.replaceAll(". ",". ------");
   if (loading) {
     return (
       <div className="panel">
@@ -7501,7 +7539,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
               {streamlineStatus === 'error' && (
                 <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 500 }}>Failed to send</span>
               )}
-              <button
+              {/*<button
                 onClick={async () => {
                   setProtoDownloading(true)
                   try {
@@ -7551,14 +7589,575 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
               >
                 {streamlineSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
                 {streamlineSending ? 'Sending...' : 'Send to Streamline'}
-              </button>
+              </button>*/}
+              {/*<button
+                  onClick={issueReport}
+                  disabled={streamlineSending}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '6px 14px',
+                    background: streamlineSending ? '#94a3b8' : '#3b82f6',
+                    color: 'white', border: 'none', borderRadius: 8,
+                    cursor: streamlineSending ? 'not-allowed' : 'pointer',
+                    fontSize: '0.75rem', fontWeight: 600,
+                    transition: 'all .2s'
+                  }}
+              >
+                {streamlineSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
+                {streamlineSending ? 'Sending...' : 'Issue Report'}
+              </button>*/}
+              {systemButtons.filter((d)=>{return d.label==="Issue Report"}).map((btn,idx)=>{
+                return <button
+                    key={"btn"+idx}
+                    onClick={()=>{if (btn.url && btn.url !== '#') window.open(btn.url, '_blank')
+                    else return;}}
+                    disabled={streamlineSending}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px',
+                      background: streamlineSending ? '#94a3b8' : '#3b82f6',
+                      color: 'white', border: 'none', borderRadius: 8,
+                      cursor: streamlineSending ? 'not-allowed' : 'pointer',
+                      fontSize: '0.75rem', fontWeight: 600,
+                      transition: 'all .2s'
+                    }}
+                >
+                  {streamlineSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
+                  {streamlineSending ? 'Sending...' : btn.label}
+                </button>
+              })}
             </div>
           )}
         </div>
       </div>
 
+      {/* Concertina sections */}
+      <div style={{ padding: '', display: 'grid', gap: '0.75rem' }}>
+        {formattedResults?.map((item, index) =>
+            {
+              const exp = expandedResult !==null && expandedResult.id=== item.id;
+              return <div
+              key={index}
+            style={{
+              borderRadius: '10px',
+              background: 'var(--bg-card-alt)',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+                onClick={() => toggleResult(item)}
+                style={{
+                  padding: '1rem 1.25rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem'
+                }}
+            >
+              <div style={{flex: 1}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem'}}>
+                  {item.icon==="TrendingUp"?<TrendingUp size={20} className="icon-red" />:
+                      (item.icon==="Package"?<Package size={20} className="icon-red" />:
+                      (item.icon==="Zap"?<Zap size={20} className="icon-red" />:
+                      (item.icon==="AlertTriangle"?<AlertTriangle size={20} className="icon-red" />:
+                      (item.icon==="Globe"?<Globe size={20} className="icon-red" />:<FileText size={20} className="icon-red" />))))}
+                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0}}>
+                    {item.name}
+                  </h3>
+                  <span style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase'
+                  }}>
+                        - {item.shortDescription}
+                      </span>
+                </div>
+
+              </div>
+              {exp ? (
+                  <ChevronDown size={20} style={{color: 'var(--text-secondary)', flexShrink: 0}}/>
+              ) : (
+                  <ChevronRight size={20} style={{color: 'var(--text-secondary)', flexShrink: 0}}/>
+              )}
+            </div>
+            {exp && expandedResult && (
+                <div style={{
+                  padding: '0 1.25rem 1rem',
+                  borderTop: '1px solid #e5e5e5'
+                }}>
+                  {
+                    expandedResult.id==="executiveSummary"?
+                      <div>
+                        <div style={{ padding: '1.25rem' }}>
+                          <div style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)' }}>
+                            {displayResults.summary!==null && displayResults.summary!==undefined?
+                                <div>{displaySummary.split("------").map((phrase)=>{
+                                  return <div>{phrase}</div>
+                                })}</div>:"Not analysed yet"}
+                          </div>
+                        </div>
+                        <div>
+                        {formattedSummary?.map((summaryItem, index1) =>
+                        {
+                          const expSummary = expandedSummary !==null && expandedSummary.id=== summaryItem.id;
+                          return <div
+                              key={index1}
+                              style={{
+                                borderRadius: '10px',
+                                background: 'var(--bg-card-alt)',
+                                overflow: 'hidden',
+                                marginTop:"10px"
+                              }}
+                              className={"panel"}
+                          >
+                            <div
+                                onClick={() => toggleSummary(summaryItem)}
+                                style={{
+                                  padding: '1rem 1.25rem',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: '1rem'
+                                }}
+                                className={"panel-header"}
+                            >
+                              <div style={{flex: 1}}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem'}}>
+                                  {summaryItem.icon==="TrendingUp"?<TrendingUp size={20} className="icon-red" />:
+                                      (summaryItem.icon==="Package"?<Package size={20} className="icon-red" />:
+                                          (summaryItem.icon==="Zap"?<Zap size={20} className="icon-red" />:
+                                              (summaryItem.icon==="AlertTriangle"?<AlertTriangle size={20} className="icon-red" />:
+                                                  (summaryItem.icon==="Globe"?<Globe size={20} className="icon-red" />:<FileText size={20} className="icon-red" />))))}
+                                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0}}>
+                                    {summaryItem.name}
+                                  </h3>
+                                  <span style={{
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '4px',
+                                    textTransform: 'uppercase'
+                                  }}>
+
+                      </span>
+                                </div>
+
+                              </div>
+                              {expSummary ? (
+                                  <ChevronDown size={20} style={{color: 'var(--text-secondary)', flexShrink: 0}}/>
+                              ) : (
+                                  <ChevronRight size={20} style={{color: 'var(--text-secondary)', flexShrink: 0}}/>
+                              )}
+                            </div>
+                            {expSummary && expandedSummary && (
+                                <div>
+                                  {expandedSummary.id==="opportunitiesList"?<div>
+                                        {displayResults.client_summary && (
+                                            <div className="" style={{ borderRadius: '12px', overflow: 'hidden' }}>
+                                              <div style={{ padding: '1.5rem', background: 'var(--bg-primary)' }}>
+                                                {displayResults.client_summary.split('\n').filter(line => line.trim()).map((line, idx) => {
+                                                  const trimmed = line.trim()
+                                                  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                                                    return (
+                                                      <div key={idx} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '0.75rem', paddingLeft: '0.5rem' }}>
+                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#dc2626', marginTop: '0.5rem', flexShrink: 0 }} />
+                                                        <div style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)', margin: 0 }}>
+                                                          {trimmed.substring(2).indexOf("**")>=0?
+                                                              <div>{trimmed.substring(2).split("** ").map((ph,phindex)=>{
+                                                                return <span>{phindex===0?<b>{ph.replaceAll("**","")}</b>:" "+ph}</span>
+                                                              })}</div>
+                                                              :trimmed.substring(2)}
+                                                        </div>
+                                                      </div>
+                                                    )
+                                                  }
+                                                  return (
+                                                    <p key={idx} style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                                                      {trimmed}
+                                                    </p>
+                                                  )
+                                                })}
+                                              </div>
+                                            </div>
+                                          )}
+                                      </div>:
+                                      (expandedSummary.id==="bottomLine"?<div>
+                                        {displayResults.bottom_line && (
+                                          <div className="">
+                                            <div style={{ padding: '1.25rem' }}>
+                                              <div style={{
+                                                background: 'rgba(220, 38, 38, 0.05)',
+                                                border: '1px solid rgba(220, 38, 38, 0.15)',
+                                                borderLeft: '4px solid #dc2626',
+                                                borderRadius: '8px',
+                                                padding: '1rem 1.25rem'
+                                              }}>
+                                                <p style={{ fontSize: '0.95rem', lineHeight: 1.7, color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>
+                                                  {displayResults.bottom_line}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>:"")}
+                                </div>
+                            )}
+                          </div>
+                            })}
+                        </div>
+                      </div>:
+                    (expandedResult.id==="problemsIdentified"?
+                        <div>
+                          {/* Problems Identified */}
+
+                            <div style={{ padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+                              {displayResults.problems?.map((problem, index) => (
+                                  <div
+                                      key={index}
+                                      style={{
+                                        border: `1px solid ${getSeverityColor(problem.severity)}20`,
+                                        borderLeft: `4px solid ${getSeverityColor(problem.severity)}`,
+                                        borderRadius: '10px',
+                                        background: 'var(--bg-card-alt)',
+                                        overflow: 'hidden'
+                                      }}
+                                  >
+                                    <div
+                                        onClick={() => toggleProblem(index)}
+                                        style={{
+                                          padding: '1rem 1.25rem',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          gap: '1rem'
+                                        }}
+                                    >
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                          <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                            {problem.title}
+                                          </h3>
+                                          <span style={{
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            padding: '0.25rem 0.5rem',
+                                            borderRadius: '4px',
+                                            background: getSeverityBg(problem.severity),
+                                            color: getSeverityColor(problem.severity),
+                                            textTransform: 'uppercase'
+                                          }}>
+                      {problem.severity}
+                    </span>
+                                        </div>
+                                      </div>
+                                      {expandedProblems[index] ? (
+                                          <ChevronDown size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                      ) : (
+                                          <ChevronRight size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                      )}
+                                    </div>
+                                    {expandedProblems[index] && (
+                                        <div style={{
+                                          padding: '0 1.25rem 1rem',
+                                          borderTop: '1px solid #e5e5e5'
+                                        }}>
+                                          <div style={{ marginTop: '1rem' }}>
+                                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                              Evidence
+                                            </p>
+                                            <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                                              {problem.evidence}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                              Recommendation
+                                            </p>
+                                            <p style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
+                                              {problem.recommendation}
+                                            </p>
+                                          </div>
+                                        </div>
+                                    )}
+                                  </div>
+                              ))}
+                            </div>
+                        </div>:
+                    (expandedResult.id==="whatwecando"?
+                        <div>
+                          {/* Streamline Applications */}
+                          {displayResults.streamline_applications && (
+                              <div style={{ padding: '1.5rem', background: 'var(--bg-primary)' }}>
+                                  {displayResults.streamline_applications.split('\n').filter(line => line.trim()).map((line, idx) => {
+                                    const trimmed = line.trim()
+                                    // Bold headers like **1. Title**
+                                    const boldMatch = trimmed.match(/^\*\*(.+)\*\*$/)
+                                    if (boldMatch) {
+                                      return (
+                                          <h3 key={idx} style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: idx === 0 ? '0 0 0.5rem 0' : '1.25rem 0 0.5rem 0' }}>
+                                            {boldMatch[1]}
+                                          </h3>
+                                      )
+                                    }
+                                    // Labeled lines like "Problem: ...", "Workflow: ...", "Integrations: ...", "Outcome: ..."
+                                    const labelMatch = trimmed.match(/^(Problem|Workflow|Integrations|Outcome):\s*(.+)/)
+                                    if (labelMatch) {
+                                      return (
+                                          <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem', paddingLeft: '0.75rem' }}>
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: labelMatch[1] === 'Problem' ? '#ef4444' : labelMatch[1] === 'Workflow' ? '#3b82f6' : '#6b7280', minWidth: '90px', flexShrink: 0 }}>{labelMatch[1]}:</span>
+                                            <span style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{labelMatch[2]}</span>
+                                          </div>
+                                      )
+                                    }
+                                    // Bullet points
+                                    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                                      return (
+                                          <div key={idx} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '0.5rem', paddingLeft: '0.5rem' }}>
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4b5563', marginTop: '0.5rem', flexShrink: 0 }} />
+                                            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: 0 }}>{trimmed.substring(2)}</p>
+                                          </div>
+                                      )
+                                    }
+                                    // Regular paragraphs
+                                    return (
+                                        <p key={idx} style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                                          {trimmed}
+                                        </p>
+                                    )
+                                  })}
+                              </div>
+                          )}
+                        </div>:
+                    (expandedResult.id==="rapidDeployment"?
+                        <div>
+                          {/* 7/14/21 Day Plan */}
+                          <div style={{ padding: '1.25rem', display: 'grid', gap: '1rem' }}>
+                              {displayResults.plan?.map((phase, index) => (
+                                  <div
+                                      key={index}
+                                      style={{
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '10px',
+                                        background: 'var(--bg-card-alt)',
+                                        padding: '1rem 1.25rem'
+                                      }}
+                                  >
+                                    <h3 style={{
+                                      fontSize: '0.9rem',
+                                      fontWeight: 700,
+                                      color: '#dc2626',
+                                      marginBottom: '0.75rem',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.05em'
+                                    }}>
+                                      {phase.phase}
+                                    </h3>
+                                    <ul style={{ margin: 0, paddingLeft: '1.25rem', display: 'grid', gap: '0.5rem' }}>
+                                      {phase.actions?.map((action, actionIndex) => (
+                                          <li key={actionIndex} style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)',display:"inherit" }}>
+                                            {action}
+                                          </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                              ))}
+                            </div>
+                        </div>:
+                    (expandedResult.id==="technicalSection"?
+                        <div>
+                          {/* Proposed Architecture */}
+                          {displayResults.architecture_diagram && (
+                              <div className="panel" style={{marginTop:"20px",marginBottom:"10px"}}>
+                                <div className="panel-header">
+                                  <div className="panel-header-left">
+                                    <Package size={20} className="icon-red" />
+                                    <h2>Proposed Architecture</h2>
+                                  </div>
+                                </div>
+                                <div style={{ padding: '1.25rem' }}>
+            <pre style={{
+              background: 'var(--bg-card-alt)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '1.25rem',
+              fontSize: '0.75rem',
+              lineHeight: 1.5,
+              fontFamily: 'Monaco, Menlo, Consolas, monospace',
+              color: 'var(--text-primary)',
+              overflowX: 'auto',
+              margin: 0,
+              whiteSpace: 'pre'
+            }}>
+              {displayResults.architecture_diagram}
+            </pre>
+                                </div>
+                              </div>
+                          )}
+
+                          {/* Proposed Schema */}
+                          <div className="panel" style={{marginTop:"20px",marginBottom:"10px"}}>
+                            <div className="panel-header">
+                              <div className="panel-header-left">
+                                <Database size={20} className="icon-red" />
+                                <h2>Proposed Data Schema</h2>
+                                <span className="badge-count blue">{displayResults.schema?.tables?.length || 0} Tables</span>
+                              </div>
+                            </div>
+                            <div style={{ padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
+                              {displayResults.schema?.tables?.map((table, index) => (
+                                  <div
+                                      key={index}
+                                      style={{
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '10px',
+                                        background: 'var(--bg-card-alt)',
+                                        overflow: 'hidden'
+                                      }}
+                                  >
+                                    <div
+                                        onClick={() => toggleTable(table.name)}
+                                        style={{
+                                          padding: '1rem 1.25rem',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          gap: '1rem'
+                                        }}
+                                    >
+                                      <div>
+                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                                          {table.name}
+                                        </h3>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                                          {table.purpose}
+                                        </p>
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <span className="badge-count blue">{table.columns?.length || 0} columns</span>
+                                        {expandedTables[table.name] ? (
+                                            <ChevronDown size={20} style={{ color: 'var(--text-secondary)' }} />
+                                        ) : (
+                                            <ChevronRight size={20} style={{ color: 'var(--text-secondary)' }} />
+                                        )}
+                                      </div>
+                                    </div>
+                                    {expandedTables[table.name] && (
+                                        <div style={{
+                                          padding: '0 1.25rem 1rem',
+                                          borderTop: '1px solid #e5e5e5'
+                                        }}>
+                                          <div style={{ marginTop: '1rem' }}>
+                                            <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                                              <thead>
+                                              <tr style={{ borderBottom: '2px solid #e5e5e5' }}>
+                                                <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Column</th>
+                                                <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Type</th>
+                                                <th style={{ textAlign: 'left', padding: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</th>
+                                              </tr>
+                                              </thead>
+                                              <tbody>
+                                              {table.columns?.map((col, colIndex) => (
+                                                  <tr key={colIndex} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                                    <td style={{ padding: '0.625rem 0.5rem', fontWeight: 500, color: 'var(--text-primary)' }}>{col.name}</td>
+                                                    <td style={{ padding: '0.625rem 0.5rem', color: 'var(--text-secondary)', fontFamily: 'monospace', fontSize: '0.75rem' }}>{col.type}</td>
+                                                    <td style={{ padding: '0.625rem 0.5rem', color: 'var(--text-secondary)' }}>{col.description}</td>
+                                                  </tr>
+                                              ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                    )}
+                                  </div>
+                              ))}
+                              {/* Schema Relationships */}
+                              {displayResults.schema?.relationships?.length > 0 && (
+                                  <div style={{
+                                    marginTop: '0.25rem',
+                                    padding: '0.75rem 1rem',
+                                    background: 'var(--bg-card-alt)',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-color)'
+                                  }}>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                      Relationships
+                                    </p>
+                                    {displayResults.schema.relationships.map((rel, i) => (
+                                        <p key={i} style={{
+                                          fontSize: '0.8rem',
+                                          color: 'var(--text-primary)',
+                                          fontFamily: 'Monaco, Menlo, Consolas, monospace',
+                                          margin: '0.25rem 0',
+                                          lineHeight: 1.5
+                                        }}>
+                                          {rel}
+                                        </p>
+                                    ))}
+                                  </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Data Sources*/}
+                          <div className="panel">
+                            <div className="panel-header">
+                              <div className="panel-header-left">
+                                <Globe size={20} className="icon-red" />
+                                <h2>Data Sources</h2>
+                                <span className="badge-count">{displayResults.sources?.length || 0}</span>
+                              </div>
+                            </div>
+                            <div style={{ padding: '1.25rem' }}>
+                              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                {displayResults.sources?.map((source, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '0.75rem',
+                                          padding: '0.75rem',
+                                          background: 'var(--bg-card-alt)',
+                                          borderRadius: '8px',
+                                          fontSize: '0.85rem'
+                                        }}
+                                    >
+                <span style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px',
+                  background: source.type === 'client_data' ? 'rgba(220, 38, 38, 0.1)' : source.type === 'web_enrichment' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                  color: source.type === 'client_data' ? '#dc2626' : source.type === 'web_enrichment' ? '#3b82f6' : '#6b7280',
+                  textTransform: 'uppercase'
+                }}>
+                  {source.type.replace('_', ' ')}
+                </span>
+                                      <span style={{ color: 'var(--text-primary)' }}>{source.reference}</span>
+                                    </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>:
+                        <div></div>))))
+                  }
+                </div>
+            )}
+          </div>
+        }
+        )}
+      </div>
+
+
       {/* Client Summary */}
-      {displayResults.client_summary && (
+      {/*displayResults.client_summary && (
         <div className="panel" style={{ border: '2px solid #dc2626', borderRadius: '12px', overflow: 'hidden' }}>
           <div style={{
             background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
@@ -7589,10 +8188,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             })}
           </div>
         </div>
-      )}
+      )*/}
 
       {/* Streamline Applications */}
-      {displayResults.streamline_applications && (
+      {/*displayResults.streamline_applications && (
         <div className="panel" style={{ border: '2px solid #4b5563', borderRadius: '12px', overflow: 'hidden' }}>
           <div style={{
             background: '#1a1a1a',
@@ -7642,10 +8241,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             })}
           </div>
         </div>
-      )}
+      )*/}
 
       {/* Executive Summary */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <TrendingUp size={20} className="icon-red" />
@@ -7657,10 +8256,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             {displayResults.summary}
           </p>
         </div>
-      </div>
+      </div>*/}
 
       {/* Bottom Line */}
-      {displayResults.bottom_line && (
+      {/*displayResults.bottom_line && (
         <div className="panel">
           <div className="panel-header">
             <div className="panel-header-left">
@@ -7682,10 +8281,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             </div>
           </div>
         </div>
-      )}
+      )*/}
 
       {/* Problems Identified */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <AlertTriangle size={20} className="icon-red" />
@@ -7766,10 +8365,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>*/}
 
       {/* Proposed Architecture */}
-      {displayResults.architecture_diagram && (
+      {/*displayResults.architecture_diagram && (
         <div className="panel">
           <div className="panel-header">
             <div className="panel-header-left">
@@ -7795,10 +8394,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             </pre>
           </div>
         </div>
-      )}
+      )*/}
 
       {/* Proposed Schema */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <Database size={20} className="icon-red" />
@@ -7873,9 +8472,9 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
                 </div>
               )}
             </div>
-          ))}
+          ))*/}
           {/* Schema Relationships */}
-          {displayResults.schema?.relationships?.length > 0 && (
+          {/*displayResults.schema?.relationships?.length > 0 && (
             <div style={{
               marginTop: '0.25rem',
               padding: '0.75rem 1rem',
@@ -7900,10 +8499,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             </div>
           )}
         </div>
-      </div>
+      </div>*/}
 
       {/* 7/14/21 Day Plan */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <Calendar size={20} className="icon-red" />
@@ -7941,10 +8540,10 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>*/}
 
       {/* Sources */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <Globe size={20} className="icon-red" />
@@ -7983,7 +8582,7 @@ function ResultsScreen({ setShowModal, clientId, isAdmin }) {
             ))}
           </div>
         </div>
-      </div>
+      </div>*/}
     </div>
   )
 }
