@@ -1481,10 +1481,12 @@ export default function App() {
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
-    const saved = localStorage.getItem('xo-sidebar-expanded')
+  const [sidebarPinned, setSidebarPinned] = useState(() => {
+    const saved = sessionStorage.getItem('xo-sidebar-pinned')
     return saved !== null ? saved === 'true' : window.innerWidth > 768
   })
+  const [sidebarHover, setSidebarHover] = useState(false)
+  const sidebarExpanded = sidebarPinned || sidebarHover
   const [clientId, setClientId] = useState(() => sessionStorage.getItem('xo-client-id') || null)
   const [companyData, setCompanyData] = useState({
     name: '',
@@ -1712,20 +1714,22 @@ export default function App() {
     }
   }, [clientId])
 
-  const toggleSidebar = () => {
-    setSidebarExpanded(prev => {
+  const toggleSidebarPin = () => {
+    setSidebarPinned(prev => {
       const next = !prev
-      localStorage.setItem('xo-sidebar-expanded', String(next))
+      sessionStorage.setItem('xo-sidebar-pinned', String(next))
       return next
     })
+    setSidebarHover(false)
   }
 
   const navigateTo = (screen) => {
     setCurrentScreen(screen)
     // On mobile, collapse sidebar after navigation
     if (window.innerWidth <= 768) {
-      setSidebarExpanded(false)
-      localStorage.setItem('xo-sidebar-expanded', 'false')
+      setSidebarPinned(false)
+      sessionStorage.setItem('xo-sidebar-pinned', 'false')
+      setSidebarHover(false)
     }
   }
 
@@ -1866,7 +1870,8 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />
   }
 
-  const sidebarWidth = sidebarExpanded ? 220 : 56
+  const sidebarVisualWidth = sidebarExpanded ? 220 : 56
+  const contentOffset = sidebarPinned ? 220 : 56
 
   // Sidebar nav item helper
   const SidebarItem = ({ screen, icon: Icon, label, onClick, active, color }) => {
@@ -1905,19 +1910,21 @@ export default function App() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Persistent Sidebar */}
       <aside
+        onMouseEnter={() => { if (!sidebarPinned) setSidebarHover(true) }}
+        onMouseLeave={() => setSidebarHover(false)}
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
           bottom: 0,
-          width: `${sidebarWidth}px`,
+          width: `${sidebarVisualWidth}px`,
           background: '#1a1a2e',
           zIndex: 201,
           display: 'flex',
           flexDirection: 'column',
           transition: 'width 0.2s ease',
           overflow: 'hidden',
-          boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)'
+          boxShadow: sidebarHover && !sidebarPinned ? '4px 0 16px rgba(0, 0, 0, 0.3)' : '2px 0 8px rgba(0, 0, 0, 0.15)'
         }}
       >
         {/* Sidebar Header */}
@@ -1936,16 +1943,17 @@ export default function App() {
                 {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{user.email}</span>}
               </div>
               <button
-                onClick={toggleSidebar}
-                style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer', padding: '0.65rem', flexShrink: 0 }}
+                onClick={toggleSidebarPin}
+                title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+                style={{ background: 'none', border: 'none', color: sidebarPinned ? '#dc2626' : 'rgba(255, 255, 255, 0.7)', cursor: 'pointer', padding: '0.65rem', flexShrink: 0 }}
               >
-                <ChevronLeft size={18} />
+                {sidebarPinned ? <ChevronLeft size={18} /> : <Lock size={14} />}
               </button>
             </>
           ) : (
             <button
-              onClick={toggleSidebar}
-              title="Expand sidebar"
+              onClick={toggleSidebarPin}
+              title="Pin sidebar open"
               style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer', padding: '0.60rem' }}
             >
               <Menu size={20} />
@@ -2022,7 +2030,7 @@ export default function App() {
       </aside>
 
       {/* Right side: header + content */}
-      <div style={{ flex: 1, marginLeft: `${sidebarWidth}px`, transition: 'margin-left 0.2s ease' }}>
+      <div style={{ flex: 1, marginLeft: `${contentOffset}px`, transition: 'margin-left 0.2s ease' }}>
         {/* Header */}
         <header className="header">
           <div className="header-inner">
@@ -2161,7 +2169,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <div style={{ position: 'fixed', bottom: 0, left: `${sidebarWidth}px`, right: 0, textAlign: 'center', padding: '0.375rem 0', fontSize: '11px', color: '#808080', pointerEvents: 'none', zIndex: 10, transition: 'left 0.2s ease' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: `${contentOffset}px`, right: 0, textAlign: 'center', padding: '0.375rem 0', fontSize: '11px', color: '#808080', pointerEvents: 'none', zIndex: 10, transition: 'left 0.2s ease' }}>
         &copy; 2026 Intellagentic Limited. All rights reserved.
       </div>
 

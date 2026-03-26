@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.89)
+**Status:** Deployed & Operational (v1.90)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,17 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.90 — Sidebar hover-expand and pin/unpin**
+
+- Hover: mouseover on collapsed icon strip temporarily expands sidebar with labels; mouseout collapses back
+- Pin: clicking hamburger (collapsed) or lock icon (hover-expanded) pins sidebar open permanently; content shifts to make room
+- Unpin: clicking chevron-left on pinned sidebar unpins it back to icon strip
+- Hover-expand overlays content (no layout shift); pinned state pushes content via margin
+- Stronger drop shadow on hover-expanded state to distinguish from pinned
+- Pin state persisted in localStorage (`xo-sidebar-pinned`)
+- Mobile: nav clicks auto-collapse and unpin
+- Deployed: frontend only
 
 **v1.89 — Bedrock bearer token authentication**
 
