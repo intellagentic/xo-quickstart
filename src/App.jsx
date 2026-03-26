@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronUp, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Users, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download, Link, Share2 } from 'lucide-react'
+import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2, CheckCircle2, Music, Loader2, CheckCircle, Clock, AlertCircle, AlertTriangle, ChevronDown, ChevronUp, ChevronRight, Database, Calendar, Globe, TrendingUp, Menu, Settings, Moon, Sun, GripVertical, Copy, Edit2, Plus, Home, Zap, Heart, Star, Send, Check, Save, User, Users, Bell, Search, Mail, Phone, MapPin, Play, ExternalLink, Package, LogOut, Lock, Eye, EyeOff, Cloud, FolderOpen, ChevronLeft, HardDrive, MoreVertical, ToggleLeft, ToggleRight, History, RefreshCw, Image, FileSpreadsheet, FileType, File, Download, Link, Share2,FileScan } from 'lucide-react'
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 import intellistackLogo from './assets/intellistack-logo.png'
@@ -3718,8 +3718,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
 
   const step1Complete = !!companyData.name
   const step2Complete = sourceCount > 0
-  const step3Complete = !!companyData.existingApps
-  const allStepsComplete = step1Complete && step2Complete && step3Complete
+  const allStepsComplete = step1Complete && step2Complete
 
   return (
     <div>
@@ -4218,7 +4217,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'white', marginBottom: '0.1rem', letterSpacing: '-0.01em' }}>
-                  RAW DATA
+                  YOUR DATA
                 </h3>
                 <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
                   The Noise
@@ -4277,70 +4276,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             </div>
           </div>
 
-          {/* Card 4: Apps & Services */}
-          <div style={{
-            background: '#1a1a2e',
-            borderRadius: '10px',
-            padding: '0.625rem 0.75rem',
-            border: step3Complete ? '2px solid #dc2626' : '2px solid transparent',
-            transition: 'all 0.3s',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                background: step3Complete ? '#dc2626' : 'rgba(220, 38, 38, 0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '2px solid rgba(220, 38, 38, 0.3)', transition: 'all 0.3s'
-              }} onClick={()=>{setExistingAppsEdit(!existingAppsEdit)}}>
-                {step3Complete ? (
-                    <CheckCircle2 size={16} style={{ color: 'white' }} />
-                ) : (
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#dc2626' }}>3</span>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'white', marginBottom: '0.1rem', letterSpacing: '-0.01em' }}>
-                  APPS & SERVICES
-                </h3>
-                <p style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-                  The Current Tools
-                </p>
-                <p style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.4, marginBottom: '0.5rem' }}>
-                  List your key apps, services and vendors. Upload screen shots in Your Data if useful.
-                </p>
-
-                {!existingAppsEdit ? (
-                    <div style={{
-                      color: 'rgba(255, 255, 255, 0.7)'
-                    }} onClick={()=>{setExistingAppsEdit(true)}}>
-                      {companyData.existingApps}
-                    </div>
-                ) : (
-                    <div style={{display:"flex",justifyContent:"center",gap:"0.375rem"}}>
-                      <textarea
-                          value={formData.existingApps}
-                          onChange={(e) => setFormData({ ...formData, existingApps: e.target.value })}
-                          onBlur={autoSave}
-                          placeholder="List your key apps, services and vendors"
-                          rows={4}
-                          style={{
-                            width: '100%', padding: '0.5rem 0.625rem',
-                            background: '#f9fafb',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
-                            fontFamily: 'inherit', outline: 'none', resize: 'vertical',
-                            minHeight: '100px'
-                          }}
-                      />
-                    </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 5: Intellagentic Growth */}
+          {/* Card 3: Intellagentic Growth */}
           <div style={{
             background: allStepsComplete ? '#1a1a2e' : '#2a2a3e',
             borderRadius: '10px',
@@ -4358,7 +4294,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                 border: `2px solid ${allStepsComplete ? 'rgba(220, 38, 38, 0.3)' : 'rgba(150, 150, 150, 0.4)'}`,
                 transition: 'all 0.3s'
               }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: allStepsComplete ? '#dc2626' : '#999' }}>4</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: allStepsComplete ? '#dc2626' : '#999' }}>3</span>
               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{
@@ -4532,6 +4468,11 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
   const [replacingId, setReplacingId] = useState(null)
+  const [currentClient,setCurrentClient] = useState(null)
+
+  const [ndaSigned, setNdaSigned] = useState(false)
+  const [ndaSignedAt, setNdaSignedAt] = useState('')
+  const [existingApps, setExistingApps] = useState('')
 
   // Text input source state
   const [textSourceLabel, setTextSourceLabel] = useState('')
@@ -4551,7 +4492,10 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
   const [gdriveFolderStack, setGdriveFolderStack] = useState([])
 
   useEffect(() => {
-    if (clientId) fetchUploads()
+    if (clientId) {
+      fetchClient(clientId);
+      fetchUploads();
+    }
     else setLoading(false)
   }, [clientId])
 
@@ -4836,6 +4780,85 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
   // === Computed ===
   const activeUploads = uploads.filter(u => u.status === 'active')
   const totalSize = uploads.reduce((sum, u) => sum + (u.file_size || 0), 0)
+  //console.log(currentClient);
+
+  const fetchClient = async (clientId)=>{
+    if(clientId) {
+      try {
+        const res = await fetch(`${API_BASE}/clients?client_id=${clientId}`, {headers: getAuthHeaders()})
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentClient(data);
+          setNdaSigned(data.ndaSigned);
+          setNdaSignedAt(data.ndaSignedAt);
+          setExistingApps(data.existingApps);
+          //console.log(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch client:', err)
+      }
+    }
+  }
+  const addExistingApps = async ()=>{
+    if(clientId){
+      // Update existing client
+      const response = await fetch(`${API_BASE}/clients`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          company_name:currentClient.company_name,
+          website: currentClient.website,
+          contacts: currentClient.contacts || [],
+          addresses: currentClient.addresses || [],
+          industry: currentClient.industry,
+          description: currentClient.description,
+          painPoint: currentClient.painPoint,
+          futurePlans: currentClient.futurePlans || '',
+          painPoints: currentClient.painPoints || [],
+          partner_id: currentClient.partner_id,
+          intellagentic_lead: currentClient.intellagentic_lead,
+          ndaSigned:currentClient.ndaSigned,
+          existingApps: existingApps
+        })
+      })
+      if (response.ok) {
+        //console.log('Client updated:', clientId)
+        fetchClient(clientId);
+      }
+    }
+  }
+
+  const addNDA = async ()=>{
+    //alert("NDA Signed");
+    if(clientId){
+      // Update existing client
+      const response = await fetch(`${API_BASE}/clients`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          company_name:currentClient.company_name,
+          website: currentClient.website,
+          contacts: currentClient.contacts || [],
+          addresses: currentClient.addresses || [],
+          industry: currentClient.industry,
+          description: currentClient.description,
+          painPoint: currentClient.painPoint,
+          futurePlans: currentClient.futurePlans || '',
+          painPoints: currentClient.painPoints || [],
+          partner_id: currentClient.partner_id,
+          intellagentic_lead: currentClient.intellagentic_lead,
+          existingApps:currentClient.existingApps,
+          ndaSigned: true
+        })
+      })
+      if (response.ok) {
+        //console.log('Client updated:', clientId)
+        fetchClient(clientId);
+      }
+    }
+  }
 
   // === No clientId state ===
   if (!clientId) {
@@ -4871,6 +4894,27 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+      {/* ── Panel 1: Source Library ── */}
+      <div className="panel" style={{ overflow: 'visible' }}>
+        <div className="panel-header">
+          <div className="panel-header-left">
+            <FileScan size={20} className="icon-red" />
+            <h2>NDA</h2>
+
+          </div>
+          {!ndaSigned && (<button
+              onClick={addNDA}
+              style={{ background: 'var(--action-primary)', border: '2px solid var(--action-primary)',borderRadius:"8px", color: 'white', cursor: 'pointer', padding: '0.45rem' }}
+              title="Non Disclosure Agreement"
+          >
+            <FileScan size={16} /> {"I AGREE"}
+          </button>)}
+        </div>
+        <div style={{ padding: '1.25rem',color:"var(--text-muted)"}}>
+          I agree to the terms of this NDA and confirm that I am authorized to bind the organization/myself to these confidentiality obligations. {ndaSigned?<span style={{color:"var(--text-primary)"}}>{"NDA Signed: "+formatDateTime(ndaSignedAt)}</span>:""}
+        </div>
+      </div>
 
       {/* ── Panel 1: Source Library ── */}
       <div className="panel" style={{ overflow: 'visible' }}>
@@ -5171,9 +5215,10 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               textAlign: 'center',
               background: isDragging ? 'rgba(220, 38, 38, 0.08)' : 'var(--surface-secondary, rgba(255,255,255,0.03))',
               cursor: 'pointer',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              opacity:ndaSigned?"1":"0.1"
             }}
-            onClick={() => document.getElementById('sources-file-input').click()}
+            onClick={() => {if(ndaSigned) document.getElementById('sources-file-input').click()}}
           >
             <Upload size={36} style={{ color: '#dc2626', opacity: 0.6, marginBottom: '0.5rem' }} />
             <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
@@ -5278,6 +5323,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
             <input
               type="text"
               value={textSourceLabel}
+              disabled={!ndaSigned}
               onChange={(e) => setTextSourceLabel(e.target.value)}
               placeholder="Source label (e.g. Phone call notes, Email thread, Meeting notes)"
               style={{
@@ -5291,6 +5337,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 
             <textarea
               value={textSourceContent}
+              disabled={!ndaSigned}
               onChange={(e) => setTextSourceContent(e.target.value)}
               placeholder="Paste raw text content here — call notes, email threads, chat logs, meeting minutes..."
               rows={5}
@@ -5302,13 +5349,14 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
                 fontFamily: 'inherit', outline: 'none', resize: 'vertical', lineHeight: 1.5
               }}
             />
+            <div style={{display:"flex",justifyContent:"center"}}>
 
             <button
               onClick={addTextSource}
-              disabled={textSourceSaving || !textSourceContent.trim()}
+              disabled={textSourceSaving || !textSourceContent.trim() || !ndaSigned}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
-                width: '100%', padding: '0.6rem',
+                padding: '0.6rem',
                 background: textSourceStatus === 'saved' ? '#22c55e' : !textSourceContent.trim() ? 'var(--surface-secondary, rgba(0,0,0,0.05))' : '#dc2626',
                 color: textSourceStatus === 'saved' ? 'white' : !textSourceContent.trim() ? 'var(--text-muted)' : 'white',
                 border: !textSourceContent.trim() && textSourceStatus !== 'saved' ? '1px solid var(--border-color)' : 'none',
@@ -5320,11 +5368,56 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               {textSourceSaving ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : textSourceStatus === 'saved' ? <CheckCircle2 size={15} /> : <Plus size={15} />}
               {textSourceSaving ? 'Saving...' : textSourceStatus === 'saved' ? 'Your Data Added!' : 'Add Your Data'}
             </button>
+            </div>
             {textSourceStatus === 'error' && (
               <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.375rem', textAlign: 'center' }}>
                 {textSourceError}
               </p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Panel 3: APPS & SERVICES ── */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="panel-header-left">
+            <Zap size={20} className="icon-red" />
+            <h2>APPS & SERVICES</h2>
+          </div>
+        </div>
+        <div style={{ padding: '1.25rem' }}>
+         <textarea
+             value={existingApps}
+             onChange={(e) => setExistingApps(e.target.value)}
+             placeholder="List your key apps and upload screenshots in your data section..."
+             rows={5}
+             style={{
+               width: '100%', padding: '0.625rem', marginBottom: '0.5rem',
+               border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
+               borderRadius: '6px', fontSize: '0.85rem',
+               color: 'var(--text-primary)', background: 'var(--surface-secondary, rgba(255,255,255,0.03))',
+               fontFamily: 'inherit', outline: 'none', resize: 'vertical', lineHeight: 1.5
+             }}
+         />
+          <div style={{display:"flex",justifyContent:"center"}}>
+
+            <button
+                onClick={addExistingApps}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
+                  padding: '0.6rem',
+                  background: textSourceStatus === 'saved' ? '#22c55e' : !existingApps.trim() ? 'var(--surface-secondary, rgba(0,0,0,0.05))' : '#dc2626',
+                  color: !existingApps.trim() ? 'var(--text-muted)' : 'white',
+                  border: !existingApps.trim() ? '1px solid var(--border-color)' : 'none',
+                  borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600,
+                  cursor: !existingApps.trim() ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s'
+                }}
+            >
+              {existingApps.trim() !== '' ? <CheckCircle2 size={15} /> : <Plus size={15} />}
+              {'Add Existing Apps'}
+            </button>
           </div>
         </div>
       </div>
