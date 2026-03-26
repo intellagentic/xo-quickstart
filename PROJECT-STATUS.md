@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.88)
+**Status:** Deployed & Operational (v1.89)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,16 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.89 — Bedrock bearer token authentication**
+
+- Added `AWS_BEARER_TOKEN_BEDROCK` env var support for bearer token auth with Bedrock
+- When set: calls Bedrock REST API directly with `Authorization: Bearer <token>` header (no boto3 Bedrock client needed)
+- When not set: falls back to Lambda IAM role via boto3 (unchanged behavior)
+- `_invoke_bedrock_bearer()`: direct HTTPS POST to `bedrock-runtime.{region}.amazonaws.com/model/{model}/invoke` with 300s timeout
+- Removed previous `BEDROCK_ACCESS_KEY_ID`/`BEDROCK_SECRET_ACCESS_KEY`/`BEDROCK_SESSION_TOKEN` — replaced by single bearer token
+- Auth mode logged on cold start for debugging
+- Deployed: backend only (enrich Lambda)
 
 **v1.88 — Switch from Anthropic API to AWS Bedrock**
 

@@ -13,6 +13,9 @@ import os
 import time
 import re
 import uuid
+import urllib.parse
+import urllib.request
+import urllib.error
 import boto3
 import io
 import csv
@@ -47,12 +50,18 @@ transcribe_client = boto3.client('transcribe')
 
 BUCKET_NAME = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
 BEDROCK_REGION = os.environ.get('BEDROCK_REGION', 'us-west-2')
+AWS_BEARER_TOKEN_BEDROCK = os.environ.get('AWS_BEARER_TOKEN_BEDROCK', '')
 FUNCTION_NAME = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'xo-enrich')
 STREAMLINE_WEBHOOK_URL = os.environ.get('STREAMLINE_WEBHOOK_URL', '')
 AUDIO_EXTENSIONS = {'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'wma', 'mp4', 'webm'}
 SYSTEM_SKILLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'system-skills')
 
-bedrock_client = boto3.client('bedrock-runtime', region_name=BEDROCK_REGION)
+# Bedrock client for IAM role fallback (only used when no bearer token)
+bedrock_client = None if AWS_BEARER_TOKEN_BEDROCK else boto3.client('bedrock-runtime', region_name=BEDROCK_REGION)
+if AWS_BEARER_TOKEN_BEDROCK:
+    print(f"Bedrock auth: using bearer token (region={BEDROCK_REGION})")
+else:
+    print(f"Bedrock auth: using Lambda IAM role (region={BEDROCK_REGION})")
 
 # Map Anthropic model names to Bedrock model IDs
 BEDROCK_MODEL_MAP = {
@@ -60,6 +69,32 @@ BEDROCK_MODEL_MAP = {
     'claude-sonnet-4-5-20250929': 'us.anthropic.claude-sonnet-4-5-20250514-v1:0',
     'claude-haiku-4-5-20251001': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 }
+
+
+def _invoke_bedrock_bearer(model_id, body_str):
+    """Call Bedrock invoke_model REST API using bearer token auth."""
+    # URL-encode the model ID (colons → %3A etc.)
+    encoded_model = urllib.parse.quote(model_id, safe='')
+    url = f"https://bedrock-runtime.{BEDROCK_REGION}.amazonaws.com/model/{encoded_model}/invoke"
+
+    req = urllib.request.Request(
+        url,
+        data=body_str.encode('utf-8'),
+        headers={
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {AWS_BEARER_TOKEN_BEDROCK}'
+        },
+        method='POST'
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')
+        print(f"Bedrock bearer API error: HTTP {e.code} - {error_body}")
+        raise Exception(f"Bedrock API error {e.code}: {error_body}")
 
 
 def _get_system_config_value(conn, key):
@@ -1365,14 +1400,19 @@ Be specific. Use actual data from the documents. Think like a management consult
             ]
         })
 
-        bedrock_response = bedrock_client.invoke_model(
-            modelId=bedrock_model_id,
-            contentType='application/json',
-            accept='application/json',
-            body=bedrock_body
-        )
+        if AWS_BEARER_TOKEN_BEDROCK:
+            # Bearer token auth — direct REST call
+            response_body = _invoke_bedrock_bearer(bedrock_model_id, bedrock_body)
+        else:
+            # IAM role auth — boto3 client
+            bedrock_response = bedrock_client.invoke_model(
+                modelId=bedrock_model_id,
+                contentType='application/json',
+                accept='application/json',
+                body=bedrock_body
+            )
+            response_body = json.loads(bedrock_response['body'].read())
 
-        response_body = json.loads(bedrock_response['body'].read())
         response_text = response_body['content'][0]['text']
         stop_reason = response_body.get('stop_reason', 'unknown')
         print(f"Bedrock response: {len(response_text)} chars, stop_reason={stop_reason}, model={bedrock_model_id}")
