@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.90)
+**Status:** Deployed & Operational (v1.91)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,18 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.91 — Skills concertina view with inline editor and export**
+
+- Skills screen converted from flat card list to accordion/concertina: click header to expand, chevron rotates on open
+- Only one skill open at a time; unsaved-changes prompt when switching or closing
+- Expanded state: monospace textarea inline editor for editable skills (client skills + system for admins)
+- Read-only view (pre-formatted) for system skills when non-admin
+- Inline save: amber "Unsaved changes" indicator, red Save button with spinner, calls PUT /skills directly
+- Per-skill export: FileText icon exports as .md, Download icon exports as .doc (Office-compatible HTML with Word namespace)
+- Export All button in header: combines all skills into single skills-export.md with --- separators
+- Delete button per skill (trash icon) in accordion header
+- Deployed: frontend only
 
 **v1.90 — Sidebar hover-expand and pin/unpin**
 
