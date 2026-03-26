@@ -3,6 +3,7 @@ import { X, Upload, Sparkles, FileText, Building2, FileText as FileIcon, Trash2,
 import logoLight from './assets/logo-light.png'
 import logoDark from './assets/logo-dark.png'
 import intellistackLogo from './assets/intellistack-logo.png'
+import intellistackLogoDark from './assets/intellistack-logo-dark.png'
 
 // ============================================================
 // XO PROTOTYPE - MAIN APP
@@ -1480,7 +1481,10 @@ export default function App() {
   const [showModal, setShowModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [showSidebar, setShowSidebar] = useState(false)
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    const saved = localStorage.getItem('xo-sidebar-expanded')
+    return saved !== null ? saved === 'true' : window.innerWidth > 768
+  })
   const [clientId, setClientId] = useState(() => sessionStorage.getItem('xo-client-id') || null)
   const [companyData, setCompanyData] = useState({
     name: '',
@@ -1708,9 +1712,21 @@ export default function App() {
     }
   }, [clientId])
 
+  const toggleSidebar = () => {
+    setSidebarExpanded(prev => {
+      const next = !prev
+      localStorage.setItem('xo-sidebar-expanded', String(next))
+      return next
+    })
+  }
+
   const navigateTo = (screen) => {
     setCurrentScreen(screen)
-    setShowSidebar(false)
+    // On mobile, collapse sidebar after navigation
+    if (window.innerWidth <= 768) {
+      setSidebarExpanded(false)
+      localStorage.setItem('xo-sidebar-expanded', 'false')
+    }
   }
 
   // Create or update client when company info is saved
@@ -1850,294 +1866,186 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />
   }
 
-  return (
-    <div>
-      {/* Header */}
-      <header className="header">
-        <div className="header-inner">
-          <div className="header-left">
-            <button
-              onClick={() => setShowSidebar(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'white',
-                cursor: 'pointer',
-                padding: '0.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <Menu size={24} />
-            </button>
-            <div className="logo-box">XO</div>
-            <div className="header-title">
-              <h1>
-                <span className="header-title-desktop">Capture</span>
-                <span className="header-title-mobile">Capture</span>
-                <span className="version-badge">Rapid Prototype</span>
-              </h1>
-              {currentScreen === 'dashboard' && (
-                <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {isPartner && !isAdmin ? 'Partner Dashboard' : 'Client Dashboard'}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="header-right" style={{display: 'flex', alignItems: 'center'}}>
-            <img src={logoLight} alt="Intellagentic" style={{ height: '26px' }} />
-          </div>
-        </div>
-      </header>
+  const sidebarWidth = sidebarExpanded ? 220 : 56
 
-      {/* Sidebar */}
-      {showSidebar && (
-        <>
-          {/* Overlay */}
-          <div
-            onClick={() => setShowSidebar(false)}
+  // Sidebar nav item helper
+  const SidebarItem = ({ screen, icon: Icon, label, onClick, active, color }) => {
+    const isActive = active !== undefined ? active : currentScreen === screen
+    const itemColor = color || (isActive ? '#dc2626' : '#ffffff')
+    return (
+      <button
+        onClick={onClick || (() => screen && navigateTo(screen))}
+        title={!sidebarExpanded ? label : undefined}
+        style={{
+          width: '100%',
+          background: isActive ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
+          border: 'none',
+          borderLeft: isActive ? '3px solid #dc2626' : '3px solid transparent',
+          color: itemColor,
+          padding: sidebarExpanded ? '0.6rem 0.875rem' : '0.6rem 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: sidebarExpanded ? 'flex-start' : 'center',
+          gap: '0.6rem',
+          cursor: 'pointer',
+          fontSize: '0.8rem',
+          fontWeight: 500,
+          transition: 'all 0.2s',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden'
+        }}
+      >
+        <Icon size={17} style={{ flexShrink: 0 }} />
+        {sidebarExpanded && <span>{label}</span>}
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Persistent Sidebar */}
+      <aside
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: `${sidebarWidth}px`,
+          background: '#1a1a2e',
+          zIndex: 201,
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'width 0.2s ease',
+          overflow: 'hidden',
+          boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)'
+        }}
+      >
+        {/* Sidebar Header */}
+        <div style={{
+          padding: sidebarExpanded ? '0.75rem 0.875rem' : '0.75rem 0',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: sidebarExpanded ? 'space-between' : 'center',
+          minHeight: '54px'
+        }}>
+          {sidebarExpanded ? (
+            <>
+              <div style={{ minWidth: 0 }}>
+                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.8rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Menu'}</span>
+                {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{user.email}</span>}
+              </div>
+              <button
+                onClick={toggleSidebar}
+                style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer', padding: '0.65rem', flexShrink: 0 }}
+              >
+                <ChevronLeft size={18} />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.7)', cursor: 'pointer', padding: '0.60rem' }}
+            >
+              <Menu size={20} />
+            </button>
+          )}
+        </div>
+
+        {/* Menu Items */}
+        <nav style={{ flex: 1, padding: '0.5rem 0', overflowY: 'auto', overflowX: 'hidden' }}>
+          {(isAdmin || isPartner) && (
+            <>
+              <SidebarItem
+                screen="dashboard"
+                icon={Building2}
+                label={isPartner && !isAdmin ? 'My Clients' : 'All Clients'}
+                onClick={() => { setInWorkspace(false); navigateTo('dashboard') }}
+                active={currentScreen === 'dashboard'}
+              />
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: sidebarExpanded ? '0.35rem 0.875rem' : '0.35rem 0.5rem' }} />
+            </>
+          )}
+          {[
+            { screen: 'upload', icon: Home, label: 'Welcome' },
+            { screen: 'sources', icon: FolderOpen, label: 'Your Data' },
+            { screen: 'enrich', icon: Sparkles, label: 'Enrich' },
+            { screen: 'results', icon: FileText, label: 'Results' },
+            { screen: 'skills', icon: Database, label: 'Skills' },
+            ...(isAdmin ? [{ screen: 'partners', icon: Users, label: 'Partners' }] : []),
+          ].map(item => <SidebarItem key={item.screen} {...item} />)}
+
+          <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: sidebarExpanded ? '0.5rem 0.875rem' : '0.5rem 0.5rem' }} />
+          <SidebarItem screen="configuration" icon={Settings} label="Configuration" />
+          {currentScreen !== 'dashboard' && clientId && (
+            <SidebarItem screen="branding" icon={Image} label="Branding" />
+          )}
+        </nav>
+
+        {/* Bottom section: theme + logout */}
+        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.5rem 0' }}>
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            title={!sidebarExpanded ? (theme === 'dark' ? 'Dark Mode' : 'Light Mode') : undefined}
             style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.25)',
-              zIndex: 200
-            }}
-          />
-          {/* Sidebar Panel */}
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: '220px',
-              background: '#1a1a2e',
-              zIndex: 201,
-              boxShadow: '2px 0 8px rgba(0, 0, 0, 0.2)',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            {/* Sidebar Header */}
-            <div style={{
-              padding: '0.75rem 0.875rem',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              width: '100%',
+              background: 'transparent',
+              border: 'none',
+              borderLeft: '3px solid transparent',
+              color: 'rgba(255, 255, 255, 0.7)',
+              padding: sidebarExpanded ? '0.6rem 0.875rem' : '0.6rem 0',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ color: 'white', fontWeight: 600, fontSize: '0.8rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name || 'Menu'}</span>
-                  {user?.email && <span style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{user.email}</span>}
-                </div>
+              justifyContent: sidebarExpanded ? 'flex-start' : 'center',
+              gap: '0.6rem',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              transition: 'all 0.2s'
+            }}
+          >
+            {theme === 'dark' ? <Moon size={17} style={{ flexShrink: 0 }} /> : <Sun size={17} style={{ flexShrink: 0 }} />}
+            {sidebarExpanded && (theme === 'dark' ? 'Dark Mode' : 'Light Mode')}
+          </button>
+
+          {/* Sign Out */}
+          <SidebarItem
+            icon={LogOut}
+            label="Sign Out"
+            onClick={handleLogout}
+            active={false}
+            color="#ef4444"
+          />
+        </div>
+      </aside>
+
+      {/* Right side: header + content */}
+      <div style={{ flex: 1, marginLeft: `${sidebarWidth}px`, transition: 'margin-left 0.2s ease' }}>
+        {/* Header */}
+        <header className="header">
+          <div className="header-inner">
+            <div className="header-left">
+              <div className="logo-box">XO</div>
+              <div className="header-title">
+                <h1>
+                  <span className="header-title-desktop">Capture</span>
+                  <span className="header-title-mobile">Capture</span>
+                  <span className="version-badge">Rapid Prototype</span>
+                </h1>
+                {currentScreen === 'dashboard' && (
+                  <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {isPartner && !isAdmin ? 'Partner Dashboard' : 'Client Dashboard'}
+                  </p>
+                )}
               </div>
-              <button
-                onClick={() => setShowSidebar(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                  flexShrink: 0
-                }}
-              >
-                <X size={18} />
-              </button>
             </div>
-
-            {/* Menu Items */}
-            <nav style={{ flex: 1, padding: '0.5rem 0' }}>
-              {(isAdmin || isPartner) && (
-                <>
-                  <button
-                    onClick={() => { setInWorkspace(false); navigateTo('dashboard') }}
-                    style={{
-                      width: '100%',
-                      background: currentScreen === 'dashboard' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
-                      border: 'none',
-                      borderLeft: currentScreen === 'dashboard' ? '3px solid #dc2626' : '3px solid transparent',
-                      color: currentScreen === 'dashboard' ? '#dc2626' : '#ffffff',
-                      padding: '0.6rem 0.875rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.6rem',
-                      cursor: 'pointer',
-                      fontSize: '0.8rem',
-                      fontWeight: 500,
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <Building2 size={17} style={{ flexShrink: 0 }} />
-                    {isPartner && !isAdmin ? 'My Clients' : 'All Clients'}
-                  </button>
-                  <div style={{
-                    height: '1px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    margin: '0.35rem 0.875rem'
-                  }} />
-                </>
-              )}
-              {[
-                { screen: 'upload', icon: Home, label: 'Welcome' },
-                { screen: 'sources', icon: FolderOpen, label: 'Your Data' },
-                { screen: 'enrich', icon: Sparkles, label: 'Enrich' },
-                { screen: 'results', icon: FileText, label: 'Results' },
-                { screen: 'skills', icon: Database, label: 'Skills' },
-                ...(isAdmin ? [{ screen: 'partners', icon: Users, label: 'Partners' }] : []),
-              ].map(({ screen, icon: Icon, label }) => (
-                <button
-                  key={screen}
-                  onClick={() => navigateTo(screen)}
-                  style={{
-                    width: '100%',
-                    background: currentScreen === screen ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
-                    border: 'none',
-                    borderLeft: currentScreen === screen ? '3px solid #dc2626' : '3px solid transparent',
-                    color: currentScreen === screen ? '#dc2626' : '#ffffff',
-                    padding: '0.6rem 0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Icon size={17} style={{ flexShrink: 0 }} />
-                  {label}
-                </button>
-              ))}
-              <div style={{
-                height: '1px',
-                background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.5rem 0.875rem'
-              }} />
-              <button
-                  onClick={() => navigateTo('configuration')}
-                  style={{
-                    width: '100%',
-                    background: currentScreen === 'configuration' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
-                    border: 'none',
-                    borderLeft: currentScreen === 'configuration' ? '3px solid #dc2626' : '3px solid transparent',
-                    color: currentScreen === 'configuration' ? '#dc2626' : '#ffffff',
-                    padding: '0.6rem 0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Settings size={17} style={{ flexShrink: 0 }} />
-                  Configuration
-                </button>
-              {currentScreen !== 'dashboard' && clientId && (
-                <button
-                  onClick={() => navigateTo('branding')}
-                  style={{
-                    width: '100%',
-                    background: currentScreen === 'branding' ? 'rgba(220, 38, 38, 0.2)' : 'transparent',
-                    border: 'none',
-                    borderLeft: currentScreen === 'branding' ? '3px solid #dc2626' : '3px solid transparent',
-                    color: currentScreen === 'branding' ? '#dc2626' : '#ffffff',
-                    padding: '0.6rem 0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.6rem',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: 500,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Image size={17} style={{ flexShrink: 0 }} />
-                  Branding
-                </button>
-              )}
-
-              {/* Theme Toggle in Sidebar */}
-              <div style={{
-                height: '1px',
-                background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.5rem 0.875rem'
-              }} />
-              <div
-                style={{
-                  padding: '0.6rem 0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem', fontWeight: 500 }}>
-                  {theme === 'dark' ? <Moon size={17} /> : <Sun size={17} />}
-                  {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                </div>
-                <button
-                  onClick={toggleTheme}
-                  style={{
-                    width: '38px',
-                    height: '20px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: theme === 'dark' ? '#3b82f6' : 'rgba(255, 255, 255, 0.3)',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    flexShrink: 0
-                  }}
-                >
-                  <div style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    background: 'white',
-                    position: 'absolute',
-                    top: '3px',
-                    left: theme === 'dark' ? '21px' : '3px',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
-                  }} />
-                </button>
-              </div>
-
-              {/* Sign Out */}
-              <div style={{
-                height: '1px',
-                background: 'rgba(255, 255, 255, 0.1)',
-                margin: '0.5rem 0.875rem'
-              }} />
-              <button
-                onClick={() => { setShowSidebar(false); handleLogout() }}
-                style={{
-                  width: '100%',
-                  background: 'transparent',
-                  border: 'none',
-                  borderLeft: '3px solid transparent',
-                  color: '#ef4444',
-                  padding: '0.6rem 0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  transition: 'all 0.2s'
-                }}
-              >
-                <LogOut size={17} style={{ flexShrink: 0 }} />
-                Sign Out
-              </button>
-            </nav>
+            <div className="header-right" style={{display: 'flex', alignItems: 'center'}}>
+              <img src={logoLight} alt="Intellagentic" style={{ height: '26px' }} />
+            </div>
           </div>
-        </>
-      )}
+        </header>
 
       {/* Main Content */}
       <main className="main">
@@ -2244,7 +2152,7 @@ export default function App() {
             preferredModel={preferredModel}
           />
         )}
-        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} systemButtons={systemButtons} />}
+        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} systemButtons={systemButtons} theme={theme} />}
         {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} />}
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} systemButtons={systemButtons} setSystemButtons={saveSystemButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} inWorkspace={inWorkspace} isAdmin={isAdmin} companyName={companyData.name} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
@@ -2253,9 +2161,11 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, textAlign: 'center', padding: '0.375rem 0', fontSize: '11px', color: '#808080', pointerEvents: 'none', zIndex: 10 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: `${sidebarWidth}px`, right: 0, textAlign: 'center', padding: '0.375rem 0', fontSize: '11px', color: '#808080', pointerEvents: 'none', zIndex: 10, transition: 'left 0.2s ease' }}>
         &copy; 2026 Intellagentic Limited. All rights reserved.
       </div>
+
+      </div>{/* end right-side wrapper */}
 
       {/* Company Information Modal */}
       {showCompanyModal && (
@@ -4321,7 +4231,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
 
                 {allStepsComplete ? (
                     <div style={{display:"flex",justifyContent:"center",gap:"0.375rem"}}>
-                    <button className={"action-btn btn-primary"}
+                      {/*<button className={"action-btn btn-primary"}
                       onClick={() => onNavigate('skills')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
@@ -4332,7 +4242,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                     >
                       <Database size={14} />
                       Skills
-                    </button>
+                    </button>*/}
                     <button className={"action-btn btn-primary"}
                       onClick={onComplete}
                       style={{
@@ -4900,7 +4810,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
         <div className="panel-header">
           <div className="panel-header-left">
             <FileScan size={20} className="icon-red" />
-            <h2>NDA</h2>
+            <h2>Consent</h2>
 
           </div>
           {!ndaSigned && (<button
@@ -4910,9 +4820,12 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
           >
             <FileScan size={16} /> {"I AGREE"}
           </button>)}
+          {ndaSigned && (<div style={{color:"var(--text-primary)"}}>
+            {ndaSigned?"Consent Agreed: "+formatDateTime(ndaSignedAt):""}
+          </div>)}
         </div>
         <div style={{ padding: '1.25rem',color:"var(--text-muted)"}}>
-          I agree to the terms of this NDA and confirm that I am authorized to bind the organization/myself to these confidentiality obligations. {ndaSigned?<span style={{color:"var(--text-primary)"}}>{"NDA Signed: "+formatDateTime(ndaSignedAt)}</span>:""}
+          I agree to the use of my data by Intellagentic as part of the XO Capture analysis and solution recommendation process.
         </div>
       </div>
 
@@ -5325,7 +5238,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               value={textSourceLabel}
               disabled={!ndaSigned}
               onChange={(e) => setTextSourceLabel(e.target.value)}
-              placeholder="Source label (e.g. Phone call notes, Email thread, Meeting notes)"
+              placeholder="Source label (e.g. Phone call notes, Email thread, Meeting notes, Key applications, Tech stack)"
               style={{
                 width: '100%', padding: '0.5rem 0.625rem', marginBottom: '0.5rem',
                 border: '1px solid var(--border-color, rgba(255,255,255,0.15))',
@@ -5339,7 +5252,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
               value={textSourceContent}
               disabled={!ndaSigned}
               onChange={(e) => setTextSourceContent(e.target.value)}
-              placeholder="Paste raw text content here — call notes, email threads, chat logs, meeting minutes..."
+              placeholder="Paste raw text content here — call notes, email threads, chat logs, meeting minutes, application names, technologies used ..."
               rows={5}
               style={{
                 width: '100%', padding: '0.625rem', marginBottom: '0.5rem',
@@ -5379,7 +5292,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
       </div>
 
       {/* ── Panel 3: APPS & SERVICES ── */}
-      <div className="panel">
+      {/*<div className="panel">
         <div className="panel-header">
           <div className="panel-header-left">
             <Zap size={20} className="icon-red" />
@@ -5389,6 +5302,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
         <div style={{ padding: '1.25rem' }}>
          <textarea
              value={existingApps}
+             disabled={!ndaSigned}
              onChange={(e) => setExistingApps(e.target.value)}
              placeholder="List your key apps and upload screenshots in your data section..."
              rows={5}
@@ -5404,6 +5318,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
 
             <button
                 onClick={addExistingApps}
+                disabled={!ndaSigned}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
                   padding: '0.6rem',
@@ -5420,7 +5335,7 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>*/}
 
       {/* Google Drive File Picker Modal */}
       {showGdrivePicker && (
@@ -7455,7 +7370,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
 // ============================================================
 // RESULTS SCREEN
 // ============================================================
-function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
+function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme }) {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -7854,15 +7769,13 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '1rem',
-                  backgroundColor:item.id==="whatwecando"?"black":"",
-                  color:item.id==="whatwecando"?"white":""
+                  gap: '1rem'
                 }}
             >
               <div style={{flex: 1}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem'}}>
-                  {item.id==="whatwecando"?<img src={intellistackLogo} alt="Intellistack" style={{ height: '22px' }} />:<IconCompe size={20} className="icon-red" />}
-                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, color: item.id==="whatwecando"?"white":'var(--text-primary)', margin: 0}}>
+                  {item.id==="whatwecando"?(theme==="dark"?<img src={intellistackLogo} alt="Intellistack" style={{ height: '22px' }} />:<img src={intellistackLogoDark} alt="Intellistack" style={{ height: '22px' }} />):<IconCompe size={20} className="icon-red" />}
+                  <h3 style={{fontSize: '0.95rem', fontWeight: 600, margin: 0}}>
                     {item.name}
                   </h3>
                   <span style={{

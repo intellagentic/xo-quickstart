@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.86)
+**Status:** Deployed & Operational (v1.87)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,20 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.87 — Collapsible sidebar with persistent icon strip**
+
+- Replaced overlay sidebar with persistent collapsible sidebar: 220px expanded, 56px icon strip collapsed
+- Expanded state: icon + label for each nav item, user name/email in header, chevron-left to collapse
+- Collapsed state: centered icons only with tooltip on hover, hamburger menu icon to expand
+- State persisted in localStorage across sessions; defaults to expanded on desktop (>768px), collapsed on mobile
+- `SidebarItem` reusable component handles both states with smooth CSS transitions
+- Theme toggle and Sign Out pinned to bottom of sidebar (always accessible)
+- On mobile, nav clicks auto-collapse the sidebar
+- Header changed from `position: fixed` to `position: sticky` (lives inside content wrapper, respects sidebar offset)
+- Footer offset tracks sidebar width dynamically
+- Removed `padding-top: 80px` from `.main` (no longer needed with sticky header)
+- Deployed: frontend + CSS
 
 **v1.86 — NDA signed timestamp tracking**
 
