@@ -1451,11 +1451,18 @@ export default function App() {
   const saveModelPreference = async (model) => {
     setPreferredModel(model)
     try {
-      await fetch(`${API_BASE}/auth/preferences`, {
+      const res = await fetch(`${API_BASE}/auth/preferences`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ preferred_model: model })
       })
+      const data = await res.json();
+      if(res.ok){
+        let user = sessionStorage.getItem('xo-user');
+        user = JSON.parse(user);
+        user.preferred_model=model;
+        sessionStorage.setItem('xo-user', JSON.stringify(user));
+      }
     } catch (err) {
       console.error('Failed to save model preference:', err)
     }
@@ -5721,9 +5728,9 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
                       }}>
                         {step.num}
                       </div>
-                      <div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{step.label}</span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.375rem' }}>{step.desc}</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>{step.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{step.desc}</div>
                       </div>
                     </div>
                   ))}
