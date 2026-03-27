@@ -2186,6 +2186,7 @@ export default function App() {
             systemButtons={systemButtons}
             onNavigate={navigateTo}
             isAdmin={isAdmin}
+            isPartner={isPartner}
             partners={partners}
           />
         )}
@@ -3567,7 +3568,7 @@ function BrandingScreen({ clientId, companyData, setCompanyData }) {
 // ============================================================
 // UPLOAD SCREEN
 // ============================================================
-function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin, onSelectClient, partners }) {
+function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin, isPartner, onSelectClient, partners }) {
   const [error, setError] = useState(null)
   const [sourceCount, setSourceCount] = useState(0)
   const [activeCount, setActiveCount] = useState(0)
@@ -3788,8 +3789,8 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
             />
           </div>
 
-          {/* Intellagentic Lead & Channel Partner — admin only */}
-          {isAdmin && (
+          {/* Intellagentic Lead & Channel Partner — admin and partner only */}
+          {(isAdmin || isPartner) && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
@@ -3808,7 +3809,7 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
                   }}
                 >
                   {formData.intellagentic_lead ? <CheckCircle size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #d1d5db' }} />}
-                  {formData.intellagentic_lead ? 'Yes — Intellagentic Led' : 'No'}
+                  {formData.intellagentic_lead ? 'Yes — Intellagentic Lead' : 'No'}
                 </button>
               </div>
               <div>
