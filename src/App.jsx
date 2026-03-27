@@ -2155,6 +2155,7 @@ export default function App() {
             systemButtons={systemButtons}
             onNavigate={navigateTo}
             isAdmin={isAdmin}
+            partners={partners}
           />
         )}
         {currentScreen === 'sources' && (
@@ -2162,6 +2163,7 @@ export default function App() {
             clientId={clientId}
             companyData={companyData}
             onNavigate={navigateTo}
+            preferredModel={preferredModel}
           />
         )}
         {currentScreen === 'enrich' && (
@@ -2171,8 +2173,8 @@ export default function App() {
             preferredModel={preferredModel}
           />
         )}
-        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} systemButtons={systemButtons} theme={theme} />}
-        {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} />}
+        {currentScreen === 'results' && <ResultsScreen setShowModal={setShowModal} clientId={clientId} isAdmin={isAdmin} systemButtons={systemButtons} theme={theme} preferredModel={preferredModel} />}
+        {currentScreen === 'skills' && <SkillsScreen clientId={clientId} isAdmin={isAdmin} preferredModel={preferredModel}/>}
         {currentScreen === 'configuration' && <ConfigurationScreen theme={theme} toggleTheme={toggleTheme} buttons={configButtons} setButtons={saveButtons} systemButtons={systemButtons} setSystemButtons={saveSystemButtons} preferredModel={preferredModel} setPreferredModel={saveModelPreference} clientId={clientId} inWorkspace={inWorkspace} isAdmin={isAdmin} companyName={companyData.name} />}
         {currentScreen === 'branding' && <BrandingScreen clientId={clientId} companyData={companyData} setCompanyData={setCompanyData} />}
         {currentScreen === 'partners' && isAdmin && <PartnersScreen partners={partners} setPartners={setPartners} />}
@@ -3534,7 +3536,7 @@ function BrandingScreen({ clientId, companyData, setCompanyData }) {
 // ============================================================
 // UPLOAD SCREEN
 // ============================================================
-function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin,onSelectClient }) {
+function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onClientCreate, onComplete, onOpenCompanyModal, configButtons, systemButtons, onNavigate, isAdmin, onSelectClient, partners }) {
   const [error, setError] = useState(null)
   const [sourceCount, setSourceCount] = useState(0)
   const [activeCount, setActiveCount] = useState(0)
@@ -3544,13 +3546,15 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
     name: companyData.name || '',
     ndaSigned: companyData.ndaSigned || false,
     ndaSignedAt: companyData.ndaSignedAt || '',
-    updated_at:companyData.updated_at || '',
+    updated_at: companyData.updated_at || '',
     existingApps: companyData.existingApps || '',
     website: companyData.website || '',
     industry: companyData.industry || '',
     description: companyData.description || '',
     painPoint: companyData.painPoint || '',
-    futurePlans: companyData.futurePlans || ''
+    futurePlans: companyData.futurePlans || '',
+    intellagentic_lead: companyData.intellagentic_lead || false,
+    partner_id: companyData.partner_id || null
   })
   const [formPainPoints, setFormPainPoints] = useState(() => {
     const pts = companyData.painPoints || []
@@ -3574,13 +3578,15 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
       name: companyData.name || '',
       ndaSigned: companyData.ndaSigned || false,
       ndaSignedAt: companyData.ndaSignedAt || '',
-      updated_at:companyData.updated_at || '',
+      updated_at: companyData.updated_at || '',
       existingApps: companyData.existingApps || '',
       website: companyData.website || '',
       industry: companyData.industry || '',
       description: companyData.description || '',
       painPoint: companyData.painPoint || '',
-      futurePlans: companyData.futurePlans || ''
+      futurePlans: companyData.futurePlans || '',
+      intellagentic_lead: companyData.intellagentic_lead || false,
+      partner_id: companyData.partner_id || null
     })
     const pts = companyData.painPoints || []
     setFormPainPoints(pts.length > 0 ? [...pts] : [''])
@@ -3749,6 +3755,53 @@ function UploadScreen({ setClientId, clientId, companyData, setCompanyData, onCl
               }}
             />
           </div>
+
+          {/* Intellagentic Lead & Channel Partner — admin only */}
+          {isAdmin && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Intellagentic Lead
+                </label>
+                <button
+                  onClick={() => { setFormData(prev => ({ ...prev, intellagentic_lead: !prev.intellagentic_lead })); setTimeout(autoSave, 50) }}
+                  style={{
+                    width: '100%', padding: '0.5rem 0.625rem',
+                    background: formData.intellagentic_lead ? 'rgba(220, 38, 38, 0.08)' : '#f9fafb',
+                    border: `1px solid ${formData.intellagentic_lead ? '#dc2626' : '#d1d5db'}`,
+                    borderRadius: '6px', fontSize: '0.85rem',
+                    color: formData.intellagentic_lead ? '#dc2626' : '#6b7280',
+                    fontFamily: 'inherit', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500
+                  }}
+                >
+                  {formData.intellagentic_lead ? <CheckCircle size={16} /> : <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #d1d5db' }} />}
+                  {formData.intellagentic_lead ? 'Yes — Intellagentic Led' : 'No'}
+                </button>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Channel Partner
+                </label>
+                <select
+                  value={formData.partner_id || ''}
+                  onChange={(e) => { setFormData(prev => ({ ...prev, partner_id: e.target.value ? parseInt(e.target.value) : null })); setTimeout(autoSave, 50) }}
+                  style={{
+                    width: '100%', padding: '0.5rem 0.625rem',
+                    background: '#f9fafb',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px', fontSize: '0.85rem', color: '#111827',
+                    fontFamily: 'inherit', outline: 'none'
+                  }}
+                >
+                  <option value="">No partner</option>
+                  {(partners || []).map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Current Business Description */}
           <div>
@@ -4389,7 +4442,7 @@ function formatDateTime(isoString) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric',hour:'numeric',minute:'numeric',hour12:true })
 }
 
-function SourcesScreen({ clientId, companyData, onNavigate }) {
+function SourcesScreen({ clientId, companyData, onNavigate,preferredModel }) {
   const [uploads, setUploads] = useState([])
   const [loading, setLoading] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
@@ -4830,7 +4883,30 @@ function SourcesScreen({ clientId, companyData, onNavigate }) {
           <div className="panel-header-left">
             <FileScan size={20} className="icon-red" />
             <h2>Consent</h2>
-
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+              background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+              padding: '3px 10px',
+              borderRadius: '999px',
+              border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+            }}>
+            Intellagentic Engine
+          </span>
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+              background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+              padding: '3px 10px',
+              borderRadius: '999px',
+              border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+            }}>
+            {MODEL_LABELS[preferredModel] || preferredModel}
+          </span>
           </div>
           {!ndaSigned && (<button
               onClick={addNDA}
@@ -5621,6 +5697,18 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
             borderRadius: '999px',
             border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
           }}>
+            Intellagentic Engine
+          </span>
+          <span style={{
+            marginLeft: 'auto',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+            background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+            padding: '3px 10px',
+            borderRadius: '999px',
+            border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+          }}>
             {MODEL_LABELS[preferredModel] || preferredModel}
           </span>
         </div>
@@ -5742,6 +5830,18 @@ function EnrichScreen({ clientId, onComplete, preferredModel }) {
                     alignItems: 'center',
                     gap: '0.5rem'
                   }}>
+                    <span style={{
+                      marginLeft: 'auto',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+                      background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+                    }}>
+            Intellagentic Engine
+          </span>
                     <span style={{
                       fontSize: '0.7rem',
                       fontWeight: 600,
@@ -7553,7 +7653,7 @@ function ConfigurationScreen({ theme, toggleTheme, buttons, setButtons, systemBu
 // ============================================================
 // RESULTS SCREEN
 // ============================================================
-function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme }) {
+function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme,preferredModel }) {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -7855,6 +7955,29 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme }) 
             <FileText size={20} className="icon-red" />
             <h2>Analysis Results</h2>
             <span className="badge-count green">Complete</span>
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+              background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+              padding: '3px 10px',
+              borderRadius: '999px',
+              border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+            }}>
+            Intellagentic Engine
+          </span>
+            <span style={{
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              color: preferredModel.includes('opus') ? '#a855f7' : '#3b82f6',
+              background: preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              border: `1px solid ${preferredModel.includes('opus') ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
+            }}>
+                      {MODEL_LABELS[preferredModel] || preferredModel}
+                    </span>
           </div>
           {isAdmin && displayResults.status === 'complete' && displayResults.summary && displayResults.summary !== 'Analysis failed' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

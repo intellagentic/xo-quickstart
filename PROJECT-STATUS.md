@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.92)
+**Status:** Deployed & Operational (v1.93)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -2657,6 +2657,16 @@ The XO Capture prototype is **fully operational** and deployed to production. A 
 - Add Skill modal has scope selector for admins: "This client only" vs "System (all clients)"
 - Enrich Lambda reads system skills from DB first, falls back to bundled files if DB empty
 - Configuration screen system skills panel now dynamically fetches from API instead of hardcoded list
+
+**v1.93 — Intellagentic Lead and Channel Partner on UploadScreen**
+
+- Added Intellagentic Lead toggle and Channel Partner dropdown to UploadScreen form (admin only)
+- Two-column grid row between Industry and Current Business Description
+- Intellagentic Lead: red toggle button with checkmark when active, autosaves on click
+- Channel Partner: select dropdown populated from partners list, "No partner" to clear, autosaves on change
+- Both fields added to formData state and sync useEffect, already wired to API via `intellagentic_lead` and `partner_id`
+- Partners list passed as prop from main App component
+- Deployed: frontend only
 
 **v1.92 — Export All Skills as .doc**
 
