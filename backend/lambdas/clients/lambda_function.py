@@ -261,6 +261,10 @@ def _route_clients(event, user, path, method):
     is_client_user = role == 'client'
     is_partner_user = role == 'partner'
 
+    # Proxy route — POST JSON to an external URL (avoids CORS)
+    if '/proxy' in path and method == 'POST':
+        return handle_proxy(event, user)
+
     # System config routes — admin only
     if '/system-config' in path:
         if not user.get('is_admin'):
@@ -1243,6 +1247,60 @@ def handle_update_client(event, user):
             'headers': CORS_HEADERS,
             'body': json.dumps({'error': 'Internal server error', 'message': str(e)})
         }
+
+
+def handle_proxy(event, user):
+    """POST /proxy — Forward a JSON POST to an external URL (avoids CORS).
+    Body: { target_url: "https://...", payload: {...} }
+    Only allows HTTPS URLs to whitelisted domains."""
+    try:
+        body = json.loads(event.get('body', '{}'))
+        target_url = body.get('target_url', '').strip()
+        payload = body.get('payload', {})
+
+        if not target_url:
+            return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'target_url is required'})}
+
+        # Whitelist: only allow known domains
+        allowed_domains = ['us.streamline.intellistack.ai', 'eu.streamline.intellistack.ai', 'streamline.intellistack.ai']
+        from urllib.parse import urlparse
+        parsed = urlparse(target_url)
+        if parsed.hostname not in allowed_domains:
+            return {'statusCode': 403, 'headers': CORS_HEADERS, 'body': json.dumps({'error': f'Domain not allowed: {parsed.hostname}'})}
+        if parsed.scheme != 'https':
+            return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Only HTTPS URLs are allowed'})}
+
+        # Forward the request
+        json_bytes = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            target_url,
+            data=json_bytes,
+            headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+            method='POST'
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            resp_body = resp.read().decode('utf-8', errors='replace')
+            resp_status = resp.status
+
+        # Try to parse as JSON, fallback to raw text
+        try:
+            resp_data = json.loads(resp_body)
+        except (json.JSONDecodeError, TypeError):
+            resp_data = {'raw': resp_body}
+
+        return {
+            'statusCode': resp_status,
+            'headers': CORS_HEADERS,
+            'body': json.dumps(resp_data)
+        }
+
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')
+        print(f"Proxy target error: HTTP {e.code} - {error_body}")
+        return {'statusCode': e.code, 'headers': CORS_HEADERS, 'body': json.dumps({'error': error_body})}
+    except Exception as e:
+        print(f"Proxy error: {str(e)}")
+        return {'statusCode': 500, 'headers': CORS_HEADERS, 'body': json.dumps({'error': str(e)})}
 
 
 def handle_delete_client(event, user):

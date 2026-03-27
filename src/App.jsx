@@ -12,29 +12,110 @@ import intellistackLogoDark from './assets/intellistack-logo-dark.png'
 
 const API_BASE = 'https://odvopohlp3.execute-api.eu-west-2.amazonaws.com/prod'
 
-// Arguments :
-//  verb : 'GET'|'POST'
+// io.open  — Open a URL via GET or POST (form-based, no CORS issues)
+// io.post  — Send JSON via fetch to a URL and return the response (for API calls)
+//
+// io.open arguments:
+//  verb   : 'GET'|'POST'
+//  url    : target URL
+//  data   : object to send as form fields (POST) or query params (GET)
 //  target : an optional opening target (a name, or "_blank"), defaults to "_self"
+//
+// io.post arguments:
+//  url    : target URL (e.g. https://us.streamline.intellistack.ai/api/...)
+//  data   : object to send as JSON body
+//  headers: optional extra headers
+//  Returns: Promise<{ ok, status, data }>
 window.io = {
-  open: function(verb, url, data, target){
-    var form = document.createElement("form");
-    form.action = url;
-    form.method = verb;
-    form.target = target || "_self";
-    if (data) {
-      for (var key in data) {
-        var input = document.createElement("textarea");
-        input.name = key;
-        input.value = typeof data[key] === "object"
-            ? JSON.stringify(data[key])
-            : data[key];
-        form.appendChild(input);
-      }
+  open: async function(verb, url, data, target) {
+    if (verb === 'GET') {
+      const params = data ? '?' + new URLSearchParams(
+        Object.entries(data).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : v])
+      ).toString() : ''
+      window.open(url + params, target || '_self')
+      return
     }
-    form.style.display = 'none';
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+    // POST application/json cross-domain: proxy through backend to avoid CORS,
+    // then open the response in a new window.
+    const token = sessionStorage.getItem('xo-token')
+    const w = window.open('', target || '_self')
+    try {
+      const res = await fetch(API_BASE + '/proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? 'Bearer ' + token : ''
+        },
+        body: JSON.stringify({ target_url: url, payload: data || {} })
+      })
+      //const json1 = await res.json();
+      //console.log(json1)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      w.location = blobUrl;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    } catch (err) {
+      console.error('io.open POST failed:', err)
+      if (w) w.document.write('<p>Failed to load: ' + err.message + '</p>')
+    }
+  },
+
+  // POST JSON via backend proxy to avoid CORS — routes through API Gateway
+  post: async function(url, data, headers) {
+    try {
+      const token = sessionStorage.getItem('xo-token')
+      const res = await fetch(`${API_BASE}/proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          ...headers
+        },
+        body: JSON.stringify({ target_url: url, payload: data || {} })
+      })
+      const resData = await res.json()
+      return { ok: res.ok, status: res.status, data: resData }
+    } catch (err) {
+      console.error('io.post failed:', err)
+      return { ok: false, status: 0, data: { error: err.message } }
+    }
+  },
+
+  // POST JSON directly (for same-origin or CORS-enabled endpoints)
+  postDirect: async function(url, data, headers) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(data || {})
+      })
+      const resData = await res.json().catch(() => ({}))
+      return { ok: res.ok, status: res.status, data: resData }
+    } catch (err) {
+      console.error('io.postDirect failed:', err)
+      return { ok: false, status: 0, data: { error: err.message } }
+    }
+  },
+
+  // POST JSON and open the response in a new window/tab
+  // Sends Content-Type: application/json, opens response as blob URL
+  postAndOpen: async function(url, data, target) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data || {})
+      })
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const w = window.open(blobUrl, target || '_blank')
+      if (w) w.addEventListener('load', () => URL.revokeObjectURL(blobUrl))
+      else setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      return { ok: res.ok, status: res.status }
+    } catch (err) {
+      console.error('io.postAndOpen failed:', err)
+      return { ok: false, status: 0, error: err.message }
+    }
   }
 };
 
@@ -8180,7 +8261,8 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme,pre
                         rapid_deployment:{phases:displayPhases},
                         data_sources:displayDataSources
                       };
-                      if (btn.url && btn.url !== '#') io.open("POST",btnURL,data,"_blank")
+                      let payload ={client_id:currentClient.client_id,analysis:JSON.stringify(data)};
+                      if (btn.url && btn.url !== '#') io.open('POST', btnURL, payload, '_blank')
                       else return;
                     }}
                     disabled={streamlineSending || displayResults.status!=="complete"}
