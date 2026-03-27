@@ -12,6 +12,32 @@ import intellistackLogoDark from './assets/intellistack-logo-dark.png'
 
 const API_BASE = 'https://odvopohlp3.execute-api.eu-west-2.amazonaws.com/prod'
 
+// Arguments :
+//  verb : 'GET'|'POST'
+//  target : an optional opening target (a name, or "_blank"), defaults to "_self"
+window.io = {
+  open: function(verb, url, data, target){
+    var form = document.createElement("form");
+    form.action = url;
+    form.method = verb;
+    form.target = target || "_self";
+    if (data) {
+      for (var key in data) {
+        var input = document.createElement("textarea");
+        input.name = key;
+        input.value = typeof data[key] === "object"
+            ? JSON.stringify(data[key])
+            : data[key];
+        form.appendChild(input);
+      }
+    }
+    form.style.display = 'none';
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+  }
+};
+
 // Migrate contact: split legacy "name" into firstName/lastName if needed
 function migrateContact(c) {
   if (c.firstName !== undefined || c.lastName !== undefined) return c
@@ -8067,10 +8093,96 @@ function ResultsScreen({ setShowModal, clientId, isAdmin,systemButtons,theme,pre
                     onClick={()=>{
                       //let btnURL = btn.url+"?client='"+`${encodeURIComponent(JSON.stringify(currentClient))}`+"'&results='"+`${encodeURIComponent(JSON.stringify(displayResults))}`+"'"
                       let btnURL=btn.url;
-                      if (btn.url && btn.url !== '#') window.open(btnURL, '_blank')
+                      if(displayResults.status!=="complete") return;
+                      // Opportunities
+                      let displayOpportunities= [];
+                      let opps = displayResults.client_summary.split("\n\n- **");
+                      for(let op of opps){
+                        if(op.indexOf(":** ")>=0){
+                          let opSplit = op.split(":** ");
+                          let title = opSplit[0];
+                          let description = opSplit[1];
+                          let dOpportunity = {title: title,description:description};
+                          displayOpportunities.push(dOpportunity);
+                        }
+                      }
+
+                      // Streamline Applications
+                      let displayStreamlineApplications = [];
+                      let sapps = displayResults.streamline_applications.split("\n\n");
+                      for(let sapp of sapps){
+                        if(sapp.trim().indexOf(". ")>=0){
+                          let sappComps = sapp.split("\n");
+                          if(sappComps.length>3) {
+                            let titleSplit = sappComps[0].replaceAll("\*", "").split(". ");
+                            let rank = titleSplit[0];
+                            let title = titleSplit[1];
+                            let problem = sappComps[1].replace("Problem: ", "");
+                            let workflow = sappComps[2].replace("Workflow: ", "").split(" → ");
+                            let integrations = sappComps[3].replace("Integrations: ", "");
+                            let outcome = sappComps[4].replace("Outcome: ", "");
+                            let sappObj = {
+                              rank: rank,
+                              title: title,
+                              problem: problem,
+                              workflow: workflow,
+                              integrations: integrations,
+                              outcome: outcome
+                            };
+                            displayStreamlineApplications.push(sappObj);
+                          }
+                        }
+                      }
+                      // Phases
+                      let displayPhases=[];
+                      for(let dp of displayResults.plan){
+                        let label = dp.phase;
+                        let dpSteps = [];
+                        let steps = 1;
+                        for(let dpa of dp.actions){
+                          let owner = "Both";
+                          if(dpa.indexOf("FLAG FOR HUMAN REVIEW")>=0) owner = "Client";
+                          if(dpa.indexOf("[Streamline ")>=0) owner = "Streamline";
+                          if(dpa.indexOf("[XO ")>=0) owner = "XO";
+                          let description = dpa.replace("\[Streamline Setup\] ","")
+                              .replace("\[XO Setup\] ","")
+                              .replace("\[BOTH\] ","")
+                              .replace("FLAG FOR HUMAN REVIEW: ","");
+
+                          let dpStep = {step:steps,owner:owner,description:description}
+                          dpSteps.push(dpStep);
+                          steps = steps+1;
+                        }
+                        let dpPhase = {label:label,steps:dpSteps}
+                        displayPhases.push(dpPhase);
+                      }
+                      // Data Sources
+                      let displayDataSources=[];
+                      for(let ds of displayResults.analyzed_files){
+                        let dsource = displayResults.sources.filter((d)=>{return d.reference.indexOf(ds)>=0});
+                        if(dsource.length>0){
+                          let filename = ds;
+                          let summary = dsource[0].reference.replace(ds+ " — ","");
+                          let sourceObj = {filename:filename,summary:summary}
+                          displayDataSources.push(sourceObj);
+                        }
+                      }
+                      let data = {event:"xo_capture.analysis_complete",
+                          timestamp:displayResults.analyzed_at,
+                          client_id:currentClient.client_id,
+                          status:displayResults.status,
+                        executive_summary:{bullets:displayPhrases},
+                        opportunities:displayOpportunities,
+                        bottom_line:displayResults.bottom_line,
+                        problems:displayResults.problems,
+                        streamline_applications:displayStreamlineApplications,
+                        rapid_deployment:{phases:displayPhases},
+                        data_sources:displayDataSources
+                      };
+                      if (btn.url && btn.url !== '#') io.open("POST",btnURL,data,"_blank")
                       else return;
                     }}
-                    disabled={streamlineSending}
+                    disabled={streamlineSending || displayResults.status!=="complete"}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       padding: '6px 14px',
