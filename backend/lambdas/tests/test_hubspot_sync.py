@@ -42,6 +42,7 @@ def hubspot_module():
         'DATABASE_URL': 'postgresql://fake',
         'JWT_SECRET': 'test',
         'HUBSPOT_PRIVATE_TOKEN': 'test-private-token',
+        'HUBSPOT_WEBHOOK_SECRET': 'test-webhook-secret',
     }):
         with patch('psycopg2.connect') as mock_connect:
             mock_cur = MagicMock()
@@ -770,3 +771,50 @@ class TestSyncLogging:
         assert 'description' in conflicts
         assert 'website_url' not in conflicts  # same value
         assert 'industry' not in conflicts  # same value
+
+
+class TestWebhook:
+    def test_webhook_rejects_missing_secret(self, hubspot_module, mock_deps):
+        started, mock_conn, mock_cur = mock_deps
+        event = make_event(method='POST', path='/hubspot/webhook', query_params={})
+        response = hubspot_module.lambda_handler(event, None)
+        assert_status(response, 401)
+
+    def test_webhook_rejects_wrong_secret(self, hubspot_module, mock_deps):
+        started, mock_conn, mock_cur = mock_deps
+        event = make_event(method='POST', path='/hubspot/webhook',
+                           query_params={'secret': 'wrong-secret'})
+        response = hubspot_module.lambda_handler(event, None)
+        assert_status(response, 401)
+
+    def test_webhook_accepts_correct_secret(self, hubspot_module, mock_deps):
+        started, mock_conn, mock_cur = mock_deps
+        mock_cur.fetchall.return_value = []
+
+        with patch.object(hubspot_module, '_ensure_custom_properties'), \
+             patch.object(hubspot_module, '_pull_companies', return_value=(1, 2, [])) as mock_pull, \
+             patch.object(hubspot_module, '_set_config'):
+            event = make_event(method='POST', path='/hubspot/webhook',
+                               query_params={'secret': 'test-webhook-secret'})
+            response = hubspot_module.lambda_handler(event, None)
+            assert_status(response, 200)
+            body = parse_body(response)
+            assert body['mode'] == 'pull_only'
+            assert body['pulled']['clients_created'] == 1
+            assert body['pulled']['clients_updated'] == 2
+            # Should NOT have called require_auth
+            started['require_auth'].assert_not_called()
+
+    def test_webhook_does_pull_only(self, hubspot_module, mock_deps):
+        """Webhook should only pull, not push."""
+        started, mock_conn, mock_cur = mock_deps
+
+        with patch.object(hubspot_module, '_ensure_custom_properties'), \
+             patch.object(hubspot_module, '_pull_companies', return_value=(0, 0, [])) as mock_pull, \
+             patch.object(hubspot_module, '_push_company') as mock_push, \
+             patch.object(hubspot_module, '_set_config'):
+            event = make_event(method='POST', path='/hubspot/webhook',
+                               query_params={'secret': 'test-webhook-secret'})
+            response = hubspot_module.lambda_handler(event, None)
+            assert_status(response, 200)
+            mock_push.assert_not_called()

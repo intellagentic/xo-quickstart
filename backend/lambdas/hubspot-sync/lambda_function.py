@@ -37,6 +37,7 @@ logger.setLevel(logging.INFO)
 
 # ── HubSpot Private App Config ──
 HUBSPOT_PRIVATE_TOKEN = os.environ.get('HUBSPOT_PRIVATE_TOKEN', '')
+HUBSPOT_WEBHOOK_SECRET = os.environ.get('HUBSPOT_WEBHOOK_SECRET', '')
 HUBSPOT_API_BASE = 'https://api.hubapi.com'
 
 # Field mapping: XO clients -> HubSpot Company standard properties
@@ -1594,6 +1595,65 @@ def handle_resolve_conflict(event, user):
         conn.close()
 
 
+def handle_webhook(event):
+    """POST /hubspot/webhook — Pull-only sync triggered by external webhook.
+    Authenticated via ?secret= query parameter, not JWT."""
+    query = event.get('queryStringParameters') or {}
+    secret = query.get('secret', '')
+
+    if not HUBSPOT_WEBHOOK_SECRET or secret != HUBSPOT_WEBHOOK_SECRET:
+        return {
+            'statusCode': 401,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'Invalid or missing webhook secret'})
+        }
+
+    access_token = _get_access_token()
+    if not access_token:
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': 'HUBSPOT_PRIVATE_TOKEN not configured'})
+        }
+
+    conn = get_db_connection()
+    try:
+        _ensure_custom_properties(access_token)
+
+        clients_created, clients_updated, conflicts = _pull_companies(access_token, conn, 'client')
+        partners_created, partners_updated, _ = _pull_companies(access_token, conn, 'partner')
+
+        _set_config(conn, 'hubspot_last_full_sync', datetime.now(timezone.utc).isoformat())
+
+        logger.info("Webhook pull sync complete: clients=%s new + %s updated, partners=%s new + %s updated",
+                     clients_created, clients_updated, partners_created, partners_updated)
+
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({
+                'status': 'complete',
+                'mode': 'pull_only',
+                'pulled': {
+                    'clients_created': clients_created,
+                    'clients_updated': clients_updated,
+                    'partners_created': partners_created,
+                    'partners_updated': partners_updated,
+                },
+                'conflicts': conflicts,
+            })
+        }
+    except Exception as e:
+        logger.error("Webhook pull sync failed: %s", e)
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Webhook sync failed: {str(e)}'})
+        }
+    finally:
+        conn.close()
+
+
 def handle_mapping(event, user):
     """GET /hubspot/mapping — Return current field mapping configuration."""
     mapping = {
@@ -1667,6 +1727,12 @@ def lambda_handler(event, context):
     # OAuth callback — no auth required (HubSpot redirects here)
     if '/hubspot/callback' in path and method == 'GET':
         response = handle_callback(event)
+        log_activity(event, response)
+        return response
+
+    # Webhook — no JWT auth, uses ?secret= parameter
+    if '/hubspot/webhook' in path and method == 'POST':
+        response = handle_webhook(event)
         log_activity(event, response)
         return response
 
