@@ -611,13 +611,28 @@ def _push_single_contact(access_token, contact_props, company_id, existing_hs_id
         return None
 
     hs_contact_id = existing_hs_id
+    existing_contact = None
 
     if not hs_contact_id:
-        existing = _find_hubspot_contact(access_token, contact_props.get('email'))
-        if existing:
-            hs_contact_id = existing['id']
+        existing_contact = _find_hubspot_contact(access_token, contact_props.get('email'))
+        if existing_contact:
+            hs_contact_id = existing_contact['id']
 
     if hs_contact_id:
+        # Don't overwrite a HubSpot phone that has a country code with one that doesn't
+        if 'phone' in contact_props:
+            hs_phone = ''
+            if existing_contact:
+                hs_phone = existing_contact.get('properties', {}).get('phone') or ''
+            elif existing_hs_id:
+                # Fetch current phone from HubSpot
+                try:
+                    hs_data = _hubspot_api('GET', f'/crm/v3/objects/contacts/{hs_contact_id}', access_token,
+                                           params={'properties': 'phone'})
+                    hs_phone = hs_data.get('properties', {}).get('phone') or ''
+                except Exception:
+                    pass
+            contact_props['phone'] = _prefer_phone(contact_props.get('phone', ''), hs_phone)
         _hubspot_api('PATCH', f'/crm/v3/objects/contacts/{hs_contact_id}', access_token, json_body={'properties': contact_props})
         logger.info("Updated HubSpot contact %s (%s)", hs_contact_id, contact_props.get('email'))
     else:
@@ -1018,12 +1033,29 @@ def _pull_partner_record(cur, conn, hs_id, xo_id, props):
             """, (name, hs_id))
 
 
+def _prefer_phone(phone_a, phone_b):
+    """Return the better phone value. Prefer the one with a country code (starts with +).
+    If both or neither have a country code, prefer phone_a (the existing value)."""
+    if not phone_a:
+        return phone_b
+    if not phone_b:
+        return phone_a
+    a_has_code = phone_a.strip().startswith('+')
+    b_has_code = phone_b.strip().startswith('+')
+    if b_has_code and not a_has_code:
+        return phone_b
+    return phone_a
+
+
 def _merge_contact(xo_contact, hs_contact):
     """Merge a HubSpot contact into an XO contact, filling in missing fields only.
-    XO values are preserved; HubSpot values fill gaps."""
+    XO values are preserved; HubSpot values fill gaps.
+    For phone: prefer whichever has a country code."""
     merged = dict(xo_contact)
     for key, value in hs_contact.items():
-        if value and not merged.get(key):
+        if key == 'phone':
+            merged['phone'] = _prefer_phone(merged.get('phone', ''), value)
+        elif value and not merged.get(key):
             merged[key] = value
     return merged
 
