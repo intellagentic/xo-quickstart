@@ -3,7 +3,7 @@
 **Date:** March 6, 2026
 **Project:** XO Capture - Rapid Deployment
 **Author:** Ken Scott, Co-Founder & President, Intellagentic
-**Status:** Deployed & Operational (v1.98)
+**Status:** Deployed & Operational (v1.99)
 **CloudFront URL:** https://d36la414u58rw5.cloudfront.net
 **Repository:** https://github.com/intellagentic/xo-quickstart
 
@@ -3068,9 +3068,26 @@ Infrastructure deployed:
 - RDS master password rotated (32-char)
 - CloudFront SPA routing configured (E7PWZX8BT02CE)
 
-Testing: 50 pytest regression tests covering Private App auth, sync push/pull, field mapping, dedup with URL normalization, timestamp-based conflict resolution, webhook auth, pull-only mode
+Performance optimization (v1.99):
+- Batch HubSpot API: company creates/updates use /batch/create and /batch/update (up to 100 per call)
+- Skip unchanged records: only push clients/partners where updated_at > hubspot_last_sync
+- Pull no longer sets updated_at (only hubspot_last_sync), preventing push-pull feedback loop
+- Accurate sync counters: pull only counts records where field values actually changed (was counting all checked)
+- Before: ~138 API calls per sync. After: 0-4 batch calls steady-state, ~25 when records changed (~85% reduction)
+- Steady-state sync returns 0/0/0/0 instead of misleading 12 updated
 
-Verified: Full sync pushed 2 partners + 12 clients, pulled 13 back. Webhook pull-only sync operational.
+Contact field mapping fixes (v1.99):
+- Handles both {firstName, lastName} (separate) and {name} (combined) patterns in contacts_json
+- Phone pushed to HubSpot phone property, LinkedIn to linkedinbio property
+- Honorifics (Mr, Mrs, Dr, Prof, etc.) filtered — not pushed as jobtitle
+- Pull contacts merges into existing contacts_json (fills gaps) instead of overwriting
+- Contact matching by email or firstName with merge preserving XO data
+- Phone country code preference: sync prefers the version with + prefix, won't overwrite +44 with bare number
+- Cleaned stale hubspot_company_id on deleted duplicate company
+
+Testing: 55 pytest regression tests covering Private App auth, sync push/pull, batch API, field mapping, firstName/lastName handling, honorific filtering, LinkedIn mapping, phone country code preference, dedup with URL normalization, timestamp-based conflict resolution, webhook auth, pull-only mode, accurate counters
+
+Verified: Full sync pushed 2 partners + 12 clients via batch API. Steady-state sync: 0 pushed, 0 updated. Webhook pull-only operational. FC Dynamics contact fully synced (phone, LinkedIn, lastName, email) both directions.
 
 **Next Step:** Web enrichment (company website + LinkedIn research), UI for 5 new DB fields (survival metrics, AI persona, strategic objective, tone mode).
 
