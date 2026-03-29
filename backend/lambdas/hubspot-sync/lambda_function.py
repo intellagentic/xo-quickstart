@@ -573,7 +573,7 @@ def _build_contact_properties_from_obj(contact_obj, client_key=None):
     # LinkedIn URL
     linkedin = _decrypt_field(client_key, contact_obj.get('linkedin', ''))
     if linkedin:
-        props['hs_linkedinbio'] = linkedin
+        props['linkedinbio'] = linkedin
 
     return props
 
@@ -782,6 +782,14 @@ def _pull_companies(access_token, conn, record_type='client'):
                     conflict = _pull_client_record(cur, conn, hs_id, xo_id, props)
                     if conflict:
                         conflicts_list.append(conflict)
+                    # Merge contacts from HubSpot into XO contacts_json
+                    resolved_xo_id = xo_id
+                    if not resolved_xo_id:
+                        cur.execute("SELECT id FROM clients WHERE hubspot_company_id = %s", (hs_id,))
+                        id_row = cur.fetchone()
+                        resolved_xo_id = str(id_row[0]) if id_row else None
+                    if resolved_xo_id:
+                        _pull_contacts_for_company(access_token, conn, hs_id, resolved_xo_id)
                 elif record_type == 'partner':
                     _pull_partner_record(cur, conn, hs_id, xo_id, props)
 
@@ -1010,8 +1018,60 @@ def _pull_partner_record(cur, conn, hs_id, xo_id, props):
             """, (name, hs_id))
 
 
+def _merge_contact(xo_contact, hs_contact):
+    """Merge a HubSpot contact into an XO contact, filling in missing fields only.
+    XO values are preserved; HubSpot values fill gaps."""
+    merged = dict(xo_contact)
+    for key, value in hs_contact.items():
+        if value and not merged.get(key):
+            merged[key] = value
+    return merged
+
+
+def _match_contacts(xo_contacts, hs_contacts):
+    """Match XO contacts to HubSpot contacts by email or firstName.
+    Returns merged list preserving XO data with HubSpot filling gaps."""
+    if not xo_contacts:
+        return hs_contacts
+
+    merged = []
+    hs_remaining = list(hs_contacts)
+
+    for xo_c in xo_contacts:
+        xo_email = (xo_c.get('email') or '').lower().strip()
+        xo_first = (xo_c.get('firstName') or '').lower().strip()
+        if not xo_first:
+            # Fall back to first word of combined name field
+            xo_name = xo_c.get('name') or ''
+            xo_first = xo_name.split()[0].lower() if xo_name.strip() else ''
+
+        matched_hs = None
+        for j, hs_c in enumerate(hs_remaining):
+            hs_email = (hs_c.get('email') or '').lower().strip()
+            hs_first = (hs_c.get('firstName') or '').lower().strip()
+
+            # Match on email if both have one
+            if xo_email and hs_email and xo_email == hs_email:
+                matched_hs = hs_remaining.pop(j)
+                break
+            # Match on firstName if both have one
+            if xo_first and hs_first and xo_first == hs_first:
+                matched_hs = hs_remaining.pop(j)
+                break
+
+        if matched_hs:
+            merged.append(_merge_contact(xo_c, matched_hs))
+        else:
+            merged.append(xo_c)
+
+    # Append any unmatched HubSpot contacts (new contacts from HubSpot)
+    merged.extend(hs_remaining)
+    return merged
+
+
 def _pull_contacts_for_company(access_token, conn, hs_company_id, xo_client_id):
-    """Pull all associated contacts from HubSpot and update XO client contacts_json."""
+    """Pull associated contacts from HubSpot and merge into XO client contacts_json.
+    Fills in missing fields without overwriting existing XO values."""
     if not xo_client_id:
         return
     try:
@@ -1022,7 +1082,7 @@ def _pull_contacts_for_company(access_token, conn, hs_company_id, xo_client_id):
         if not assoc_results:
             return
 
-        contacts_list = []
+        hs_contacts = []
         primary_hs_contact_id = None
 
         for i, assoc in enumerate(assoc_results):
@@ -1031,7 +1091,7 @@ def _pull_contacts_for_company(access_token, conn, hs_company_id, xo_client_id):
                 continue
             try:
                 contact = _hubspot_api('GET', f'/crm/v3/objects/contacts/{contact_id}', access_token,
-                                       params={'properties': 'firstname,lastname,email,phone,jobtitle,hs_linkedinbio'})
+                                       params={'properties': 'firstname,lastname,email,phone,jobtitle,linkedinbio'})
                 props = contact.get('properties', {})
 
                 contact_obj = {
@@ -1040,28 +1100,38 @@ def _pull_contacts_for_company(access_token, conn, hs_company_id, xo_client_id):
                     'email': props.get('email', ''),
                     'phone': props.get('phone', ''),
                     'title': props.get('jobtitle', ''),
-                    'linkedin': props.get('hs_linkedinbio', ''),
+                    'linkedin': props.get('linkedinbio', ''),
                 }
                 # Remove empty values to keep JSON clean
                 contact_obj = {k: v for k, v in contact_obj.items() if v}
-                contacts_list.append(contact_obj)
+                hs_contacts.append(contact_obj)
 
                 if i == 0:
                     primary_hs_contact_id = contact_id
             except Exception as e:
                 logger.warning("Failed to fetch contact %s: %s", contact_id, e)
 
-        if not contacts_list:
+        if not hs_contacts:
             return
 
+        # Read existing XO contacts_json and merge
         cur = conn.cursor()
+        cur.execute("SELECT contacts_json, encryption_key FROM clients WHERE id = %s", (xo_client_id,))
+        row = cur.fetchone()
+        xo_contacts = []
+        if row and row[0]:
+            client_key = unwrap_client_key(row[1]) if row[1] else None
+            xo_contacts = _parse_json_field(client_key, row[0]) or []
+
+        merged = _match_contacts(xo_contacts, hs_contacts)
+
         cur.execute("""
             UPDATE clients SET
                 contacts_json = %s,
                 hubspot_contact_id = COALESCE(%s, hubspot_contact_id),
                 updated_at = NOW()
             WHERE id = %s
-        """, (json.dumps(contacts_list), primary_hs_contact_id, xo_client_id))
+        """, (json.dumps(merged), primary_hs_contact_id, xo_client_id))
         conn.commit()
         cur.close()
     except Exception as e:

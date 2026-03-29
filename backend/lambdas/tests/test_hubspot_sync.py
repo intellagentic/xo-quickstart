@@ -372,7 +372,7 @@ class TestFieldMapping:
         assert props['lastname'] == 'Brampah'
         assert props['phone'] == '07443 238369'
         assert props['jobtitle'] == 'Fire Safety Engineer'
-        assert props['hs_linkedinbio'] == 'https://linkedin.com/in/edem'
+        assert props['linkedinbio'] == 'https://linkedin.com/in/edem'
 
     def test_contact_firstName_only(self, hubspot_module):
         contact = {'firstName': 'Edem', 'email': 'e@test.com'}
@@ -400,7 +400,7 @@ class TestFieldMapping:
     def test_linkedin_mapped(self, hubspot_module):
         contact = {'name': 'Test', 'linkedin': 'https://linkedin.com/in/test'}
         props = hubspot_module._build_contact_properties_from_obj(contact)
-        assert props['hs_linkedinbio'] == 'https://linkedin.com/in/test'
+        assert props['linkedinbio'] == 'https://linkedin.com/in/test'
 
     def test_multiple_contacts_push(self, hubspot_module, mock_deps):
         """Verify _push_contacts handles multiple contacts from contacts_json."""
