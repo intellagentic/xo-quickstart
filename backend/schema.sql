@@ -199,6 +199,7 @@ CREATE INDEX IF NOT EXISTS idx_buttons_client_id ON buttons(client_id);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_company_id VARCHAR(50);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_contact_id VARCHAR(50);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_last_sync TIMESTAMP;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_last_enrichment_id VARCHAR(50);
 
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS hubspot_company_id VARCHAR(50);
 ALTER TABLE partners ADD COLUMN IF NOT EXISTS hubspot_last_sync TIMESTAMP;

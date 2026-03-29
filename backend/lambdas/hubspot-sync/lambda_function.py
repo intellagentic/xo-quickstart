@@ -121,6 +121,7 @@ def _run_hubspot_migrations():
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_company_id VARCHAR(50);")
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_contact_id VARCHAR(50);")
         cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_last_sync TIMESTAMP;")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS hubspot_last_enrichment_id VARCHAR(50);")
         # Partners table
         cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS hubspot_company_id VARCHAR(50);")
         cur.execute("ALTER TABLE partners ADD COLUMN IF NOT EXISTS hubspot_last_sync TIMESTAMP;")
@@ -688,12 +689,13 @@ def _create_company_association(access_token, from_company_id, to_company_id, la
 
 
 def _push_enrichment_note(access_token, company_id, client_record, client_key=None):
-    """Push latest enrichment summary as a Note on the HubSpot Company."""
+    """Push latest enrichment summary as a Note on the HubSpot Company.
+    Only creates a Note if the enrichment is new (not already pushed)."""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT results_s3_key FROM enrichments
+            SELECT id, results_s3_key FROM enrichments
             WHERE client_id = %s AND status = 'complete'
             ORDER BY completed_at DESC LIMIT 1
         """, (str(client_record['id']),))
@@ -701,11 +703,24 @@ def _push_enrichment_note(access_token, company_id, client_record, client_key=No
         if not row:
             return
 
-        # Read results from S3 — enrichment results are stored as JSON
+        enrichment_id = str(row[0])
+        results_key = row[1]
+
+        # Check if this enrichment was already pushed as a note
+        cur.execute("""
+            SELECT hubspot_last_enrichment_id FROM clients WHERE id = %s
+        """, (str(client_record['id']),))
+        client_row = cur.fetchone()
+        last_pushed_id = client_row[0] if client_row else None
+
+        if last_pushed_id == enrichment_id:
+            return  # Already pushed this enrichment
+
+        # Read results from S3
         import boto3
         s3 = boto3.client('s3')
         bucket = os.environ.get('BUCKET_NAME', 'xo-client-data-mv')
-        obj = s3.get_object(Bucket=bucket, Key=row[0])
+        obj = s3.get_object(Bucket=bucket, Key=results_key)
         body = obj['Body'].read().decode('utf-8')
 
         try:
@@ -741,6 +756,12 @@ def _push_enrichment_note(access_token, company_id, client_record, client_key=No
                     access_token)
             except Exception as e:
                 logger.warning("Failed to associate note with company: %s", e)
+
+        # Mark this enrichment as pushed
+        cur.execute("UPDATE clients SET hubspot_last_enrichment_id = %s WHERE id = %s",
+                    (enrichment_id, str(client_record['id'])))
+        conn.commit()
+        logger.info("Pushed enrichment note for client %s (enrichment %s)", client_record['id'], enrichment_id)
 
     except Exception as e:
         logger.warning("Failed to push enrichment note: %s", e)
