@@ -337,7 +337,7 @@ function LoginScreen({ onLogin }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f5f5f5' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f5f5f5', overflowX: 'hidden', width: '100%' }}>
       {/* Same header as main app */}
       <header className="header" style={{ position: 'relative' }}>
         <div className="header-inner">
@@ -2424,7 +2424,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', overflowX: 'hidden', width: '100%' }}>
       {/* Persistent Sidebar */}
       <aside
         onMouseEnter={() => { if (!sidebarPinned) setSidebarHover(true) }}
@@ -2547,7 +2547,7 @@ export default function App() {
       </aside>
 
       {/* Right side: header + content */}
-      <div style={{ flex: 1, marginLeft: `${contentOffset}px`, transition: 'margin-left 0.2s ease' }}>
+      <div style={{ flex: 1, marginLeft: `${contentOffset}px`, transition: 'margin-left 0.2s ease', overflowX: 'hidden', minWidth: 0 }}>
         {/* Header */}
         <header className="header">
           <div className="header-inner">

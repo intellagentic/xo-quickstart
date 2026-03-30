@@ -5,6 +5,8 @@
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow-x: hidden; width: 100%; }
+#root { overflow-x: hidden; width: 100%; }
 
 /* Theme CSS Variables */
 :root {
@@ -96,6 +98,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 130;
+  width: 100%;
 }
 
 .header-inner {
