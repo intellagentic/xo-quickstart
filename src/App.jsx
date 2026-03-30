@@ -613,6 +613,11 @@ function LoginScreen({ onLogin }) {
       <div style={{ textAlign: 'center', padding: '0.375rem 0', fontSize: '11px', color: '#808080' }}>
         &copy; 2026 Intellagentic Limited. All rights reserved.
       </div>
+      <div style={{ textAlign: 'center', padding: '0.25rem 0 0.75rem', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+        <a href="/terms" style={{ fontSize: '0.8rem', color: '#888', textDecoration: 'none' }}>Terms</a>
+        <a href="/privacy" style={{ fontSize: '0.8rem', color: '#888', textDecoration: 'none' }}>Privacy</a>
+        <a href="/security" style={{ fontSize: '0.8rem', color: '#888', textDecoration: 'none' }}>Security</a>
+      </div>
     </div>
   )
 }
@@ -1508,6 +1513,314 @@ function InvitePage() {
   )
 }
 
+// ============================================================
+// LEGAL PAGES — /terms, /privacy, /security
+// Public pages, no auth required
+// ============================================================
+
+const LEGAL_STYLES = {
+  page: { maxWidth: 740, margin: '0 auto', padding: '2.5rem 1.5rem 4rem', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', fontSize: 16, lineHeight: 1.7, color: '#1a1a2e' },
+  backLink: { display: 'inline-block', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#CC0000', textDecoration: 'none' },
+  title: { fontSize: '2rem', fontWeight: 700, margin: '0 0 0.25rem' },
+  subtitle: { fontSize: '0.9rem', color: '#666', margin: '0 0 0.15rem' },
+  version: { fontSize: '0.82rem', color: '#888', margin: '0 0 2rem' },
+  callout: { background: '#f7f7f9', border: '1px solid #d0d0d8', borderRadius: 6, padding: '1rem 1.25rem', margin: '1.25rem 0', fontSize: '0.92rem', lineHeight: 1.6 },
+  h2: { fontSize: '1.3rem', fontWeight: 600, margin: '2rem 0 0.75rem', color: '#1a1a2e' },
+  h3: { fontSize: '1.1rem', fontWeight: 600, margin: '1.5rem 0 0.5rem', color: '#1a1a2e' },
+  p: { margin: '0.75rem 0' },
+  ul: { margin: '0.5rem 0 0.75rem 1.5rem' },
+  li: { margin: '0.35rem 0' },
+  table: { width: '100%', borderCollapse: 'collapse', margin: '1rem 0', fontSize: '0.92rem' },
+  th: { background: '#f5f5f7', border: '1px solid #d0d0d8', padding: '0.5rem 0.75rem', textAlign: 'left', fontWeight: 600 },
+  td: { border: '1px solid #d0d0d8', padding: '0.5rem 0.75rem' },
+  link: { color: '#CC0000' },
+  footer: { marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e0e0e0', fontSize: '0.82rem', color: '#888', textAlign: 'center', lineHeight: 1.6 },
+}
+
+function LegalHeader({ title }) {
+  return (
+    <>
+      <a href="/" style={LEGAL_STYLES.backLink}>&larr; Back to XO Capture</a>
+      <h1 style={LEGAL_STYLES.title}>{title}</h1>
+      <p style={LEGAL_STYLES.subtitle}>XO Capture &mdash; Intellagentic Limited</p>
+      <p style={LEGAL_STYLES.version}>Last Updated: 29 March 2026 | Version 1.0</p>
+    </>
+  )
+}
+
+function LegalFooter() {
+  return (
+    <div style={LEGAL_STYLES.footer}>
+      Intellagentic Limited | Company No. 16761110 | 7 Penrose Mews, Lillie Road, London SW6 7AW
+    </div>
+  )
+}
+
+function TermsPage() {
+  const S = LEGAL_STYLES
+  return (
+    <div style={S.page}>
+      <LegalHeader title="Terms and Conditions" />
+
+      <div style={S.callout}>
+        <strong>IMPORTANT:</strong> Please read these Terms and Conditions carefully before accessing XO Capture or engaging our Consulting Services. By using XO Capture, you agree to be bound by these terms. For users in the United States, this Agreement includes a binding arbitration clause and class action waiver (see Section 10).
+      </div>
+
+      <h2 style={S.h2}>1. Company Information</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Entity:</strong> Intellagentic Limited</li>
+        <li style={S.li}><strong>Company Number:</strong> 16761110</li>
+        <li style={S.li}><strong>Registered Address:</strong> 7 Penrose Mews, Lillie Road, London, England, SW6 7AW</li>
+        <li style={S.li}><strong>Contact:</strong> <a href="mailto:legal@intellagentic.io" style={S.link}>legal@intellagentic.io</a></li>
+      </ul>
+
+      <h2 style={S.h2}>2. Definitions</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>&ldquo;Platform&rdquo;</strong> or <strong>&ldquo;XO Capture&rdquo;</strong> &mdash; The web-based capture, analysis, and intelligence product operated by Intellagentic Limited at xo.intellagentic.io (or such successor domain as we may designate).</li>
+        <li style={S.li}><strong>&ldquo;Captured Content&rdquo;</strong> &mdash; Any text, media, documents, or data you submit to or generate through XO Capture.</li>
+        <li style={S.li}><strong>&ldquo;Consulting Services&rdquo;</strong> &mdash; Any professional services, advisory engagements, or implementation work provided by Intellagentic Limited outside the Platform.</li>
+        <li style={S.li}><strong>&ldquo;You&rdquo;</strong> / <strong>&ldquo;User&rdquo;</strong> &mdash; Any individual or entity accessing XO Capture, whether as a direct customer or as an authorised user of a client organisation.</li>
+      </ul>
+
+      <h2 style={S.h2}>3. Licence and Use of Service</h2>
+      <p style={S.p}>We grant you a limited, non-exclusive, non-transferable, revocable licence to access and use XO Capture in accordance with these Terms and any applicable subscription or service agreement.</p>
+      <p style={S.p}>You agree not to:</p>
+      <ul style={S.ul}>
+        <li style={S.li}>Reverse engineer, decompile, or disassemble any part of the Platform.</li>
+        <li style={S.li}>Use the Platform for unauthorised data scraping, competitive intelligence harvesting, or any unlawful purpose.</li>
+        <li style={S.li}>Attempt to circumvent access controls, authentication mechanisms, or usage limits.</li>
+        <li style={S.li}>Sublicence, resell, or redistribute access to the Platform without our prior written consent.</li>
+      </ul>
+
+      <h2 style={S.h2}>4. User Responsibilities</h2>
+      <p style={S.p}>You are solely responsible for ensuring that your Captured Content and your use of XO Capture comply with all applicable laws and regulations in your jurisdiction, including (without limitation) data protection laws, export controls, and intellectual property rights of third parties.</p>
+      <p style={S.p}>You must be at least 18 years of age (or the age of majority in your jurisdiction) to use XO Capture.</p>
+
+      <h2 style={S.h2}>5. AI-Generated Outputs</h2>
+      <p style={S.p}>XO Capture uses artificial intelligence models (including third-party models hosted on AWS Bedrock) to process and analyse your Captured Content. AI-generated outputs are provided for informational and decision-support purposes only and do not constitute professional advice (legal, financial, medical, or otherwise).</p>
+      <p style={S.p}>You acknowledge that AI outputs may contain errors, omissions, or hallucinations. You are responsible for reviewing and validating all AI-generated outputs before acting on them.</p>
+
+      <h2 style={S.h2}>6. Intellectual Property</h2>
+      <h3 style={S.h3}>6.1 Platform IP</h3>
+      <p style={S.p}>XO Capture, its architecture, the XO runtime framework, YAML configuration schemas, skill files, evaluation layers, and all related intellectual property are and remain the exclusive property of Intellagentic Limited (&ldquo;Background IP&rdquo;).</p>
+      <h3 style={S.h3}>6.2 Your Content</h3>
+      <p style={S.p}>You retain ownership of your Captured Content. By submitting content to the Platform, you grant Intellagentic Limited a limited licence to process, store, and analyse that content solely for the purpose of delivering the Service to you.</p>
+      <h3 style={S.h3}>6.3 DMCA (US Users)</h3>
+      <p style={S.p}>If you believe content on our Platform infringes your copyright under the Digital Millennium Copyright Act, please submit a notice to our designated agent at <a href="mailto:legal@intellagentic.io" style={S.link}>legal@intellagentic.io</a> with the information required under 17 U.S.C. &sect; 512(c)(3).</p>
+
+      <h2 style={S.h2}>7. Data Processing and Privacy</h2>
+      <p style={S.p}>Our collection and use of personal data is governed by our <a href="/privacy" style={S.link}>Privacy Policy</a>. Where we process personal data on your behalf as a Data Processor, the terms of our Data Processing Addendum (available on request) shall apply.</p>
+
+      <h2 style={S.h2}>8. Limitation of Liability</h2>
+      <p style={S.p}>To the maximum extent permitted by applicable law:</p>
+      <ul style={S.ul}>
+        <li style={S.li}>Our total aggregate liability arising out of or in connection with these Terms shall not exceed the amounts paid by you to Intellagentic Limited in the 12 months immediately preceding the event giving rise to the claim.</li>
+        <li style={S.li}>We shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or business opportunity.</li>
+        <li style={S.li}>Nothing in these Terms excludes or limits liability for fraud, death or personal injury caused by negligence, or any other liability that cannot be excluded by law.</li>
+      </ul>
+
+      <h2 style={S.h2}>9. Term, Suspension, and Termination</h2>
+      <p style={S.p}>These Terms remain in effect for so long as you maintain an active account or subscription. We may suspend or terminate your access at any time if you breach these Terms, if required by law, or if we discontinue the Service (with reasonable notice where practicable). Upon termination, you may request an export of your Captured Content for a period of 30 days, after which we may delete it.</p>
+
+      <h2 style={S.h2}>10. Governing Law and Disputes</h2>
+      <h3 style={S.h3}>10.1 Governing Law</h3>
+      <p style={S.p}>These Terms are governed by and construed in accordance with the laws of England and Wales. The courts of England and Wales shall have exclusive jurisdiction, subject to the arbitration provisions below for US users.</p>
+      <h3 style={S.h3}>10.2 US Dispute Resolution</h3>
+      <p style={S.p}>If you are located in the United States, any dispute arising from or relating to these Terms shall be resolved through binding individual arbitration administered by JAMS under its Streamlined Arbitration Rules and Procedures. You agree to waive any right to participate in a class action, class arbitration, or representative proceeding. This arbitration clause does not prevent either party from seeking injunctive relief in a court of competent jurisdiction.</p>
+
+      <h2 style={S.h2}>11. Changes to These Terms</h2>
+      <p style={S.p}>We may update these Terms from time to time. Material changes will be notified via the Platform or by email at least 30 days before they take effect. Continued use of XO Capture after the effective date constitutes acceptance of the revised Terms.</p>
+
+      <h2 style={S.h2}>12. Contact</h2>
+      <p style={S.p}>For questions about these Terms, contact <a href="mailto:legal@intellagentic.io" style={S.link}>legal@intellagentic.io</a>.</p>
+
+      <LegalFooter />
+    </div>
+  )
+}
+
+function PrivacyPage() {
+  const S = LEGAL_STYLES
+  return (
+    <div style={S.page}>
+      <LegalHeader title="Privacy Policy" />
+
+      <h2 style={S.h2}>1. Introduction and Scope</h2>
+      <p style={S.p}>Intellagentic Limited (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;) operates XO Capture, a web-based capture and intelligence platform. This Privacy Policy explains how we collect, use, store, and protect personal data when you use XO Capture or interact with our services.</p>
+      <p style={S.p}>We process personal data in two capacities:</p>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>As Data Controller:</strong> For account data, billing information, and usage analytics relating to our direct customers and website visitors.</li>
+        <li style={S.li}><strong>As Data Processor:</strong> For personal data contained within Captured Content that our clients submit to XO Capture for processing. In this capacity, processing is governed by our Data Processing Addendum (DPA), available on request.</li>
+      </ul>
+
+      <h2 style={S.h2}>2. Data We Collect</h2>
+      <h3 style={S.h3}>2.1 Account and Contact Data</h3>
+      <p style={S.p}>Name, email address, organisation, and role as provided during registration or through Google OAuth sign-in.</p>
+      <h3 style={S.h3}>2.2 Captured Content</h3>
+      <p style={S.p}>Text, documents, media, and other materials you submit to XO Capture for analysis. This content is stored in AWS S3 within the eu-west-2 (London) region.</p>
+      <h3 style={S.h3}>2.3 Usage and Technical Data</h3>
+      <p style={S.p}>Browser type, IP address, device information, pages visited, and interaction patterns. We collect this data through server logs and, where applicable, analytics tools.</p>
+      <h3 style={S.h3}>2.4 Cookies and Similar Technologies</h3>
+      <p style={S.p}>We use strictly necessary cookies for authentication and session management. Where we deploy analytics or performance cookies, we will obtain your consent in accordance with the UK Privacy and Electronic Communications Regulations (PECR). Our Cookie Policy is available at intellagentic.io/cookies.</p>
+
+      <h2 style={S.h2}>3. How We Use Your Data</h2>
+      <h3 style={S.h3}>3.1 Service Delivery</h3>
+      <p style={S.p}>To operate XO Capture, process your Captured Content through AI models, authenticate your sessions, and deliver analysis results.</p>
+      <h3 style={S.h3}>3.2 AI Processing</h3>
+      <div style={S.callout}>
+        <strong>AI Commitment:</strong> We do not use your private Captured Content to train, fine-tune, or improve any AI models &mdash; whether our own or third-party &mdash; without a separate, explicit opt-in consent. Your data is processed solely to deliver results to you.
+      </div>
+      <h3 style={S.h3}>3.3 Service Improvement</h3>
+      <p style={S.p}>Aggregated, anonymised usage data may be used to improve Platform performance and features. This data cannot be used to identify individual users or reconstruct Captured Content.</p>
+      <h3 style={S.h3}>3.4 Legal Bases (UK GDPR)</h3>
+      <p style={S.p}>We rely on the following lawful bases: contractual necessity (to deliver the Service), legitimate interests (Platform security, fraud prevention), consent (where required for cookies or marketing), and legal obligation (tax records, regulatory compliance).</p>
+
+      <h2 style={S.h2}>4. Sub-Processors and Third Parties</h2>
+      <p style={S.p}>We use the following categories of sub-processors to deliver XO Capture:</p>
+      <table style={S.table}>
+        <thead><tr><th style={S.th}>Sub-Processor</th><th style={S.th}>Purpose</th><th style={S.th}>Location</th></tr></thead>
+        <tbody>
+          <tr><td style={S.td}>Amazon Web Services (AWS)</td><td style={S.td}>Infrastructure, storage (S3), compute (Lambda), AI model hosting (Bedrock)</td><td style={S.td}>EU West 2 (London, UK)</td></tr>
+          <tr><td style={S.td}>Anthropic (via AWS Bedrock)</td><td style={S.td}>AI model inference (Claude)</td><td style={S.td}>Processing in EU/US per AWS Bedrock routing</td></tr>
+          <tr><td style={S.td}>Google (OAuth)</td><td style={S.td}>User authentication</td><td style={S.td}>Global</td></tr>
+        </tbody>
+      </table>
+      <p style={S.p}>A complete, current list of sub-processors is maintained at intellagentic.io/sub-processors and updated with at least 14 days&rsquo; prior notice of any material changes.</p>
+
+      <h2 style={S.h2}>5. International Data Transfers</h2>
+      <p style={S.p}>Primary data storage is in the United Kingdom (AWS eu-west-2, London). Where processing requires data to transit outside the UK (for example, AI model inference routed through AWS regions), we rely on the UK International Data Transfer Agreement (IDTA), AWS&rsquo;s data processing addendum, or another approved transfer mechanism under UK GDPR.</p>
+
+      <h2 style={S.h2}>6. Data Security</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Encryption at Rest:</strong> AES-256 server-side encryption for all stored content in AWS S3.</li>
+        <li style={S.li}><strong>Encryption in Transit:</strong> All connections enforced over HTTPS using TLS 1.3.</li>
+        <li style={S.li}><strong>Access Controls:</strong> Role-based access with Google OAuth, three-tier permission model (Owner, Admin, User).</li>
+        <li style={S.li}><strong>Infrastructure:</strong> Virtual Private Cloud (VPC) isolation, automated threat detection, and Web Application Firewall (WAF) protection.</li>
+      </ul>
+      <p style={S.p}>For full details of our technical security controls, see our <a href="/security" style={S.link}>Security and Compliance</a> page.</p>
+
+      <h2 style={S.h2}>7. Data Breach Notification</h2>
+      <p style={S.p}>In the event of a personal data breach, we will notify the UK Information Commissioner&rsquo;s Office (ICO) within 72 hours of becoming aware of a qualifying breach, as required by UK GDPR Article 33. Where the breach is likely to result in a high risk to your rights and freedoms, we will notify affected individuals without undue delay.</p>
+
+      <h2 style={S.h2}>8. Your Rights</h2>
+      <h3 style={S.h3}>8.1 UK / EEA Residents</h3>
+      <p style={S.p}>Under UK GDPR, you have the right to: access your personal data, request rectification or erasure, restrict or object to processing, data portability, and lodge a complaint with the ICO (ico.org.uk).</p>
+      <h3 style={S.h3}>8.2 US Residents (California and Other States)</h3>
+      <p style={S.p}>Under the CCPA/CPRA and similar state privacy laws, you have the right to: know what personal information we collect, request deletion, opt out of the sale or sharing of personal information, and opt out of targeted advertising. We do not sell personal information. To exercise your rights, contact <a href="mailto:privacy@intellagentic.io" style={S.link}>privacy@intellagentic.io</a>.</p>
+
+      <h2 style={S.h2}>9. Data Retention</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Account Data:</strong> Retained for the duration of your subscription plus 7 years for UK tax and legal compliance.</li>
+        <li style={S.li}><strong>Captured Content:</strong> Retained for the duration of your subscription. Upon termination, you may request export within 30 days, after which content may be deleted.</li>
+        <li style={S.li}><strong>Technical Logs:</strong> Retained for up to 12 months, then automatically purged.</li>
+        <li style={S.li}><strong>AI Processing Logs:</strong> Retained for up to 90 days for debugging and service quality.</li>
+      </ul>
+
+      <h2 style={S.h2}>10. Children</h2>
+      <p style={S.p}>XO Capture is not directed at individuals under the age of 18. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, please contact us and we will take steps to delete it.</p>
+
+      <h2 style={S.h2}>11. Changes to This Policy</h2>
+      <p style={S.p}>We may update this Privacy Policy from time to time. Material changes will be communicated via the Platform or by email. The &ldquo;Last Updated&rdquo; date at the top of this document indicates the most recent revision.</p>
+
+      <h2 style={S.h2}>12. Contact</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>General / Legal:</strong> <a href="mailto:legal@intellagentic.io" style={S.link}>legal@intellagentic.io</a></li>
+        <li style={S.li}><strong>Privacy / Data Subject Requests:</strong> <a href="mailto:privacy@intellagentic.io" style={S.link}>privacy@intellagentic.io</a></li>
+      </ul>
+
+      <LegalFooter />
+    </div>
+  )
+}
+
+function SecurityPage() {
+  const S = LEGAL_STYLES
+  return (
+    <div style={S.page}>
+      <LegalHeader title="Security and Compliance" />
+
+      <div style={S.callout}>
+        XO Capture is built on AWS infrastructure in the eu-west-2 (London) region. The certifications listed below are held by AWS as our infrastructure provider. Intellagentic Limited is not independently ISO or SOC certified at this time.
+      </div>
+
+      <h2 style={S.h2}>1. Infrastructure Certifications (AWS)</h2>
+      <p style={S.p}>XO Capture runs on AWS infrastructure that independently maintains the following certifications. These cover the physical data centres, network, and managed services (S3, Lambda, Bedrock, CloudFront, RDS) that underpin XO Capture:</p>
+      <table style={S.table}>
+        <thead><tr><th style={S.th}>Certification</th><th style={S.th}>Scope</th><th style={S.th}>Relevance</th></tr></thead>
+        <tbody>
+          <tr><td style={S.td}>ISO/IEC 27001:2022</td><td style={S.td}>Information Security Management System</td><td style={S.td}>Core security standard for enterprise procurement</td></tr>
+          <tr><td style={S.td}>SOC 2 Type II</td><td style={S.td}>Security, availability, and confidentiality controls</td><td style={S.td}>Standard assurance requirement for US enterprise</td></tr>
+          <tr><td style={S.td}>ISO/IEC 27701:2019</td><td style={S.td}>Privacy Information Management (PIMS)</td><td style={S.td}>Extension of 27001 covering GDPR-aligned privacy</td></tr>
+          <tr><td style={S.td}>ISO/IEC 42001:2023</td><td style={S.td}>AI Management System</td><td style={S.td}>Governance framework for responsible AI deployment</td></tr>
+          <tr><td style={S.td}>ISO/IEC 27018:2019</td><td style={S.td}>Protection of PII in public cloud</td><td style={S.td}>Cloud-specific personal data controls</td></tr>
+          <tr><td style={S.td}>CSA STAR Level 2</td><td style={S.td}>Cloud Controls Matrix attestation</td><td style={S.td}>Cloud security industry benchmark</td></tr>
+        </tbody>
+      </table>
+
+      <h2 style={S.h2}>2. Technical Security Controls</h2>
+      <h3 style={S.h3}>2.1 Encryption</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>In Transit:</strong> All connections are enforced over HTTPS using TLS 1.3. No plaintext HTTP is accepted; all requests are redirected to HTTPS via CloudFront and API Gateway.</li>
+        <li style={S.li}><strong>At Rest:</strong> All user-uploaded content and Captured Content is encrypted using AES-256 server-side encryption (SSE-S3) within the eu-west-2 (London) region.</li>
+      </ul>
+      <h3 style={S.h3}>2.2 Network and Access</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>VPC Isolation:</strong> Backend services run within a Virtual Private Cloud with private subnets and restricted security groups.</li>
+        <li style={S.li}><strong>WAF Protection:</strong> AWS Web Application Firewall guards against common exploits (SQL injection, XSS, request flooding).</li>
+        <li style={S.li}><strong>Threat Detection:</strong> AWS GuardDuty provides automated threat detection across compute, storage, and network layers.</li>
+        <li style={S.li}><strong>Access Control:</strong> Three-tier role-based access (Owner, Admin, User) with Google OAuth authentication. No shared credentials.</li>
+      </ul>
+      <h3 style={S.h3}>2.3 Logging and Monitoring</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Application Logs:</strong> CloudWatch with 90-day retention.</li>
+        <li style={S.li}><strong>AI Model Logs:</strong> Bedrock model invocation logging to dedicated log group with restricted access.</li>
+        <li style={S.li}><strong>Cost Controls:</strong> Monthly budget alerts configured per AWS service.</li>
+      </ul>
+
+      <h2 style={S.h2}>3. AI Processing</h2>
+      <p style={S.p}>XO Capture uses AI models hosted on AWS Bedrock for analysis and intelligence generation:</p>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Model Provider:</strong> Anthropic (Claude), accessed via the AWS Bedrock managed service.</li>
+        <li style={S.li}><strong>Data Isolation:</strong> Bedrock does not store or use customer data for model training. Your prompts and completions are not retained by the model provider.</li>
+        <li style={S.li}><strong>Regional Processing:</strong> AI inference is routed through eu-west-2 where available. Where a specific model is not yet available in eu-west-2, requests may be routed to other AWS regions under AWS&rsquo;s data processing terms.</li>
+      </ul>
+
+      <h2 style={S.h2}>4. Compliance Frameworks</h2>
+      <h3 style={S.h3}>4.1 United Kingdom / European Union</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>UK GDPR:</strong> Full alignment with the UK General Data Protection Regulation. Data residency in the UK. 72-hour breach notification to the ICO.</li>
+        <li style={S.li}><strong>Data Protection Act 2018:</strong> Compliance with supplementary UK data protection legislation.</li>
+        <li style={S.li}><strong>PECR:</strong> Cookie consent mechanisms in line with the Privacy and Electronic Communications Regulations.</li>
+      </ul>
+      <h3 style={S.h3}>4.2 United States</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>CCPA/CPRA:</strong> Designed for compliance with the California Consumer Privacy Act and California Privacy Rights Act. We do not sell personal information.</li>
+        <li style={S.li}><strong>State Privacy Laws:</strong> Architecture supports compliance with emerging state privacy regulations (Virginia CDPA, Colorado CPA, etc.).</li>
+      </ul>
+      <h3 style={S.h3}>4.3 Sector-Specific (Where Applicable)</h3>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>NHS DSPT/DTAC:</strong> Architecture designed with NHS Data Security and Protection Toolkit and Digital Technology Assessment Criteria requirements in mind for healthcare deployments.</li>
+        <li style={S.li}><strong>HIPAA:</strong> BAA-eligible AWS services used where US healthcare data processing applies.</li>
+      </ul>
+
+      <h2 style={S.h2}>5. Data Residency</h2>
+      <p style={S.p}>All primary data storage (S3 buckets, RDS databases) is physically located in the United Kingdom (AWS eu-west-2, London). Content does not leave the UK region for storage purposes. Where transient processing (such as AI inference) may involve other AWS regions, this is governed by AWS&rsquo;s data processing addendum and UK-approved transfer mechanisms.</p>
+
+      <h2 style={S.h2}>6. Incident Response</h2>
+      <p style={S.p}>Intellagentic Limited maintains an incident response procedure that includes: identification and containment within 4 hours of detection, ICO notification within 72 hours for qualifying breaches, affected-party notification without undue delay where high risk is identified, and post-incident review with corrective actions documented.</p>
+
+      <h2 style={S.h2}>7. Contact</h2>
+      <ul style={S.ul}>
+        <li style={S.li}><strong>Security Inquiries:</strong> <a href="mailto:security@intellagentic.io" style={S.link}>security@intellagentic.io</a></li>
+        <li style={S.li}><strong>DPA / Compliance Requests:</strong> <a href="mailto:legal@intellagentic.io" style={S.link}>legal@intellagentic.io</a></li>
+      </ul>
+
+      <LegalFooter />
+    </div>
+  )
+}
+
+
 export default function App() {
   // Intercept /invite path — completely independent, no auth
   if (window.location.pathname === '/invite') {
@@ -2018,6 +2331,12 @@ export default function App() {
   }
 
   // Magic token loading gate
+  // Legal pages — public, no auth required
+  const _path = window.location.pathname
+  if (_path === '/terms') return <TermsPage />
+  if (_path === '/privacy') return <PrivacyPage />
+  if (_path === '/security') return <SecurityPage />
+
   // HubSpot OAuth callback screen
   if (hubspotCallbackLoading || hubspotCallbackResult) {
     return (
