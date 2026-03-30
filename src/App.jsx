@@ -963,12 +963,12 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
         )}
       </div>
       {client.industry && (
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span className="hide-narrow" style={{ fontSize: '0.75rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
           {client.industry}
         </span>
       )}
       {client.updated_at && (
-          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+        <span className="hide-narrow" style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
           {client.updated_at?"Last Updated: "+formatDateTime(client.updated_at)+(client.updated_by?" by "+client.updated_by:" ") :""}
         </span>
       )}
@@ -976,7 +976,7 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
         <FolderOpen size={12} /> {client.source_count}
       </span>
       {client.enrichment_date && (
-        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+        <span className="hide-narrow" style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #9ca3af)', flexShrink: 0, whiteSpace: 'nowrap' }}>
           {new Date(client.enrichment_date).toLocaleDateString()}
         </span>
       )}
@@ -1015,13 +1015,13 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
   )
 
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Header row: title + search + new client */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
           {isPartner && !isAdmin ? 'My Clients' : 'All Clients'} <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)', fontSize: '0.8125rem' }}>({filteredClients.length})</span>
         </h2>
-        <div style={{ position: 'relative', flex: '0 1 220px' }}>
+        <div style={{ position: 'relative', flex: '1 1 140px', minWidth: '120px', maxWidth: '220px' }}>
           <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #9ca3af)' }} />
           <input
             type="text"
@@ -1044,7 +1044,7 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
               padding: '0.3rem 0.5rem', fontSize: '0.75rem',
               border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
               background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
-              outline: 'none', flex: '0 0 auto'
+              outline: 'none', flex: '0 1 auto', minWidth: 0, maxWidth: '150px'
             }}
           >
             <option value="">All Partners</option>
@@ -1060,7 +1060,7 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
               padding: '0.3rem 0.5rem', fontSize: '0.75rem',
               border: '1px solid var(--border-color, #d1d5db)', borderRadius: '6px',
               background: 'var(--bg-input, #ffffff)', color: 'var(--text-primary)',
-              outline: 'none', flex: '0 0 auto'
+              outline: 'none', flex: '0 1 auto', minWidth: 0, maxWidth: '150px'
             }}
           >
             <option value="">All Industries</option>
@@ -1068,7 +1068,7 @@ function DashboardScreen({ onSelectClient, onCreateClient, isAdmin, isPartner, p
           </select>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={onCreateClient} className="action-btn red">
+        <button onClick={onCreateClient} className="action-btn red" style={{ flexShrink: 0 }}>
           <Plus size={14} /> New Client
         </button>
       </div>

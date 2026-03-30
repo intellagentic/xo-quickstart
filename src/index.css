@@ -161,6 +161,7 @@ body {
   margin: 0 auto;
   padding: 1rem;
   padding-bottom: 75px;
+  overflow-x: hidden;
 }
 
 /* ============================================================
@@ -471,6 +472,11 @@ body {
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+/* Hide non-essential metadata on narrow viewports (mobile landscape) */
+@media (max-width: 900px) {
+  .hide-narrow { display: none !important; }
+}
+
 @media (max-width: 768px) {
   .header-inner { flex-wrap: wrap; }
   .header-title h1 { font-size: 0.875rem; }
